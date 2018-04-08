@@ -50,8 +50,10 @@ add_executable(${PROJECT_NAME}
     # debug
     debug.c debug.h
     # kcp
-    ikcp.c ikcp.h
+    ../kcp/ikcp.c ../kcp/ikcp.h
 )
+
+target_include_directories(${PROJECT_NAME} PRIVATE ../kcp)
 
 target_link_libraries(${PROJECT_NAME}
   taihen_stub
