@@ -1,3 +1,4 @@
 project(imgui)
 
-add_library(imgui STATIC imgui.cpp imgui_draw.cpp imgui_demo.cpp)
+add_definitions(-DUNICODE -D_UNICODE)
+add_library(imgui STATIC imgui.cpp imgui_draw.cpp)
