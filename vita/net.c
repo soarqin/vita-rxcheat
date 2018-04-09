@@ -1,12 +1,12 @@
-#include <vitasdk.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include "net.h"
 
 #include "ikcp.h"
 #include "mem.h"
 #include "debug.h"
 
-#include "net.h"
+#include <vitasdk.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #define NET_SIZE       0x90000 // Size of net module buffer
 
@@ -66,11 +66,15 @@ static void _kcp_disconnect() {
     memset(&saddr_remote, 0, sizeof(SceNetSockaddrIn));
 }
 
-static void _kcp_send(const char *buf, int len, SceNetSockaddrIn *addr) {
-    send_buf *b = (send_buf*)malloc(sizeof(send_buf) + len);
+static void _kcp_send(const char *buf, int len, SceNetSockaddrIn *addr, int is_kcp) {
+    send_buf *b = (send_buf*)malloc(sizeof(send_buf) + (is_kcp ? (len + 4) : len));
     memcpy(&b->addr, addr, sizeof(SceNetSockaddrIn));
-    b->len = len;
-    memcpy(b->buf, buf, len);
+    b->len = is_kcp ? (len + 4) : len;
+    if (is_kcp) {
+        b->buf[0] = 'K';
+        memcpy(b->buf + 4, buf, len);
+    } else
+        memcpy(b->buf, buf, len);
     b->next = NULL;
     if (shead == NULL) {
         shead = b;
@@ -86,9 +90,14 @@ static void _kcp_send(const char *buf, int len, SceNetSockaddrIn *addr) {
 }
 
 static int _kcp_output(const char *buf, int len, ikcpcb *kcp, void *user) {
-    _kcp_send(buf, len, &saddr_remote);
+    _kcp_send(buf, len, &saddr_remote, 1);
     return 0;
 }
+/*
+static void _kcp_writelog(const char *log, struct IKCPCB *kcp, void *user) {
+    log_debug("%s\n", log);
+}
+*/
 
 static void _kcp_clear() {
     _kcp_disconnect();
@@ -117,19 +126,24 @@ void net_kcp_listen(uint16_t port) {
     kcp_port = port;
 
     udp_fd = sceNetSocket("kcp_udp_socket", SCE_NET_AF_INET, SCE_NET_SOCK_DGRAM, 0);
+    const int nb = 1, br = 1;
+    ret = sceNetSetsockopt(udp_fd, SCE_NET_SOL_SOCKET, SCE_NET_SO_NBIO, &nb, sizeof(nb));
+    if (ret != 0)
+        log_error("sceNetSetsockopt(SCE_NET_SOL_SOCKET, SCE_NET_SO_NBIO): 0x%08X\n", ret);
+    ret = sceNetSetsockopt(udp_fd, SCE_NET_SOL_SOCKET, SCE_NET_SO_BROADCAST, &br, sizeof(br));
+    if (ret != 0)
+        log_error("sceNetSetsockopt(SCE_NET_SOL_SOCKET, SCE_NET_SO_BROADCAST): 0x%08X\n", ret);
+
     sockaddr.sin_family = SCE_NET_AF_INET;
     sockaddr.sin_addr.s_addr = sceNetHtonl(SCE_NET_INADDR_ANY);
     sockaddr.sin_port = sceNetHtons(port);
-
     ret = sceNetBind(udp_fd, (SceNetSockaddr *)&sockaddr, sizeof(sockaddr));
     if (ret != 0)
         log_error("sceNetBind(): 0x%08X\n", ret);
-    const int n = 1;
-    ret = sceNetSetsockopt(udp_fd, SCE_NET_SOL_SOCKET, SCE_NET_SO_NBIO, &n, sizeof(n));
     if (ret != 0)
         log_error("sceNetSetsockopt(): 0x%08X\n", ret);
     epoll_fd = sceNetEpollCreate("kcp_udp_epoll", 0);
-    if (epoll_fd <= 0)
+    if (epoll_fd < 0)
         log_error("sceNetEpollCreate(): %d\n", epoll_fd);
 
     SceNetEpollEvent event = {SCE_NET_EPOLLIN};
@@ -138,13 +152,23 @@ void net_kcp_listen(uint16_t port) {
         log_error("sceNetEpollControl(): 0x%08X\n", ret);
 }
 
-void net_kcp_process() {
+void net_kcp_process(uint32_t tick) {
     if (epoll_fd < 0) {
-        // sceKernelDelayThread(16666);
+        sceKernelDelayThread(16666);
         return;
     }
+    if (kcp != NULL) {
+        ikcp_update(kcp, tick);
+        while(1) {
+            char buf[2048];
+            int hr = ikcp_recv(kcp, buf, 2048);
+            if (hr < 0) break;
+            log_debug("Got kcp packet: %d\n", hr);
+            ikcp_send(kcp, buf, hr);
+        }
+    }
     SceNetEpollEvent events[1];
-    int count = sceNetEpollWait(epoll_fd, events, 1, 0 /*16666*/);
+    int count = sceNetEpollWait(epoll_fd, events, 1, 16666);
     if (count == 0) return;
     if (count < 0) {
         net_kcp_listen(kcp_port);
@@ -160,19 +184,26 @@ void net_kcp_process() {
             log_debug("SceNetRecvfrom(): %d\n", len);
             switch(buf[0]) {
                 case 'B': {
-                    _kcp_send("B", 1, &saddr);
+                    _kcp_send("B", 1, &saddr, 0);
                     break;
                 }
                 case 'C': {
                     _kcp_disconnect();
                     memcpy(&saddr_remote, &saddr, sizeof(SceNetSockaddrIn));
                     static uint32_t conv = 0xC0DE;
-                    kcp = ikcp_create(conv++, NULL);
+                    kcp = ikcp_create(conv, NULL);
+                    ikcp_nodelay(kcp, 0, 50, 0, 0);
+                    ikcp_setmtu(kcp, 1440);
                     kcp->output = _kcp_output;
+                    /*
+                    kcp->writelog = _kcp_writelog;
+                    kcp->logmask = 4095;
+                    */
                     char n[5];
                     n[0] = 'C';
                     *(uint32_t*)&n[1] = conv;
-                    _kcp_send(n, 5, &saddr);
+                    _kcp_send(n, 5, &saddr, 0);
+                    ++conv;
                     break;
                 }
                 case 'S': {
@@ -193,13 +224,13 @@ void net_kcp_process() {
                     mem_set(n, &val, 4);
                     break;
                 }
-                case 'P': {
+                case 'K': {
                     if (kcp == NULL
                         || saddr.sin_addr.s_addr != saddr_remote.sin_addr.s_addr
                         || saddr.sin_port != saddr_remote.sin_port) {
                         break;
                     }
-                    ikcp_input(kcp, buf + 1, len - 1);
+                    ikcp_input(kcp, buf + 4, len - 4);
                     break;
                 }
                 case 'D': {

@@ -1,10 +1,10 @@
-#include <vitasdk.h>
-#include <stdlib.h>
-#include <kuio.h>
+#include "mem.h"
 
 #include "debug.h"
 
-#include "mem.h"
+#include <vitasdk.h>
+#include <stdlib.h>
+#include <kuio.h>
 
 typedef struct memory_range {
     uint8_t *start;

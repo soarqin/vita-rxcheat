@@ -1,10 +1,10 @@
-#include <vitasdk.h>
-#include <taihen.h>
-
 #include "net.h"
 #include "mem.h"
 #include "util.h"
 #include "debug.h"
+
+#include <vitasdk.h>
+#include <taihen.h>
 
 #define HOOKS_NUM      2
 
@@ -45,12 +45,10 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(5000000);
     while(running) {
         checkInput();
-        net_kcp_process();
-        static uint64_t next_tick = 0ULL;
+        static uint64_t last_tick = 0ULL;
         uint64_t curr_tick = util_gettick();
-        if (curr_tick >= next_tick) {
-            next_tick = curr_tick + 1000ULL;
-        }
+        net_kcp_process(curr_tick);
+        last_tick = curr_tick;
     }
     net_finish();
     return sceKernelExitDeleteThread(0);

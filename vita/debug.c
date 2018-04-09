@@ -1,8 +1,8 @@
 #ifdef RCSVR_DEBUG
 
-#include <vitasdk.h>
-
 #include "debug.h"
+
+#include <vitasdk.h>
 
 #ifndef RCSVR_DEBUG_IP
 #define RCSVR_DEBUG_IP "192.168.11.125"

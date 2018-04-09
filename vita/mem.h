@@ -1,6 +1,8 @@
 #ifndef __MEM_H_
 #define __MEM_H_
 
+#include <stdint.h>
+
 void mem_init();
 
 void mem_search(void *data, int size);

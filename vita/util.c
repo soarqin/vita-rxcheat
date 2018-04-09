@@ -1,7 +1,7 @@
+#include "util.h"
+
 #include <vitasdk.h>
 #include <stdint.h>
-
-#include "util.h"
 
 static uint64_t start_tick = 0ULL;
 static uint64_t resolution_of_tick = 0ULL;
