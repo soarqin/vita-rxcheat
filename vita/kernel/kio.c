@@ -1,3 +1,8 @@
+/*
+    Embedded IO functions to access ux0:/data
+    Codes from https://github.com/Rinnegatamante/kuio, Thanks to Rinnegatamante's great work
+*/
+
 #include <vitasdkkern.h>
 #include "kio.h"
 
