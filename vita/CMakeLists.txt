@@ -8,14 +8,14 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   endif()
 endif()
 
-set(PROJECT_NAME rcsvr)
+set(TARGET_NAME rcsvr)
 
-project(${PROJECT_NAME})
+add_subdirectory(kernel)
+
+project(${TARGET_NAME})
 
 # C11
 set(CMAKE_C_STANDARD 11)
-# C++14
-set(CMAKE_CXX_STANDARD 14)
 
 # vitasdk
 include("${VITASDK}/share/vita.cmake" REQUIRED)
@@ -42,7 +42,7 @@ if(RCSVR_DEBUG)
     endif()
 endif()
 
-add_executable(${PROJECT_NAME}
+add_executable(${TARGET_NAME}
     main.c
     net.c net.h
     mem.c mem.h
@@ -53,27 +53,33 @@ add_executable(${PROJECT_NAME}
     ../kcp/ikcp.c ../kcp/ikcp.h
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE ../kcp)
+target_include_directories(${TARGET_NAME} PRIVATE ../kcp PRIVATE kernel)
 
-target_link_libraries(${PROJECT_NAME}
-  taihen_stub
-  SceLibc_stub_weak
-  SceLibKernel_stub_weak
-  gcc
-  SceSysmem_stub_weak
-  SceSysmodule_stub_weak
-  SceKernelThreadmgr_stub_weak
-  SceKernelModulemgr_stub_weak
-  SceAppMgr_stub_weak
-  SceCtrl_stub_weak
-  SceIofilemgr_stub_weak
-  SceNet_stub_weak
-  SceNetCtl_stub_weak
-  ScePower_stub_weak
-  SceRtc_stub_weak
-  kuio_stub_weak
+target_link_libraries(${TARGET_NAME}
+    taihen_stub
+    SceLibc_stub_weak
+    SceLibKernel_stub_weak
+    gcc
+    SceSysmem_stub_weak
+    SceSysmodule_stub_weak
+    SceKernelThreadmgr_stub_weak
+    SceKernelModulemgr_stub_weak
+    SceAppMgr_stub_weak
+    SceCtrl_stub_weak
+    SceIofilemgr_stub_weak
+    SceNet_stub_weak
+    SceNetCtl_stub_weak
+    ScePower_stub_weak
+    SceRtc_stub_weak
+    kuio_stub_weak
+    ${CMAKE_BINARY_DIR}/kernel/stubs/librcsvr_stub_weak.a
 )
 
-set_property(TARGET ${PROJECT_NAME} PROPERTY LINK_FLAGS -nostdlib)
+set_property(TARGET ${TARGET_NAME} PROPERTY LINK_FLAGS -nostdlib)
 
-vita_create_self(${PROJECT_NAME}.suprx ${PROJECT_NAME} CONFIG exports.yml)
+vita_create_self(${TARGET_NAME}.suprx ${TARGET_NAME} CONFIG exports.yml)
+
+add_custom_target(dist ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/dist
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.suprx ${CMAKE_BINARY_DIR}/dist/
+    )
+add_dependencies(dist ${TARGET_NAME}.suprx dist_kernel)
