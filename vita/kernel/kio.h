@@ -45,7 +45,7 @@ int kIoClose(SceUID fd);
  * @param size - Size of the read in bytes
  *
  */
-int kIoRead(SceUID fd, void *data, SceSize size);
+int kIoRead(SceUID fd, void *data, SceSize size, SceSize *read);
 
 /**
  * Write output
@@ -60,7 +60,7 @@ int kIoRead(SceUID fd, void *data, SceSize size);
  * @param size - Size of data to write
  *
  */
-int kIoWrite(SceUID fd, const void *data, SceSize size);
+int kIoWrite(SceUID fd, const void *data, SceSize size, SceSize *written);
 
 
 /**

@@ -76,6 +76,7 @@ target_link_libraries(${TARGET_NAME}
 )
 
 set_property(TARGET ${TARGET_NAME} PROPERTY LINK_FLAGS -nostdlib)
+add_dependencies(${TARGET_NAME} stubs)
 
 vita_create_self(${TARGET_NAME}.suprx ${TARGET_NAME} CONFIG exports.yml)
 

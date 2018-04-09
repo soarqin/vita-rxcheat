@@ -97,7 +97,7 @@ static void single_search(SceUID tmpfile, memory_range *mr, void *data, int size
     for (; curr < cend; curr += size) {
         if (memcmp(data, (void*)curr, size) == 0) {
             log_debug("Found at %08X\n", curr);
-            kIoWrite(tmpfile, &curr, 4);
+            kIoWrite(tmpfile, &curr, 4, NULL);
         }
     }
 }
@@ -105,15 +105,16 @@ static void single_search(SceUID tmpfile, memory_range *mr, void *data, int size
 static void next_search(SceUID infile, SceUID outfile, void *data, int size) {
     uint32_t old[0x200];
     while(1) {
-        int i, n = kIoRead(infile, old, 4 * 0x200);
-        if (n <= 0) break;
+        SceSize i, n;
+        kIoRead(infile, old, 4 * 0x200, &n);
         n >>= 2;
         for (i = 0; i < n; ++i) {
             if (memcmp((void*)old[i], data, size) == 0) {
                 log_debug("Found at %08X\n", old[i]);
-                kIoWrite(outfile, &old[i], 4);
+                kIoWrite(outfile, &old[i], 4, NULL);
             }
         }
+        if (n < 0x200) break;
     }
 }
 
@@ -130,9 +131,9 @@ void mem_search(int type, void *data) {
     if (!mem_inited) {
         mem_init();
     }
-    SceUID f = -1;
-    char outfile[256];
     if (stype != type) {
+        SceUID f = -1;
+        char outfile[256];
         sceClibSnprintf(outfile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
         kIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT, &f);
         int i;
@@ -142,9 +143,11 @@ void mem_search(int type, void *data) {
         for (i = 0; i < stack_sz; ++i) {
             single_search(f, &stackmem[i], data, size);
         }
+        kIoClose(f);
         // reload_blocks();
         stype = type;
     } else {
+        SceUID f = -1;
         char infile[256];
         sceClibSnprintf(infile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
         if (kIoOpen(infile, SCE_O_RDONLY, &f) < 0) {
@@ -154,12 +157,14 @@ void mem_search(int type, void *data) {
         }
         last_sidx ^= 1;
         SceUID of = -1;
+        char outfile[256];
         sceClibSnprintf(outfile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
         kIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT, &of);
         next_search(f, of, data, size);
         kIoClose(of);
+        kIoClose(f);
+        kIoRemove(infile);
     }
-    kIoClose(f);
 }
 
 void mem_set(uint32_t addr, const void *data, int size) {

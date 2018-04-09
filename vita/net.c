@@ -211,7 +211,7 @@ void net_kcp_process(uint32_t tick) {
                     uint32_t n;
                     n = strtoul(buf + 1, NULL, 10);
                     log_debug("Searching %u\n", n);
-                    mem_search(&n, 4);
+                    mem_search(1, &n);
                     break;
                 }
                 case 'W': {

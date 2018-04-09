@@ -51,10 +51,10 @@ static int kio_thread(SceSize args, void *argp)
                 io_request.fd = ksceIoOpen(io_request.file, io_request.flags, 6);
                 break;
             case WRITE_FILE:
-                ksceIoWrite(io_request.fd, chunk, io_request.size);
+                io_request.size = ksceIoWrite(io_request.fd, chunk, io_request.size);
                 break;
             case READ_FILE:
-                ksceIoRead(io_request.fd, chunk, io_request.size);
+                io_request.size = ksceIoRead(io_request.fd, chunk, io_request.size);
                 break;
             case SEEK_FILE:
                 ksceIoLseek(io_request.fd, io_request.offs, io_request.flags);
@@ -117,12 +117,13 @@ int kIoOpen(const char *file, int flags, SceUID* res){
     return 0;
 }
 
-int kIoWrite(SceUID fd, const void *data, SceSize size){
+int kIoWrite(SceUID fd, const void *data, SceSize size, SceSize *written){
     uint32_t state;
     ENTER_SYSCALL(state);
     
     int i = 0;
     int bufsize = 0;
+    SceSize bytesWritten = 0;
     io_request.type = WRITE_FILE;
     io_request.fd = fd;
     while (i < size){
@@ -137,19 +138,21 @@ int kIoWrite(SceUID fd, const void *data, SceSize size){
         
         // Waiting results
         ksceKernelWaitSema(io_result_mutex, 1, NULL);
-        
+        if (io_request.size > 0) bytesWritten += io_request.size;
     }
     
+    if (written) ksceKernelMemcpyKernelToUser((uintptr_t)written, &bytesWritten, sizeof(SceSize));
     EXIT_SYSCALL(state);
     return 0;
 }
 
-int kIoRead(SceUID fd, void *data, SceSize size){
+int kIoRead(SceUID fd, void *data, SceSize size, SceSize *read){
     uint32_t state;
     ENTER_SYSCALL(state);
     
     int i = 0;
     int bufsize = 0;
+    SceSize bytesRead = 0;
     io_request.type = READ_FILE;
     io_request.fd = fd;
     while (i < size){
@@ -165,8 +168,10 @@ int kIoRead(SceUID fd, void *data, SceSize size){
         ksceKernelMemcpyKernelToUser((uintptr_t)(data + i), chunk, bufsize);
         i += bufsize;
         
+        if (io_request.size > 0) bytesRead += io_request.size;
     }
     
+    if (read) ksceKernelMemcpyKernelToUser((uintptr_t)read, &bytesRead, sizeof(SceSize));
     EXIT_SYSCALL(state);
     return 0;
 }
