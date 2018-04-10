@@ -16,9 +16,13 @@ typedef enum {
     st_u32 = 1,
     st_u16 = 2,
     st_u8 = 3,
-    st_float = 4,
-    st_double = 5,
-    st_fuzzy = 8,
+    st_u64 = 4,
+    st_i32 = 5,
+    st_i16 = 6,
+    st_i8 = 7,
+    st_i64 = 8,
+    st_float = 9,
+    st_double = 10,
 } search_type;
 
 static memory_range staticmem[32], stackmem[8]/*, blockmem[128]*/;
@@ -165,6 +169,13 @@ void mem_search(int type, void *data) {
         kIoClose(f);
         kIoRemove(infile);
     }
+}
+
+void mem_search_reset() {
+    kIoremove("ux0:/data/rcsvr_0.tmp");
+    kIoremove("ux0:/data/rcsvr_1.tmp");
+    last_sidx = 0;
+    stype = st_none;
 }
 
 void mem_set(uint32_t addr, const void *data, int size) {

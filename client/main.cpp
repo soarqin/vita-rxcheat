@@ -10,6 +10,11 @@
 
 #include "net.h"
 
+enum :int {
+    WIN_WIDTH = 1280,
+    WIN_HEIGHT = 720,
+};
+
 static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "Error %d: %s\n", error, description);
 }
@@ -30,14 +35,17 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 #if __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "VITA Remote Cheat Client", NULL, NULL);
+    glfwWindowHint(GLFW_RESIZABLE, 0);
+    GLFWwindow* window = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "VITA Remote Cheat Client", NULL, NULL);
+//     const GLFWvidmode *mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+//     glfwSetWindowPos(window, (mode->width - WIN_WIDTH) / 2, (mode->height - WIN_HEIGHT) / 2);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync
     gl3wInit2(glfwGetProcAddress);
 
     // Setup ImGui binding
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGuiIO& io = ImGui::GetIO();
 
     ImGui_ImplGlfwGL3_Init(window, true);
 
@@ -45,30 +53,38 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     //io.Fonts->AddFontDefault();
     ImFontAtlas *f = io.Fonts;
-    f->AddFontFromFileTTF("C:/Windows/Fonts/simsun.ttc", 16.0f, NULL, f->GetGlyphRangesChinese());
+    if (!f->AddFontFromFileTTF("C:/Windows/Fonts/msyh.ttc", 16.0f, NULL, f->GetGlyphRangesChinese())
+        && !f->AddFontFromFileTTF("C:/Windows/Fonts/simsun.ttc", 16.0f, NULL, f->GetGlyphRangesChinese()))
+        f->AddFontDefault();
 
     UdpClient client;
+    bool connected = false;
 
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
         client.process();
         glfwPollEvents();
+
+        int display_w, display_h;
+        glfwGetFramebufferSize(window, &display_w, &display_h);
+
         ImGui_ImplGlfwGL3_NewFrame();
 
         {
+            ImGui::Begin("", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowPos(ImVec2(5.f, 5.f));
+            ImGui::SetWindowSize(ImVec2(display_w - 10.f, display_h - 10.f));
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
             char ip[256] = "172.27.15.216";
-            ImGui::InputText("IP Address", ip, 256);
-            if (ImGui::Button("Connect")) {
-                client.connect(ip, 9527);
-                client.send("TEST", 4);
+            ImGui::InputText("IP Address", ip, 256, connected ? ImGuiInputTextFlags_ReadOnly : 0);
+            if (!connected && ImGui::Button("Connect")) {
+                connected = client.connect(ip, 9527);
             }
+            ImGui::End();
         }
 
         // Rendering
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
         glClearColor(0.f, 0.f, 0.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT);

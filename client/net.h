@@ -16,9 +16,11 @@ public:
     UdpClient();
     ~UdpClient();
     bool connect(const std::string &addr, uint16_t port);
+    inline bool isConnected() {
+        return kcp_ != NULL;
+    }
     void process();
     int send(const char *buf, int len);
-    int recv(char *buf, int len);
 
 private:
     int _send(const char *buf, int len);

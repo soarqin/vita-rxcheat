@@ -2,36 +2,10 @@
 
 #include "ikcp.h"
 
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <Windows.h>
-
-void UdpClient::init() {
-    WSADATA wsadata;
-    WSAStartup(MAKEWORD(2, 2), &wsadata);
-}
-
-void UdpClient::finish() {
-    WSACleanup();
-}
-
-UdpClient::UdpClient() {
-    fd_ = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd_ < 0)
-        throw std::exception("unable to create socket");
-    int n = 1;
-    setsockopt(fd_, SOL_SOCKET, SO_BROADCAST, (const char*)&n, sizeof(n));
-    sockaddr_in sa;
-    sa.sin_family = AF_INET;
-    sa.sin_addr.s_addr = INADDR_ANY;
-    sa.sin_port = 0;
-    if (bind(fd_, (const sockaddr*)&sa, sizeof(sa)) < 0)
-        throw std::exception("unable to bind address");
-}
-
-UdpClient::~UdpClient() {
-    closesocket(fd_);
-}
 
 #if NTDDI_VERSION < NTDDI_VISTA
 int inet_pton(int af, const char *src, void *dst) {
@@ -57,6 +31,44 @@ int inet_pton(int af, const char *src, void *dst) {
     return 0;
 }
 #endif
+#else
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#define closesocket close
+#endif
+
+void UdpClient::init() {
+#ifdef _WIN32
+    WSADATA wsadata;
+    WSAStartup(MAKEWORD(2, 2), &wsadata);
+#endif
+}
+
+void UdpClient::finish() {
+#ifdef _WIN32
+    WSACleanup();
+#endif
+}
+
+UdpClient::UdpClient() {
+    fd_ = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd_ < 0)
+        throw std::exception("unable to create socket");
+    int n = 1;
+    setsockopt(fd_, SOL_SOCKET, SO_BROADCAST, (const char*)&n, sizeof(n));
+    sockaddr_in sa;
+    sa.sin_family = AF_INET;
+    sa.sin_addr.s_addr = INADDR_ANY;
+    sa.sin_port = 0;
+    if (bind(fd_, (const sockaddr*)&sa, sizeof(sa)) < 0)
+        throw std::exception("unable to bind address");
+}
+
+UdpClient::~UdpClient() {
+    closesocket(fd_);
+}
 
 bool UdpClient::connect(const std::string &addr, uint16_t port) {
     sockaddr_in sa;
@@ -80,12 +92,21 @@ bool UdpClient::connect(const std::string &addr, uint16_t port) {
         tosend.resize(len + 4);
         tosend[0] = 'K';
         memcpy(&tosend[4], buf, len);
-        if (uc->_send(tosend.c_str(), len + 4) <= 0)
-            uc->packets_.push_back(tosend);
+        uc->packets_.push_back(tosend);
         return 0;
     };
+#ifdef _WIN32
     u_long n = 1;
     ioctlsocket(fd_, FIONBIO, &n);
+#else
+    int flags;
+    if ((flags = fcntl(fd, F_GETFL, NULL)) < 0) {
+        return true;
+    }
+    if (!(flags & O_NONBLOCK)) {
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    }
+#endif
     return true;
 }
 
