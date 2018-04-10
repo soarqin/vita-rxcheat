@@ -3,7 +3,8 @@
 class UdpClient;
 
 class Command {
-    typedef enum :int {
+public:
+    enum :int {
         st_none = 0,
         st_u32 = 1,
         st_u16 = 2,
@@ -15,7 +16,7 @@ class Command {
         st_i64 = 8,
         st_float = 9,
         st_double = 10,
-    } SearchType;
+    };
 
 public:
     inline Command(UdpClient &cl): client_(cl) {}

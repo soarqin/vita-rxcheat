@@ -95,7 +95,7 @@ static void reload_blocks() {
 }
 */
 
-static void single_search(SceUID tmpfile, memory_range *mr, void *data, int size) {
+static void single_search(SceUID tmpfile, memory_range *mr, const void *data, int size) {
     uint8_t *curr = (uint8_t*)mr->start;
     uint8_t *cend = curr + mr->size - size + 1;
     for (; curr < cend; curr += size) {
@@ -106,7 +106,7 @@ static void single_search(SceUID tmpfile, memory_range *mr, void *data, int size
     }
 }
 
-static void next_search(SceUID infile, SceUID outfile, void *data, int size) {
+static void next_search(SceUID infile, SceUID outfile, const void *data, int size) {
     uint32_t old[0x200];
     while(1) {
         SceSize i, n;
@@ -122,16 +122,16 @@ static void next_search(SceUID infile, SceUID outfile, void *data, int size) {
     }
 }
 
-void mem_search(int type, void *data) {
+void mem_search(int type, const void *data, int len) {
     int size = 0;
     switch(type) {
-        case st_u32: size = 4; break;
-        case st_u16: size = 2; break;
-        case st_u8: size = 1; break;
-        case st_float: size = 4; break;
-        case st_double: size = 8; break;
+        case st_u32: case st_i32: case st_float: size = 4; break;
+        case st_u16: case st_i16: size = 2; break;
+        case st_u8: case st_i8: size = 1; break;
+        case st_u64: case st_i64: st_double: size = 8; break;
         default: return;
     }
+    if (size > len) return;
     if (!mem_inited) {
         mem_init();
     }
@@ -156,7 +156,7 @@ void mem_search(int type, void *data) {
         sceClibSnprintf(infile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
         if (kIoOpen(infile, SCE_O_RDONLY, &f) < 0) {
             type = st_none;
-            mem_search(type, data);
+            mem_search(type, data, len);
             return;
         }
         last_sidx ^= 1;

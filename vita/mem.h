@@ -5,7 +5,7 @@
 
 void mem_init();
 
-void mem_search(int type, void *data);
+void mem_search(int type, const void *data, int len);
 void mem_search_reset();
 void mem_set(uint32_t addr, const void *data, int size);
 

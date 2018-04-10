@@ -122,6 +122,23 @@ static void _kcp_clear() {
     stail = NULL;
 }
 
+static void _process_kcp_packet(const char *buf, int len) {
+    if (len < 4) return;
+    int cmd = *(int*)buf;
+    int op = cmd >> 8;
+    int type = cmd & 0xFF;
+    buf += 4;
+    len -= 4;
+    switch(op) {
+    case 0:
+        mem_search_reset();
+        /* fallthrough */
+    case 1:
+        mem_search(type, buf, len);
+        break;
+    }
+}
+
 void net_kcp_listen(uint16_t port) {
     _kcp_clear();
 
@@ -169,7 +186,7 @@ void net_kcp_process(uint32_t tick) {
             int hr = ikcp_recv(kcp, buf, 2048);
             if (hr < 0) break;
             log_debug("Got kcp packet: %d\n", hr);
-            ikcp_send(kcp, buf, hr);
+            _process_kcp_packet(buf, hr);
         }
     }
     SceNetEpollEvent events[1];
@@ -216,7 +233,7 @@ void net_kcp_process(uint32_t tick) {
                     uint32_t n;
                     n = strtoul(buf + 1, NULL, 10);
                     log_debug("Searching %u\n", n);
-                    mem_search(1, &n);
+                    mem_search(1, &n, 4);
                     break;
                 }
                 case 'W': {

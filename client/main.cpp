@@ -1,14 +1,15 @@
 #define _CRT_SECURE_NO_WARNINGS
 
-#include <stdio.h>
-#include <windows.h>
-#include <GL/gl3w.h>
-#include <GLFW/glfw3.h>
+#include "net.h"
+#include "command.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw_gl3.h"
 
-#include "net.h"
+#include <stdio.h>
+#include <windows.h>
+#include <GL/gl3w.h>
+#include <GLFW/glfw3.h>
 
 enum :int {
     WIN_WIDTH = 1280,
@@ -60,6 +61,10 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     UdpClient client;
     bool connected = false;
 
+    int searchNum = 0;
+    Command cmd(client);
+    char ip[256] = "172.27.15.216";
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
@@ -76,10 +81,16 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
             ImGui::SetWindowPos(ImVec2(5.f, 5.f));
             ImGui::SetWindowSize(ImVec2(display_w - 10.f, display_h - 10.f));
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            char ip[256] = "172.27.15.216";
             ImGui::InputText("IP Address", ip, 256, connected ? ImGuiInputTextFlags_ReadOnly : 0);
-            if (!connected && ImGui::Button("Connect")) {
-                connected = client.connect(ip, 9527);
+            if (connected) {
+                if (ImGui::InputInt("Search", &searchNum, 1, 100, ImGuiInputTextFlags_EnterReturnsTrue)) {
+                    cmd.startSearch(Command::st_i32, &searchNum);
+                }
+            } else {
+                ImGui::SameLine();
+                if (ImGui::Button("Connect")) {
+                    connected = client.connect(ip, 9527);
+                }
             }
             ImGui::End();
         }
