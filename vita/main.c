@@ -63,7 +63,6 @@ int rcsvr_main_thread(SceSize args, void *argp) {
         net_kcp_process(curr_tick);
         last_tick = curr_tick;
     }
-    net_finish();
     return sceKernelExitDeleteThread(0);
 }
 
@@ -94,5 +93,6 @@ int module_stop(SceSize argc, const void *args) {
     for (i = 0; i < HOOKS_NUM; i++)
         taiHookRelease(hooks[i], ref[i]);
 
+    net_finish();
     return SCE_KERNEL_STOP_SUCCESS;
 }
