@@ -172,8 +172,8 @@ void mem_search(int type, void *data) {
 }
 
 void mem_search_reset() {
-    kIoremove("ux0:/data/rcsvr_0.tmp");
-    kIoremove("ux0:/data/rcsvr_1.tmp");
+    kIoRemove("ux0:/data/rcsvr_0.tmp");
+    kIoRemove("ux0:/data/rcsvr_1.tmp");
     last_sidx = 0;
     stype = st_none;
 }

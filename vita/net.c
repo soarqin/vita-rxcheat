@@ -8,19 +8,24 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define NET_SIZE       0x90000 // Size of net module buffer
+#define NET_SIZE       0x80000 // Size of net module buffer
 
 static char vita_ip[32];
 static uint64_t vita_addr;
 static SceUID isNetAvailable = 0;
 
+int net_loaded() {
+    return isNetAvailable != 0;
+}
+
 int net_init() {
     if (isNetAvailable) return 1;
-    isNetAvailable = (SceUID)malloc(NET_SIZE);
-    if (!isNetAvailable) return 1;
-    sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
+    if (sceSysmoduleIsLoaded(SCE_SYSMODULE_NET) != SCE_SYSMODULE_LOADED)
+        sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
     int ret = sceNetShowNetstat();
     if (ret == SCE_NET_ERROR_ENOTINIT) {
+        isNetAvailable = (SceUID)malloc(NET_SIZE);
+        if (!isNetAvailable) return 1;
         SceNetInitParam initparam;
         initparam.memory = (void*)isNetAvailable;
         initparam.size = NET_SIZE;

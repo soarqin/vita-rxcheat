@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+int net_loaded();
 int net_init();
 void net_finish();
 
