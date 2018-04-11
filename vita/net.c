@@ -126,6 +126,7 @@ static void _kcp_clear() {
 }
 
 void _kcp_send_cmd(int op, const void *buf, int len) {
+    if (kcp == NULL) return;
     uint32_t sendbuf[0x208];
     sendbuf[0] = op;
     sendbuf[1] = len;
@@ -147,8 +148,9 @@ static void _search_cb(const uint32_t *data, int size, int data_len) {
         int i;
         uint32_t buf[0xC0] = {0};
         for (i = 0; i < size; ++i) {
-            buf[i * 3] = data[i];
-            memcpy(&buf[i * 3 + 1], (const void*)data[i], data_len);
+            uint32_t addr = data[i] | 0x80000000U;
+            buf[i * 3] = addr;
+            memcpy(&buf[i * 3 + 1], (const void*)addr, data_len);
         }
         _kcp_send_cmd(0x10000, &buf, size * 4 * 3);
     }
@@ -275,6 +277,9 @@ void net_kcp_process(uint32_t tick) {
                     ++conv;
                     break;
                 }
+                case 'N':
+                    mem_search_reset();
+                    /* fallthrough */
                 case 'S': {
                     buf[len] = 0;
                     uint32_t n;
