@@ -24,6 +24,8 @@ public:
     void nextSearch(void *data);
     void startFuzzySearch(int st);
     void nextFuzzySearch(int direction);
+    int getTypeSize(int type);
+    void formatTypeData(char *output, int type, const void *data);
 
 private:
     void sendCommand(int cmd, void *buf, int len);

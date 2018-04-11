@@ -62,12 +62,15 @@ static ikcpcb *kcp = NULL;
 
 static send_buf *shead = NULL, *stail = NULL;
 
+static int total_count = 0, recv_size = 0;
+static char recv_buf[0x1200];
 
 static void _kcp_disconnect() {
     if (kcp != NULL) {
         ikcp_release(kcp);
         kcp = NULL;
     }
+    recv_size = 0;
     memset(&saddr_remote, 0, sizeof(SceNetSockaddrIn));
 }
 
@@ -122,19 +125,51 @@ static void _kcp_clear() {
     stail = NULL;
 }
 
-static void _process_kcp_packet(const char *buf, int len) {
-    if (len < 4) return;
-    int cmd = *(int*)buf;
+void _kcp_send_cmd(int op, const void *buf, int len) {
+    uint32_t sendbuf[0x208];
+    sendbuf[0] = op;
+    sendbuf[1] = len;
+    if (buf != NULL) memcpy(&sendbuf[2], buf, len);
+    ikcp_send(kcp, (const char *)sendbuf, len + 8);
+}
+
+void _kcp_search_start(int type) {
+    _kcp_send_cmd(type, NULL, 0);
+}
+
+void _kcp_search_end(int nothing) {
+    _kcp_send_cmd(nothing ? 0x30000 : 0x20000, NULL, 0);
+}
+
+static void _search_cb(const uint32_t *data, int size, int data_len) {
+    total_count += size;
+    if (total_count <= 0x40) {
+        int i;
+        uint32_t buf[0xC0] = {0};
+        for (i = 0; i < size; ++i) {
+            buf[i * 3] = data[i];
+            memcpy(&buf[i * 3 + 1], (const void*)data[i], data_len);
+        }
+        _kcp_send_cmd(0x10000, &buf, size * 4 * 3);
+    }
+}
+
+static void _process_kcp_packet(int cmd, const char *buf, int len) {
+    if (cmd == -1) {
+        _kcp_disconnect();
+        return;
+    }
     int op = cmd >> 8;
     int type = cmd & 0xFF;
-    buf += 4;
-    len -= 4;
     switch(op) {
     case 0:
         mem_search_reset();
         /* fallthrough */
     case 1:
-        mem_search(type, buf, len);
+        _kcp_search_start(type);
+        total_count = 0;
+        mem_search(type, buf, len, _search_cb);
+        _kcp_search_end(total_count > 100);
         break;
     }
 }
@@ -182,11 +217,23 @@ void net_kcp_process(uint32_t tick) {
     if (kcp != NULL) {
         ikcp_update(kcp, tick);
         while(1) {
-            char buf[2048];
-            int hr = ikcp_recv(kcp, buf, 2048);
+            int hr = ikcp_recv(kcp, recv_buf + recv_size, 0x1200 - recv_size);
             if (hr < 0) break;
-            log_debug("Got kcp packet: %d\n", hr);
-            _process_kcp_packet(buf, hr);
+            recv_size += hr;
+            while(recv_size >= 8) {
+                uint32_t len = *(uint32_t*)&recv_buf[4];
+                if (len > 0x800) {
+                    _kcp_send_cmd(-1, NULL, 0);
+                    break;
+                }
+                if (len + 8 > recv_size) break;
+                log_debug("Got kcp packet: %d\n", len + 8);
+                _process_kcp_packet(*(int*)recv_buf, recv_buf + 8, len);
+                if (len + 8 < recv_size) {
+                    recv_size -= len + 8;
+                    memmove(recv_buf, recv_buf + len + 8, recv_size);
+                } else recv_size = 0;
+            }
         }
     }
     SceNetEpollEvent events[1];
@@ -233,7 +280,7 @@ void net_kcp_process(uint32_t tick) {
                     uint32_t n;
                     n = strtoul(buf + 1, NULL, 10);
                     log_debug("Searching %u\n", n);
-                    mem_search(1, &n, 4);
+                    mem_search(1, &n, 4, _search_cb);
                     break;
                 }
                 case 'W': {

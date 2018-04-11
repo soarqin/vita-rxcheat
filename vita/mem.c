@@ -43,6 +43,8 @@ void mem_init() {
             SceKernelModuleInfo info;
             if (sceKernelGetModuleInfo(modlist[i], &info) < 0) continue;
             if (strncmp(info.path, "ux0:", 4) != 0 && strncmp(info.path, "app0:", 5) != 0 && strncmp(info.path, "gro0:", 5) != 0) continue;
+            const char *rslash = strrchr(info.path, '/');
+            if (rslash != NULL && strcmp(rslash, "/rcsvr.suprx") == 0) continue;
             log_debug("Module %s\n", info.path);
             int j;
             for (j = 0; j < 4; ++j) {
@@ -95,34 +97,56 @@ static void reload_blocks() {
 }
 */
 
-static void single_search(SceUID tmpfile, memory_range *mr, const void *data, int size) {
+static void single_search(SceUID outfile, memory_range *mr, const void *data, int size, void (*cb)(const uint32_t *addr, int count, int datalen)) {
     uint8_t *curr = (uint8_t*)mr->start;
     uint8_t *cend = curr + mr->size - size + 1;
+    uint32_t addr[0x100];
+    int addr_count = 0;
     for (; curr < cend; curr += size) {
         if (memcmp(data, (void*)curr, size) == 0) {
             log_debug("Found at %08X\n", curr);
-            kIoWrite(tmpfile, &curr, 4, NULL);
+            addr[addr_count++] = (uint32_t)curr;
+            if (addr_count == 0x100) {
+                cb(addr, addr_count, size);
+                kIoWrite(outfile, addr, 0x100 * 4, NULL);
+                addr_count = 0;
+            }
         }
+    }
+    if (addr_count > 0) {
+        kIoWrite(outfile, addr, addr_count * 4, NULL);
+        cb(addr, addr_count, size);
     }
 }
 
-static void next_search(SceUID infile, SceUID outfile, const void *data, int size) {
-    uint32_t old[0x200];
+static void next_search(SceUID infile, SceUID outfile, const void *data, int size, void (*cb)(const uint32_t *addr, int count, int datalen)) {
+    uint32_t old[0x100];
+    uint32_t addr[0x100];
+    int addr_count = 0;
     while(1) {
         SceSize i, n;
-        kIoRead(infile, old, 4 * 0x200, &n);
+        kIoRead(infile, old, 4 * 0x100, &n);
         n >>= 2;
         for (i = 0; i < n; ++i) {
             if (memcmp((void*)old[i], data, size) == 0) {
                 log_debug("Found at %08X\n", old[i]);
-                kIoWrite(outfile, &old[i], 4, NULL);
+                addr[addr_count++] = old[i];
+                if (addr_count == 0x100) {
+                    cb(addr, addr_count, size);
+                    kIoWrite(outfile, addr, 0x100 * 4, NULL);
+                    addr_count = 0;
+                }
             }
         }
-        if (n < 0x200) break;
+        if (n < 0x100) break;
+    }
+    if (addr_count > 0) {
+        cb(addr, addr_count, size);
+        kIoWrite(outfile, addr, addr_count * 4, NULL);
     }
 }
 
-void mem_search(int type, const void *data, int len) {
+void mem_search(int type, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen)) {
     int size = 0;
     switch(type) {
         case st_u32: case st_i32: case st_float: size = 4; break;
@@ -142,10 +166,10 @@ void mem_search(int type, const void *data, int len) {
         kIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT, &f);
         int i;
         for (i = 0; i < static_sz; ++i) {
-            single_search(f, &staticmem[i], data, size);
+            single_search(f, &staticmem[i], data, size, cb);
         }
         for (i = 0; i < stack_sz; ++i) {
-            single_search(f, &stackmem[i], data, size);
+            single_search(f, &stackmem[i], data, size, cb);
         }
         kIoClose(f);
         // reload_blocks();
@@ -156,7 +180,7 @@ void mem_search(int type, const void *data, int len) {
         sceClibSnprintf(infile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
         if (kIoOpen(infile, SCE_O_RDONLY, &f) < 0) {
             type = st_none;
-            mem_search(type, data, len);
+            mem_search(type, data, len, cb);
             return;
         }
         last_sidx ^= 1;
@@ -164,7 +188,7 @@ void mem_search(int type, const void *data, int len) {
         char outfile[256];
         sceClibSnprintf(outfile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
         kIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT, &of);
-        next_search(f, of, data, size);
+        next_search(f, of, data, size, cb);
         kIoClose(of);
         kIoClose(f);
         kIoRemove(infile);

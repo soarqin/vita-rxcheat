@@ -71,6 +71,7 @@ UdpClient::~UdpClient() {
 }
 
 bool UdpClient::connect(const std::string &addr, uint16_t port) {
+    recvBuf_.clear();
     sockaddr_in sa;
     sa.sin_family = AF_INET;
     if (inet_pton(AF_INET, addr.c_str(), &sa.sin_addr) < 0)
@@ -114,10 +115,15 @@ void UdpClient::process() {
     if (kcp_ != NULL) {
         ikcp_update(kcp_, GetTickCount());
         int n;
-        char buf[2048];
-        while ((n = ikcp_recv(kcp_, buf, 2048)) > 0) {
-            buf[n] = 0;
-            fprintf(stdout, "%s", buf);
+        char buf[3072];
+        while ((n = ikcp_recv(kcp_, buf, 3072)) > 0) {
+            recvBuf_.insert(recvBuf_.end(), buf, buf + n);
+            while (recvBuf_.length() >= 8) {
+                size_t len = *(uint32_t*)&recvBuf_[4];
+                if (len + 8 > recvBuf_.length()) break;
+                onRecv_(*(int*)&recvBuf_[0], recvBuf_.c_str() + 8, len);
+                recvBuf_.erase(recvBuf_.begin(), recvBuf_.begin() + len + 8);
+            }
         }
     }
     fd_set rfds = {1, {fd_}}, efds = {1, {fd_}};

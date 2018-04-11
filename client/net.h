@@ -4,6 +4,7 @@
 #include <vector>
 #include <list>
 #include <string>
+#include <functional>
 
 extern "C" {
     typedef struct IKCPCB ikcpcb;
@@ -15,6 +16,7 @@ public:
     static void finish();
     UdpClient();
     ~UdpClient();
+    inline void setOnRecv(const std::function<void(int, const char *, int)>& onRecv) { onRecv_ = onRecv; }
     bool connect(const std::string &addr, uint16_t port);
     inline bool isConnected() {
         return kcp_ != NULL;
@@ -32,4 +34,6 @@ private:
     uint32_t conv_ = 0;
     ikcpcb *kcp_ = NULL;
     std::list<std::string> packets_;
+    std::string recvBuf_;
+    std::function<void(int, const char *, int)> onRecv_;
 };

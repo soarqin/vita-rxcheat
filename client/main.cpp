@@ -12,8 +12,8 @@
 #include <GLFW/glfw3.h>
 
 enum :int {
-    WIN_WIDTH = 1280,
-    WIN_HEIGHT = 720,
+    WIN_WIDTH = 640,
+    WIN_HEIGHT = 800,
 };
 
 static void glfw_error_callback(int error, const char* description) {
@@ -61,9 +61,51 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     UdpClient client;
     bool connected = false;
 
-    int searchNum = 0;
     Command cmd(client);
+    struct SearchResult  {
+        uint32_t addr;
+        std::string value;
+        std::string hexaddr;
+        std::string display;
+    };
+    std::vector<SearchResult> result;
+    int status = 0;
+    int result_type = 0;
+    int result_idx = -1;
+    client.setOnRecv([&](int op, const char *buf, int len) {
+        if (op < 0x100) {
+            status = 1;
+            result_type = op;
+            result.clear();
+        } else {
+            switch (op) {
+                case 0x10000: {
+                    if (status != 1) break;
+                    result_idx = -1;
+                    len /= 12;
+                    const uint32_t *res = (const uint32_t*)buf;
+                    for (int i = 0; i < len; ++i) {
+                        char hex[16], value[64];
+                        uint32_t addr = res[i * 3];
+                        snprintf(hex, 16, "%08X", addr);
+                        cmd.formatTypeData(value, result_type, &res[i * 3 + 1]);
+                        SearchResult sr = {addr, value, hex, std::string(hex) + "  " + value};
+                        result.push_back(sr);
+                    }
+                    break;
+                }
+                case 0x20000:
+                    status = 2;
+                    break;
+                case 0x30000:
+                    result.clear();
+                    status = 3;
+                    break;
+            }
+        }
+    });
     char ip[256] = "172.27.15.216";
+    int searchNum = 0;
 
     // Main loop
     while (!glfwWindowShouldClose(window))
@@ -91,6 +133,14 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                 if (ImGui::Button("Connect")) {
                     connected = client.connect(ip, 9527);
                 }
+            }
+            if (status == 2) {
+                ImGui::ListBoxHeader("Result");
+                int sz = result.size();
+                for (int i = 0; i < sz; ++i) {
+                    if (ImGui::Selectable(result[i].display.c_str(), result_idx == i)) result_idx = i;
+                }
+                ImGui::ListBoxFooter();
             }
             ImGui::End();
         }
