@@ -74,9 +74,9 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     int result_idx = -1;
     client.setOnRecv([&](int op, const char *buf, int len) {
         if (op < 0x100) {
+            result.clear();
             status = 1;
             result_type = op;
-            result.clear();
         } else {
             switch (op) {
                 case 0x10000: {
