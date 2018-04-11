@@ -128,7 +128,7 @@ void mem_search(int type, const void *data, int len) {
         case st_u32: case st_i32: case st_float: size = 4; break;
         case st_u16: case st_i16: size = 2; break;
         case st_u8: case st_i8: size = 1; break;
-        case st_u64: case st_i64: st_double: size = 8; break;
+        case st_u64: case st_i64: case st_double: size = 8; break;
         default: return;
     }
     if (size > len) return;
