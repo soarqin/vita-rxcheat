@@ -70,10 +70,12 @@ bool UdpClient::connect(const std::string &addr, uint16_t port) {
     sa.sin_port = htons(port);
     if (::connect(fd_, (const sockaddr*)&sa, sizeof(sa)) < 0)
         return false;
-    char res[16];
-    int r = _sendAndRecv("C", 1, res, 16);
-    if (r < 5 || res[0] != 'C') return false;
+    char res[256] = {0};
+    int r = _sendAndRecv("C", 1, res, 255);
+    if (r < 14 || res[0] != 'C') return false;
     conv_ = *(uint32_t*)&res[1];
+    titleid_.assign(res + 5, res + 14);
+    title_ = res + 14;
     kcp_ = ikcp_create(conv_, this);
     ikcp_nodelay(kcp_, 0, 50, 0, 0);
     ikcp_setmtu(kcp_, 1440);
@@ -104,6 +106,8 @@ bool UdpClient::connect(const std::string &addr, uint16_t port) {
 
 void UdpClient::disconnect() {
     if (kcp_ == NULL) return;
+    title_.clear();
+    titleid_.clear();
     _send("D", 1);
     ikcp_release(kcp_);
     kcp_ = NULL;

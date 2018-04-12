@@ -16,6 +16,8 @@ public:
     static void finish();
     UdpClient();
     ~UdpClient();
+    inline const std::string &titleId() { return titleid_; }
+    inline const std::string &title() { return title_; }
     inline void setOnRecv(const std::function<void(int, const char *, int)>& onRecv) { onRecv_ = onRecv; }
     bool connect(const std::string &addr, uint16_t port);
     void disconnect();
@@ -38,4 +40,5 @@ private:
     std::list<std::string> packets_;
     std::string recvBuf_;
     std::function<void(int, const char *, int)> onRecv_;
+    std::string titleid_, title_;
 };

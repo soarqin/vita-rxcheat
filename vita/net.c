@@ -321,10 +321,12 @@ void net_kcp_process(uint32_t tick) {
                     kcp->writelog = _kcp_writelog;
                     kcp->logmask = 4095;
                     */
-                    char n[5];
+                    char n[256];
                     n[0] = 'C';
                     *(uint32_t*)&n[1] = conv;
-                    _kcp_send(n, 5, &saddr, 0);
+                    sceAppMgrAppParamGetString(0, 12, &n[5], 16);
+                    sceAppMgrAppParamGetString(0, 9, &n[14], 256 - 14);
+                    _kcp_send(n, strlen(n + 14) + 14, &saddr, 0);
                     ++conv;
                     break;
                 }

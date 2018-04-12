@@ -12,7 +12,6 @@ static SceUID hooks[HOOKS_NUM];
 static tai_hook_ref_t ref[HOOKS_NUM];
 
 // Generic variables
-static char titleid[32];
 static uint32_t old_buttons = 0;
 
 static int running = 1;
@@ -69,7 +68,6 @@ int rcsvr_main_thread(SceSize args, void *argp) {
 void _start() __attribute__((weak, alias ("module_start")));
 int module_start(SceSize argc, const void *args) {
     util_init();
-    sceAppMgrAppParamGetString(0, 12, titleid, 32);
     net_init();
 
     hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x4D695C1F, scePowerSetUsingWireless_patched);

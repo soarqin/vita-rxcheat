@@ -13,7 +13,7 @@
 
 enum :int {
     WIN_WIDTH = 640,
-    WIN_HEIGHT = 800,
+    WIN_HEIGHT = 640,
 };
 
 static void glfw_error_callback(int error, const char* description) {
@@ -167,10 +167,14 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
             ImGui::InputText("##IP", ip, 256, connected ? ImGuiInputTextFlags_ReadOnly : 0);
             ImGui::PopItemWidth();
             if (connected) {
-                ImGui::Dummy(ImVec2(0.f, 50.f));
-                if (ImGui::Button("Search!", ImVec2(100.f, 0.f))) {
-                    uint32_t number = strtoull(searchVal, NULL, hexSearch ? 16 : 10);
-                    cmd.startSearch((heapSearch ? 0x100 : 0) | Command::st_i32, &number);
+                ImGui::Text(client.titleId().c_str()); ImGui::SameLine(); ImGui::Text(client.title().c_str());
+                if (status == 1) {
+                    ImGui::Button("Searching...", ImVec2(100.f, 0.f));
+                } else {
+                    if (ImGui::Button("Search!", ImVec2(100.f, 0.f))) {
+                        uint32_t number = strtoull(searchVal, NULL, hexSearch ? 16 : 10);
+                        cmd.startSearch((heapSearch ? 0x100 : 0) | Command::st_i32, &number);
+                    }
                 }
                 ImGui::SameLine(125.f);
                 ImGui::Text("Value:"); ImGui::SameLine();
@@ -196,23 +200,27 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                 if (ImGui::Checkbox("HEX", &hexSearch)) {
                     searchVal[0] = 0;
                 }
+                ImGui::SameLine();
                 ImGui::Checkbox("HEAP", &heapSearch);
-            }
-            ImGui::Text("Search result");
-            ImGui::ListBoxHeader("##Result");
-            ImGui::Columns(2, NULL, true);
-            if (status == 2) {
-                int sz = result.size();
-                for (int i = 0; i < sz; ++i) {
-                    if (ImGui::Selectable(result[i].hexaddr.c_str(), result_idx == i, ImGuiSelectableFlags_SpanAllColumns))
-                        result_idx = i;
-                    ImGui::NextColumn();
-                    ImGui::Text(result[i].value.c_str());
-                    ImGui::NextColumn();
+
+                if (status == 2) {
+                    ImGui::Text("Search result");
+                    ImGui::ListBoxHeader("##Result");
+                    ImGui::Columns(2, NULL, true);
+                    int sz = result.size();
+                    for (int i = 0; i < sz; ++i) {
+                        if (ImGui::Selectable(result[i].hexaddr.c_str(), result_idx == i, ImGuiSelectableFlags_SpanAllColumns))
+                            result_idx = i;
+                        ImGui::NextColumn();
+                        ImGui::Text(result[i].value.c_str());
+                        ImGui::NextColumn();
+                    }
+                    ImGui::ListBoxFooter();
+                } else if (status == 3) {
+                    ImGui::Text("Too many results, do more search please");
                 }
+                ImGui::End();
             }
-            ImGui::ListBoxFooter();
-            ImGui::End();
         }
 
         // Rendering
