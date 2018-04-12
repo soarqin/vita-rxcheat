@@ -18,6 +18,7 @@ public:
     ~UdpClient();
     inline void setOnRecv(const std::function<void(int, const char *, int)>& onRecv) { onRecv_ = onRecv; }
     bool connect(const std::string &addr, uint16_t port);
+    void disconnect();
     inline bool isConnected() {
         return kcp_ != NULL;
     }
@@ -25,6 +26,7 @@ public:
     int send(const char *buf, int len);
 
 private:
+    void _init();
     int _send(const char *buf, int len);
     int _recv(char *buf, int len);
     int _sendAndRecv(const char *buf, int len, char *res, int reslen);

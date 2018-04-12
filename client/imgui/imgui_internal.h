@@ -1,4 +1,4 @@
-// dear imgui, v1.60
+// dear imgui, v1.61 WIP
 // (internals)
 
 // You may use this file to debug, understand or extend ImGui features but we don't provide any guarantee of forward compatibility!
@@ -943,7 +943,8 @@ struct IMGUI_API ImGuiWindow
     ImGuiStorage            StateStorage;
     ImVector<ImGuiColumnsSet> ColumnsStorage;
     float                   FontWindowScale;                    // Scale multiplier per-window
-    ImDrawList*             DrawList;
+    ImDrawList*             DrawList;                           // == &DrawListInst (for backward compatibility reason with code using imgui_internal.h we keep this a pointer)
+    ImDrawList              DrawListInst;
     ImGuiWindow*            ParentWindow;                       // If we are a child _or_ popup window, this is pointing to our parent. Otherwise NULL.
     ImGuiWindow*            RootWindow;                         // Point to ourself or first ancestor that is not a child window.
     ImGuiWindow*            RootWindowForTitleBarHighlight;     // Point to ourself or first ancestor which will display TitleBgActive color when this window is active.
@@ -1052,6 +1053,7 @@ namespace ImGui
     IMGUI_API bool          IsPopupOpen(ImGuiID id);
     IMGUI_API bool          BeginPopupEx(ImGuiID id, ImGuiWindowFlags extra_flags);
     IMGUI_API void          BeginTooltipEx(ImGuiWindowFlags extra_flags, bool override_previous_tooltip = true);
+    IMGUI_API ImGuiWindow*  GetFrontMostPopupModal();
 
     IMGUI_API void          NavInitWindow(ImGuiWindow* window, bool force_reinit);
     IMGUI_API void          NavMoveRequestCancel();

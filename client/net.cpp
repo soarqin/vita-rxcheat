@@ -53,17 +53,7 @@ void UdpClient::finish() {
 }
 
 UdpClient::UdpClient() {
-    fd_ = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd_ < 0)
-        throw std::exception("unable to create socket");
-    int n = 1;
-    setsockopt(fd_, SOL_SOCKET, SO_BROADCAST, (const char*)&n, sizeof(n));
-    sockaddr_in sa;
-    sa.sin_family = AF_INET;
-    sa.sin_addr.s_addr = INADDR_ANY;
-    sa.sin_port = 0;
-    if (bind(fd_, (const sockaddr*)&sa, sizeof(sa)) < 0)
-        throw std::exception("unable to bind address");
+    _init();
 }
 
 UdpClient::~UdpClient() {
@@ -71,6 +61,7 @@ UdpClient::~UdpClient() {
 }
 
 bool UdpClient::connect(const std::string &addr, uint16_t port) {
+    disconnect();
     recvBuf_.clear();
     sockaddr_in sa;
     sa.sin_family = AF_INET;
@@ -109,6 +100,16 @@ bool UdpClient::connect(const std::string &addr, uint16_t port) {
     }
 #endif
     return true;
+}
+
+void UdpClient::disconnect() {
+    if (kcp_ == NULL) return;
+    _send("D", 1);
+    ikcp_release(kcp_);
+    kcp_ = NULL;
+    recvBuf_.clear();
+    closesocket(fd_);
+    _init();
 }
 
 void UdpClient::process() {
@@ -162,6 +163,20 @@ void UdpClient::process() {
 
 int UdpClient::send(const char *buf, int len) {
     return ikcp_send(kcp_, buf, len);
+}
+
+void UdpClient::_init() {
+    fd_ = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd_ < 0)
+        throw std::exception("unable to create socket");
+    int n = 1;
+    setsockopt(fd_, SOL_SOCKET, SO_BROADCAST, (const char*)&n, sizeof(n));
+    sockaddr_in sa;
+    sa.sin_family = AF_INET;
+    sa.sin_addr.s_addr = INADDR_ANY;
+    sa.sin_port = 0;
+    if (bind(fd_, (const sockaddr*)&sa, sizeof(sa)) < 0)
+        throw std::exception("unable to bind address");
 }
 
 int UdpClient::_send(const char *buf, int len) {
