@@ -149,7 +149,7 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
     }
 }
 
-void mem_search(int type, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen)) {
+void mem_search(int type, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen), int heap) {
     int size = 0;
     switch(type) {
         case st_u32: case st_i32: case st_float: size = 4; break;
@@ -163,7 +163,6 @@ void mem_search(int type, const void *data, int len, void (*cb)(const uint32_t *
         mem_init();
     }
     if (stype != type) {
-        reload_blocks();
         SceUID f = -1;
         char outfile[256];
         sceClibSnprintf(outfile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
@@ -175,8 +174,11 @@ void mem_search(int type, const void *data, int len, void (*cb)(const uint32_t *
         for (i = 0; i < stack_sz; ++i) {
             single_search(f, &stackmem[i], data, size, cb);
         }
-        for (i = 0; i < block_sz; ++i) {
-            single_search(f, &blockmem[i], data, size, cb);
+        if (heap) {
+            reload_blocks();
+            for (i = 0; i < block_sz; ++i) {
+                single_search(f, &blockmem[i], data, size, cb);
+            }
         }
         kIoClose(f);
         // reload_blocks();
@@ -187,7 +189,7 @@ void mem_search(int type, const void *data, int len, void (*cb)(const uint32_t *
         sceClibSnprintf(infile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
         if (kIoOpen(infile, SCE_O_RDONLY, &f) < 0) {
             type = st_none;
-            mem_search(type, data, len, cb);
+            mem_search(type, data, len, cb, heap);
             return;
         }
         last_sidx ^= 1;

@@ -17,7 +17,7 @@ void Command::startSearch(int st, void *data) {
 }
 
 void Command::nextSearch(void *data) {
-    startSearch(searchType_ | 0x100, data);
+    startSearch(searchType_ | 0x200, data);
 }
 
 void Command::startFuzzySearch(int st) {

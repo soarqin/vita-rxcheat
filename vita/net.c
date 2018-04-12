@@ -13,6 +13,7 @@
 static char vita_ip[32];
 static uint64_t vita_addr;
 static SceUID isNetAvailable = 0;
+static SceUID packetMutex = -1, searchMutex = -1, searchSema = -1;
 
 int net_loaded() {
     return isNetAvailable != 0;
@@ -37,10 +38,25 @@ int net_init() {
     sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_IP_ADDRESS, &info);
     sceClibSnprintf(vita_ip, 32, "%s", info.ip_address);
     sceNetInetPton(SCE_NET_AF_INET, info.ip_address, &vita_addr);
+    packetMutex = sceKernelCreateMutex("rcsvr_packet_mutex", 0, 0, 0);
+    searchMutex = sceKernelCreateMutex("rcsvr_search_mutex", 0, 0, 0);
+    searchSema = sceKernelCreateSema("rcsvr_search_sema", 0, 0, 1, NULL);
     return 0;
 }
 
 void net_finish() {
+    if (searchSema >= 0) {
+        sceKernelDeleteSema(searchSema);
+        searchSema = -1;
+    }
+    if (searchMutex >= 0) {
+        sceKernelDeleteMutex(searchMutex);
+        searchMutex = -1;
+    }
+    if (packetMutex >= 0) {
+        sceKernelDeleteMutex(packetMutex);
+        packetMutex = -1;
+    }
     if (isNetAvailable) {
         free((void*)isNetAvailable);
         isNetAvailable = 0;
@@ -85,15 +101,19 @@ static void _kcp_send(const char *buf, int len, SceNetSockaddrIn *addr, int is_k
         memcpy(b->buf, buf, len);
     b->next = NULL;
     if (shead == NULL) {
+        sceKernelLockMutex(packetMutex, 1, NULL);
         shead = b;
         stail = b;
+        sceKernelUnlockMutex(packetMutex, 1);
         SceNetEpollEvent event = {SCE_NET_EPOLLIN | SCE_NET_EPOLLOUT};
         int ret = sceNetEpollControl(epoll_fd, SCE_NET_EPOLL_CTL_MOD, udp_fd, &event);
         if (ret != 0)
             log_error("sceNetEpollControl(): 0x%08X\n", ret);
     } else {
+        sceKernelLockMutex(packetMutex, 1, NULL);
         stail->next = b;
         stail = b;
+        sceKernelUnlockMutex(packetMutex, 1);
     }
 }
 
@@ -156,6 +176,32 @@ static void _search_cb(const uint32_t *data, int size, int data_len) {
     }
 }
 
+typedef struct {
+    int type;
+    const char *buf;
+    int len;
+    int heap;
+} search_request;
+
+volatile search_request search_req;
+
+static int _search_thread(SceSize args, void *argp) {
+    if (sceKernelTryLockMutex(searchMutex, 1) < 0) {
+        return sceKernelExitDeleteThread(0);
+    }
+    int type = search_req.type;
+    const char *buf = search_req.buf;
+    int len = search_req.len;
+    int heap = search_req.heap;
+    sceKernelSignalSema(searchSema, 1);
+    _kcp_search_start(type);
+    total_count = 0;
+    mem_search(type, buf, len, _search_cb, heap);
+    _kcp_search_end(total_count > 100);
+    sceKernelUnlockMutex(searchMutex, 1);
+    return sceKernelExitDeleteThread(0);
+}
+
 static void _process_kcp_packet(int cmd, const char *buf, int len) {
     if (cmd == -1) {
         _kcp_disconnect();
@@ -165,13 +211,18 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
     int type = cmd & 0xFF;
     switch(op) {
     case 0:
+    case 1:
         mem_search_reset();
         /* fallthrough */
-    case 1:
-        _kcp_search_start(type);
-        total_count = 0;
-        mem_search(type, buf, len, _search_cb);
-        _kcp_search_end(total_count > 100);
+    case 2:
+        search_req.heap = op == 1;
+        search_req.type = type;
+        search_req.buf = buf;
+        search_req.len = len;
+        SceUID thid = sceKernelCreateThread("rcsvr_search_thread", (SceKernelThreadEntry)_search_thread, 0x10000100, 0x10000, 0, 0, NULL);
+        if (thid >= 0)
+            sceKernelStartThread(thid, 0, NULL);
+        sceKernelWaitSema(searchSema, 1, NULL);
         break;
     }
 }
@@ -285,7 +336,7 @@ void net_kcp_process(uint32_t tick) {
                     uint32_t n;
                     n = strtoul(buf + 1, NULL, 10);
                     log_debug("Searching %u\n", n);
-                    mem_search(1, &n, 4, _search_cb);
+                    mem_search(1, &n, 4, _search_cb, 1);
                     break;
                 }
                 case 'W': {

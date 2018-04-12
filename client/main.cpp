@@ -65,10 +65,10 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         0xFF00, 0xFFEF, // Half-width characters
         0,
     };
-    if (!f->AddFontFromFileTTF("font.ttc", 20.0f, NULL, ranges)
+    if (!f->AddFontFromFileTTF("font.ttc", 18.0f, NULL, ranges)
 #ifdef _WIN32
-        && !f->AddFontFromFileTTF("C:/Windows/Fonts/msyh.ttc", 20.0f, NULL, ranges)
-        && !f->AddFontFromFileTTF("C:/Windows/Fonts/simsun.ttc", 20.0f, NULL, ranges)
+        && !f->AddFontFromFileTTF("C:/Windows/Fonts/msyh.ttc", 18.0f, NULL, ranges)
+        && !f->AddFontFromFileTTF("C:/Windows/Fonts/simsun.ttc", 18.0f, NULL, ranges)
 #endif
         )
         f->AddFontDefault();
@@ -121,6 +121,7 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     char ip[256] = "172.27.15.216";
     char searchVal[32] = "";
     bool hexSearch = false;
+    bool heapSearch = false;
     bool s1 = true, s2 = false;
     int combo_index = 0;
     const char* combo_items[] = {"int32", "uint32",
@@ -165,11 +166,11 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
             ImGui::PushItemWidth(200.f);
             ImGui::InputText("##IP", ip, 256, connected ? ImGuiInputTextFlags_ReadOnly : 0);
             ImGui::PopItemWidth();
-            if (1 /*connected*/) {
+            if (connected) {
                 ImGui::Dummy(ImVec2(0.f, 50.f));
                 if (ImGui::Button("Search!", ImVec2(100.f, 0.f))) {
                     uint32_t number = strtoull(searchVal, NULL, hexSearch ? 16 : 10);
-                    cmd.startSearch(Command::st_i32, &number);
+                    cmd.startSearch((heapSearch ? 0x100 : 0) | Command::st_i32, &number);
                 }
                 ImGui::SameLine(125.f);
                 ImGui::Text("Value:"); ImGui::SameLine();
@@ -195,15 +196,11 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                 if (ImGui::Checkbox("HEX", &hexSearch)) {
                     searchVal[0] = 0;
                 }
+                ImGui::Checkbox("HEAP", &heapSearch);
             }
             ImGui::Text("Search result");
             ImGui::ListBoxHeader("##Result");
             ImGui::Columns(2, NULL, true);
-            ImGui::TextColored(ImVec4(1.f, .4f, .8f, 1.f), "Address");
-            ImGui::NextColumn();
-            ImGui::TextColored(ImVec4(1.f, .4f, .8f, 1.f), "Value");
-            ImGui::NextColumn();
-            ImGui::Columns(2, NULL, false);
             if (status == 2) {
                 int sz = result.size();
                 for (int i = 0; i < sz; ++i) {
@@ -213,11 +210,6 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                     ImGui::Text(result[i].value.c_str());
                     ImGui::NextColumn();
                 }
-            } else {
-                ImGui::Selectable("TEST ABC", true, ImGuiSelectableFlags_SpanAllColumns);
-                ImGui::NextColumn();
-                ImGui::Text("ABC");
-                ImGui::NextColumn();
             }
             ImGui::ListBoxFooter();
             ImGui::End();
