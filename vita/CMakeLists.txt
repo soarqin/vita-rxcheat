@@ -46,6 +46,7 @@ add_executable(${TARGET_NAME}
     main.c
     net.c net.h
     mem.c mem.h
+    trophy.c trophy.h
     util.c util.h
     # debug
     debug.c debug.h
@@ -71,6 +72,7 @@ target_link_libraries(${TARGET_NAME}
     SceNetCtl_stub_weak
     ScePower_stub_weak
     SceRtc_stub_weak
+    SceNpTrophy_stub_weak
     kuio_stub_weak
     ${CMAKE_BINARY_DIR}/kernel/stubs/librcsvr_stub_weak.a
 )
