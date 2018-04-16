@@ -226,9 +226,9 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
             if (len < 4)
                 _kcp_send_cmd(0x8110, NULL, 0);
             else
-                trophy_unlock(*(int*)buf, _kcp_trophy_unlock);
+                trophy_unlock(*(int*)buf, _kcp_trophy_list, _kcp_trophy_unlock);
         } else {
-            trophy_unlock_all(_kcp_trophy_unlock);
+            trophy_unlock_all(_kcp_trophy_list, _kcp_trophy_unlock);
         }
         break;
     }
