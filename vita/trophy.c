@@ -13,7 +13,6 @@ static SceUID hooks[HOOKS_NUM] = {0};
 static tai_hook_ref_t ref[HOOKS_NUM];
 
 static SceNpTrophyContext context = -1;
-static SceNpTrophyHandle  handle  = -1;
 static SceUID trophyMutex = -1, trophySema = -1;
 
 int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, void *commID, void *commSign, uint64_t options) {
@@ -24,8 +23,8 @@ int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, void *commID, void *
     return ret;
 }
 
-int sceNpTrophyInit_patched(uint32_t poolAddr, uint32_t poolSize, uint32_t containerId, uint64_t options) {
-    int ret = TAI_CONTINUE(SceUID, ref[1], poolAddr, poolSize, containerId, options);
+int sceNpTrophyInit_patched(void *opt) {
+    int ret = TAI_CONTINUE(SceUID, ref[1], opt);
     return ret;
 }
 
@@ -90,12 +89,13 @@ static int _trophy_thread(SceSize args, void *argp) {
     cb2 = trophy_req.cb2;
     cb_end = trophy_req.cb_end;
     sceKernelSignalSema(trophySema, 1);
-    if (handle < 0) {
-        int ret = sceNpTrophyCreateHandle(&handle);
-        if (ret < 0) {
-            log_debug("sceNpTrophyCreateHandle: %d\n", ret);
-            cb_end(-1);
-        }
+    SceNpTrophyHandle handle;
+    int ret = sceNpTrophyCreateHandle(&handle);
+    if (ret < 0) {
+        log_debug("sceNpTrophyCreateHandle: %d\n", ret);
+        cb_end(-1);
+        sceKernelUnlockMutex(trophyMutex, 1);
+        return sceKernelExitDeleteThread(0);
     }
     switch(type) {
     case 0: {
@@ -159,6 +159,7 @@ static int _trophy_thread(SceSize args, void *argp) {
             break;
         }
     }
+    sceNpTrophyDestroyHandle(handle);
     sceKernelUnlockMutex(trophyMutex, 1);
     return sceKernelExitDeleteThread(0);
 }
@@ -195,16 +196,17 @@ void trophy_unlock_all(void (*cb)(int id, int grade, int hidden, int unlocked, c
 }
 
 void trophy_test() {
-    if (handle < 0) {
-        int ret = sceNpTrophyCreateHandle(&handle);
-        if (ret < 0)
-            log_debug("sceNpTrophyCreateHandle: %d\n", ret);
+    SceNpTrophyHandle handle;
+    int ret = sceNpTrophyCreateHandle(&handle);
+    if (ret < 0) {
+        log_debug("sceNpTrophyCreateHandle: %d\n", ret);
+        return;
     }
     SceNpTrophyGameDetails detail0;
     SceNpTrophyGameData data0;
     detail0.size = sizeof(SceNpTrophyGameDetails);
     data0.size = sizeof(SceNpTrophyGameData);
-    int ret = sceNpTrophyGetGameInfo(context, handle, &detail0, &data0);
+    ret = sceNpTrophyGetGameInfo(context, handle, &detail0, &data0);
     if (ret < 0)
         log_debug("sceNpTrophyGetGameInfo: %d\n", ret);
     SceNpTrophyFlagArray a;
@@ -225,4 +227,5 @@ void trophy_test() {
         if (ret < 0 && ret != 0x8055160f) break;
         log_debug("sceNpTrophyGetTrophyInfo: %08X %d %d %d %s %s\n", ret, detail.trophyId, detail.trophyGrade, detail.hidden, detail.name, detail.description);
     }
+    sceNpTrophyDestroyHandle(handle);
 }
