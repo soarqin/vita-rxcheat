@@ -2,6 +2,7 @@
 
 #include "ikcp.h"
 #include "mem.h"
+#include "trophy.h"
 #include "debug.h"
 
 #include <vitasdk.h>
@@ -13,7 +14,7 @@
 static char vita_ip[32];
 static uint64_t vita_addr;
 static SceUID isNetAvailable = 0;
-static SceUID packetMutex = -1, searchMutex = -1, searchSema = -1;
+static SceUID packetMutex = -1;
 
 int net_loaded() {
     return isNetAvailable != 0;
@@ -39,20 +40,10 @@ int net_init() {
     sceClibSnprintf(vita_ip, 32, "%s", info.ip_address);
     sceNetInetPton(SCE_NET_AF_INET, info.ip_address, &vita_addr);
     packetMutex = sceKernelCreateMutex("rcsvr_packet_mutex", 0, 0, 0);
-    searchMutex = sceKernelCreateMutex("rcsvr_search_mutex", 0, 0, 0);
-    searchSema = sceKernelCreateSema("rcsvr_search_sema", 0, 0, 1, NULL);
     return 0;
 }
 
 void net_finish() {
-    if (searchSema >= 0) {
-        sceKernelDeleteSema(searchSema);
-        searchSema = -1;
-    }
-    if (searchMutex >= 0) {
-        sceKernelDeleteMutex(searchMutex);
-        searchMutex = -1;
-    }
     if (packetMutex >= 0) {
         sceKernelDeleteMutex(packetMutex);
         packetMutex = -1;
@@ -154,15 +145,19 @@ void _kcp_send_cmd(int op, const void *buf, int len) {
     ikcp_send(kcp, (const char *)sendbuf, len + 8);
 }
 
-void _kcp_search_start(int type) {
+static void _kcp_search_start(int type) {
     _kcp_send_cmd(type, NULL, 0);
+    total_count = 0;
 }
 
-void _kcp_search_end(int nothing) {
-    _kcp_send_cmd(nothing ? 0x30000 : 0x20000, NULL, 0);
+static void _kcp_search_end(int err) {
+    if (err == 0)
+        _kcp_send_cmd(total_count > 100 ? 0x30000 : 0x20000, NULL, 0);
+    else
+        _kcp_send_cmd(0x30001, NULL, 0);
 }
 
-static void _search_cb(const uint32_t *data, int size, int data_len) {
+static void _kcp_search_cb(const uint32_t *data, int size, int data_len) {
     total_count += size;
     if (total_count <= 0x40) {
         int i;
@@ -176,30 +171,36 @@ static void _search_cb(const uint32_t *data, int size, int data_len) {
     }
 }
 
-typedef struct {
-    int type;
-    const char *buf;
-    int len;
-    int heap;
-} search_request;
+static void _kcp_trophy_list_end(int err) {
+    if (err == 0)
+        _kcp_send_cmd(0x8001, NULL, 0);
+    else
+        _kcp_send_cmd(0x8002, NULL, 0);
+}
 
-volatile search_request search_req;
+static void _kcp_trophy_list(int id, int grade, int hidden, int unlocked, const char *name, const char *desc) {
+    char buf[240];
+    *(int*)buf = id;
+    *(int*)(buf+4) = grade;
+    *(int*)(buf+8) = hidden;
+    *(int*)(buf+12) = unlocked;
+    memcpy(buf + 16, name, 64);
+    buf[79] = 0;
+    memcpy(buf + 80, desc, 160);
+    buf[239] = 0;
+    _kcp_send_cmd(0x8000, buf, 240);
+}
 
-static int _search_thread(SceSize args, void *argp) {
-    if (sceKernelTryLockMutex(searchMutex, 1) < 0) {
-        return sceKernelExitDeleteThread(0);
+static void _kcp_trophy_unlock(int ret, int id, int platid) {
+    log_debug("Unlock result: %d %d %d\n", ret, id, platid);
+    if (ret < 0) {
+        _kcp_send_cmd(0x8110, NULL, 0);
+    } else {
+        int buf[2];
+        buf[0] = id;
+        buf[1] = platid;
+        _kcp_send_cmd(0x8100, buf, 8);
     }
-    int type = search_req.type;
-    const char *buf = search_req.buf;
-    int len = search_req.len;
-    int heap = search_req.heap;
-    sceKernelSignalSema(searchSema, 1);
-    _kcp_search_start(type);
-    total_count = 0;
-    mem_search(type, buf, len, _search_cb, heap);
-    _kcp_search_end(total_count > 100);
-    sceKernelUnlockMutex(searchMutex, 1);
-    return sceKernelExitDeleteThread(0);
 }
 
 static void _process_kcp_packet(int cmd, const char *buf, int len) {
@@ -215,14 +216,20 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
         mem_search_reset();
         /* fallthrough */
     case 2:
-        search_req.heap = op == 1;
-        search_req.type = type;
-        search_req.buf = buf;
-        search_req.len = len;
-        SceUID thid = sceKernelCreateThread("rcsvr_search_thread", (SceKernelThreadEntry)_search_thread, 0x10000100, 0x10000, 0, 0, NULL);
-        if (thid >= 0)
-            sceKernelStartThread(thid, 0, NULL);
-        sceKernelWaitSema(searchSema, 1, NULL);
+        mem_start_search(type, op == 1, buf, len, _kcp_search_cb, _kcp_search_start, _kcp_search_end);
+        break;
+    case 0x80:
+        trophy_list(_kcp_trophy_list, _kcp_trophy_list_end);
+        break;
+    case 0x81:
+        if (type == 0) {
+            if (len < 4)
+                _kcp_send_cmd(0x8110, NULL, 0);
+            else
+                trophy_unlock(*(int*)buf, _kcp_trophy_unlock);
+        } else {
+            trophy_unlock_all(_kcp_trophy_unlock);
+        }
         break;
     }
 }
@@ -338,7 +345,7 @@ void net_kcp_process(uint32_t tick) {
                     uint32_t n;
                     n = strtoul(buf + 1, NULL, 10);
                     log_debug("Searching %u\n", n);
-                    mem_search(1, &n, 4, _search_cb, 1);
+                    mem_search(1, 1, &n, 4, _kcp_search_cb);
                     break;
                 }
                 case 'W': {
@@ -355,6 +362,7 @@ void net_kcp_process(uint32_t tick) {
                     if (kcp == NULL
                         || saddr.sin_addr.s_addr != saddr_remote.sin_addr.s_addr
                         || saddr.sin_port != saddr_remote.sin_port) {
+                        _kcp_send("D", 1, &saddr, 0);
                         break;
                     }
                     ikcp_input(kcp, buf + 4, len - 4);

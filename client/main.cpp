@@ -20,6 +20,16 @@ static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "Error %d: %s\n", error, description);
 }
 
+inline const char *getGradeName(int grade) {
+    switch (grade) {
+        case 1: return "Platinum"; break;
+        case 2: return "Gold"; break;
+        case 3: return "Silver"; break;
+        case 4: return "Bronze"; break;
+        default: return "Unknown"; break;
+    }
+}
+
 int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     UdpClient::init();
     AllocConsole();
@@ -74,46 +84,97 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         f->AddFontDefault();
 
     UdpClient client;
-    bool connected = false;
 
     Command cmd(client);
-    struct SearchResult  {
+    struct SearchResult {
         uint32_t addr;
         std::string hexaddr;
         std::string value;
     };
-    std::vector<SearchResult> result;
-    int status = 0;
-    int result_type = 0;
-    int result_idx = -1;
+    struct TrophyInfo {
+        int id = -1;
+        int grade = 0;
+        bool hidden = false;
+        bool unlocked = false;
+        std::string name;
+        std::string desc;
+    };
+    std::vector<SearchResult> search_result;
+    int search_status = 0;
+    int search_result_type = 0;
+    int search_result_idx = -1;
+    int trophy_status = 0;
+    int trophy_idx = -1;
+    int trophy_plat = -1;
+    std::vector<TrophyInfo> trophies;
     client.setOnRecv([&](int op, const char *buf, int len) {
         if (op < 0x100) {
-            result.clear();
-            status = 1;
-            result_type = op;
+            search_result.clear();
+            search_status = 1;
+            search_result_type = op;
         } else {
             switch (op) {
+                case 0x8000: {
+                    if (len < 240) break;
+                    int id = *(int*)buf;
+                    if (id >= (int)trophies.size()) trophies.resize(id + 1);
+                    TrophyInfo &ti = trophies[id];
+                    ti.id = id;
+                    ti.grade = *(int*)(buf+4);
+                    ti.hidden = *(int*)(buf+8) != 0;
+                    ti.unlocked = *(int*)(buf+12) != 0;
+                    ti.name = buf + 16;
+                    ti.desc = buf + 80;
+                    if (ti.grade == 1) trophy_plat = id;
+                    break;
+                }
+                case 0x8001: {
+                    trophy_status = 0;
+                    break;
+                }
+                case 0x8002: {
+                    trophy_status = 2;
+                    break;
+                }
+                case 0x8100: {
+                    int idx = *(int*)buf;
+                    int platidx = *(int*)(buf + 4);
+                    if (idx >= 0 && idx < (int)trophies.size()) {
+                        trophies[idx].unlocked = true;
+                    }
+                    if (platidx >= 0) {
+                        trophies[platidx].unlocked = true;
+                    }
+                    break;
+                }
+                case 0x8110: {
+                    break;
+                }
                 case 0x10000: {
-                    if (status != 1) break;
-                    result_idx = -1;
+                    if (search_status != 1) break;
+                    search_result_idx = -1;
                     len /= 12;
                     const uint32_t *res = (const uint32_t*)buf;
                     for (int i = 0; i < len; ++i) {
                         char hex[16], value[64];
                         uint32_t addr = res[i * 3];
                         snprintf(hex, 16, "%08X", addr);
-                        cmd.formatTypeData(value, result_type, &res[i * 3 + 1]);
+                        cmd.formatTypeData(value, search_result_type, &res[i * 3 + 1]);
                         SearchResult sr = {addr, hex, value};
-                        result.push_back(sr);
+                        search_result.push_back(sr);
                     }
                     break;
                 }
                 case 0x20000:
-                    status = 2;
+                    search_status = 2;
                     break;
                 case 0x30000:
-                    result.clear();
-                    status = 3;
+                    search_result.clear();
+                    search_status = 3;
+                    break;
+                case 0x30001:
+                    search_result.clear();
+                    search_status = 4;
                     break;
             }
         }
@@ -124,6 +185,7 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     bool heapSearch = false;
     bool s1 = true, s2 = false;
     int combo_index = 0;
+    int tab_index = 0;
     const char* combo_items[] = {"int32", "uint32",
         "int16", "uint16", "int8", "uint8",
         "int64", "uint64", "float", "double",
@@ -134,8 +196,7 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     };
 
     // Main loop
-    while (!glfwWindowShouldClose(window))
-    {
+    while (!glfwWindowShouldClose(window)) {
         client.process();
         glfwPollEvents();
 
@@ -151,73 +212,148 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
             ImGui::Begin("", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
             ImGui::SetWindowPos(ImVec2(10.f, 10.f));
             ImGui::SetWindowSize(ImVec2(display_w - 20.f, display_h - 20.f));
-            if (connected) {
+            if (client.isConnected()) {
+                ImGui::Text(client.titleId().c_str()); ImGui::SameLine(); ImGui::Text(client.title().c_str());
                 if (ImGui::Button("Disconnect", ImVec2(100.f, 0.f))) {
                     client.disconnect();
-                    connected = false;
                 }
             } else {
+                ImGui::Text("Not connected");
                 if (ImGui::Button("Connect", ImVec2(100.f, 0.f))) {
-                    connected = client.connect(ip, 9527);
+                    client.connect(ip, 9527);
                 }
             }
             ImGui::SameLine(125.f);
             ImGui::Text("IP Address:"); ImGui::SameLine();
             ImGui::PushItemWidth(200.f);
-            ImGui::InputText("##IP", ip, 256, connected ? ImGuiInputTextFlags_ReadOnly : 0);
+            ImGui::InputText("##IP", ip, 256, client.isConnected() ? ImGuiInputTextFlags_ReadOnly : 0);
             ImGui::PopItemWidth();
-            if (connected) {
-                ImGui::Text(client.titleId().c_str()); ImGui::SameLine(); ImGui::Text(client.title().c_str());
-                if (status == 1) {
-                    ImGui::Button("Searching...", ImVec2(100.f, 0.f));
-                } else {
-                    if (ImGui::Button("Search!", ImVec2(100.f, 0.f))) {
-                        uint32_t number = strtoull(searchVal, NULL, hexSearch ? 16 : 10);
-                        cmd.startSearch((heapSearch ? 0x100 : 0) | Command::st_i32, &number);
-                    }
-                }
-                ImGui::SameLine(125.f);
-                ImGui::Text("Value:"); ImGui::SameLine();
-                ImGui::PushItemWidth(200.f);
-                ImGui::InputText("##Value", searchVal, 31, hexSearch ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
-                ImGui::PopItemWidth();
+            if (client.isConnected()) {
+                ImGui::RadioButton("Memory Searcher", &tab_index, 0);
                 ImGui::SameLine();
-                ImGui::PushItemWidth(100.f);
-                if (ImGui::BeginCombo("##Type", combo_items[combo_index], 0)) {
-                    for (int i = 0; i < 10; ++i) {
-                        bool selected = combo_index == i;
-                        if (ImGui::Selectable(combo_items[i], selected)) {
-                            combo_index = i;
+                ImGui::RadioButton("Trophy", &tab_index, 1);
+                switch (tab_index) {
+                    case 0: {
+                        if (search_status == 1) {
+                            ImGui::Button("Searching...", ImVec2(100.f, 0.f));
+                        } else {
+                            if (ImGui::Button("Search!", ImVec2(100.f, 0.f))) {
+                                uint32_t number = strtoull(searchVal, NULL, hexSearch ? 16 : 10);
+                                cmd.startSearch(Command::st_i32, heapSearch, &number);
+                            }
                         }
-                        if (selected) {
-                            ImGui::SetItemDefaultFocus();
+                        ImGui::SameLine(125.f);
+                        ImGui::Text("Value:"); ImGui::SameLine();
+                        ImGui::PushItemWidth(200.f);
+                        ImGui::InputText("##Value", searchVal, 31, hexSearch ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
+                        ImGui::PopItemWidth();
+                        ImGui::SameLine();
+                        ImGui::PushItemWidth(100.f);
+                        if (ImGui::BeginCombo("##Type", combo_items[combo_index], 0)) {
+                            for (int i = 0; i < 10; ++i) {
+                                bool selected = combo_index == i;
+                                if (ImGui::Selectable(combo_items[i], selected)) {
+                                    combo_index = i;
+                                }
+                                if (selected) {
+                                    ImGui::SetItemDefaultFocus();
+                                }
+                            }
+                            ImGui::EndCombo();
                         }
-                    }
-                    ImGui::EndCombo();
-                }
-                ImGui::PopItemWidth();
-                ImGui::SameLine();
-                if (ImGui::Checkbox("HEX", &hexSearch)) {
-                    searchVal[0] = 0;
-                }
-                ImGui::SameLine();
-                ImGui::Checkbox("HEAP", &heapSearch);
+                        ImGui::PopItemWidth();
+                        ImGui::SameLine();
+                        if (ImGui::Checkbox("HEX", &hexSearch)) {
+                            searchVal[0] = 0;
+                        }
+                        ImGui::SameLine();
+                        ImGui::Checkbox("HEAP", &heapSearch);
 
-                if (status == 2) {
-                    ImGui::Text("Search result");
-                    ImGui::ListBoxHeader("##Result");
-                    ImGui::Columns(2, NULL, true);
-                    int sz = result.size();
-                    for (int i = 0; i < sz; ++i) {
-                        if (ImGui::Selectable(result[i].hexaddr.c_str(), result_idx == i, ImGuiSelectableFlags_SpanAllColumns))
-                            result_idx = i;
-                        ImGui::NextColumn();
-                        ImGui::Text(result[i].value.c_str());
-                        ImGui::NextColumn();
+                        switch(search_status) {
+                            case 2: {
+                                ImGui::Text("Search result");
+                                ImGui::ListBoxHeader("##Result");
+                                ImGui::Columns(2, NULL, true);
+                                int sz = search_result.size();
+                                for (int i = 0; i < sz; ++i) {
+                                    if (ImGui::Selectable(search_result[i].hexaddr.c_str(), search_result_idx == i, ImGuiSelectableFlags_SpanAllColumns))
+                                        search_result_idx = i;
+                                    ImGui::NextColumn();
+                                    ImGui::Text(search_result[i].value.c_str());
+                                    ImGui::NextColumn();
+                                }
+                                ImGui::ListBoxFooter();
+                                break;
+                            }
+                            case 3:
+                                ImGui::Text("Too many results, do more search please");
+                                break;
+                            case 4:
+                                ImGui::Text("Searching in progress, please do it later");
+                                break;
+                        }
+                        break;
                     }
-                    ImGui::ListBoxFooter();
-                } else if (status == 3) {
-                    ImGui::Text("Too many results, do more search please");
+                    case 1: {
+                        switch (trophy_status) {
+                            case 0:
+                            case 2:
+                                if (ImGui::Button("Refresh trophies")) {
+                                    trophy_status = 1;
+                                    trophy_idx = -1;
+                                    trophy_plat = -1;
+                                    trophies.clear();
+                                    cmd.refreshTrophy();
+                                }
+                                break;
+                            case 1:
+                                ImGui::Text("Refreshing");
+                                break;
+                        }
+                        int sz = trophies.size();
+                        if (sz == 0) break;
+                        ImGui::ListBoxHeader("##Trophies", ImVec2(display_w - 30.f, 420.f));
+                        ImGui::Columns(4, NULL, true);
+                        ImGui::SetColumnWidth(0, display_w - 30.f - 230.f);
+                        ImGui::SetColumnWidth(1, 70.f);
+                        ImGui::SetColumnWidth(2, 70.f);
+                        ImGui::SetColumnWidth(3, 70.f);
+                        ImGui::Text("Name");
+                        ImGui::NextColumn();
+                        ImGui::Text("Grade");
+                        ImGui::NextColumn();
+                        ImGui::Text("Hidden");
+                        ImGui::NextColumn();
+                        ImGui::Text("Unlocked");
+                        ImGui::NextColumn();
+                        for (int i = 0; i < sz; ++i) {
+                            auto &t = trophies[i];
+                            char hiddenname[32];
+                            if (ImGui::Selectable(t.name.empty() ? (sprintf(hiddenname, "Hidden##%d", i), hiddenname) : t.name.c_str(), trophy_idx == i, ImGuiSelectableFlags_SpanAllColumns))
+                                trophy_idx = i;
+                            ImGui::NextColumn();
+                            ImGui::Text(getGradeName(t.grade));
+                            ImGui::NextColumn();
+                            if (t.hidden)
+                                ImGui::Text("YES");
+                            ImGui::NextColumn();
+                            if (t.unlocked)
+                                ImGui::Text("YES");
+                            ImGui::NextColumn();
+                        }
+                        ImGui::ListBoxFooter();
+                        if (trophy_idx >= 0 && trophy_idx < sz && trophies[trophy_idx].grade != 1 && !trophies[trophy_idx].unlocked) {
+                            if (ImGui::Button("Unlock")) {
+                                cmd.unlockTrophy(trophies[trophy_idx].id);
+                            }
+                        }
+                        if (trophy_plat >= 0 && !trophies[trophy_plat].unlocked) {
+                            if (ImGui::Button("Unlock All")) {
+                                cmd.unlockAllTrophy();
+                            }
+                        }
+                        break;
+                    }
                 }
                 ImGui::End();
             }

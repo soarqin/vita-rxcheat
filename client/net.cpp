@@ -157,6 +157,9 @@ void UdpClient::process() {
             case 'K':
                 ikcp_input(kcp_, buf + 4, r - 4);
                 break;
+            case 'D':
+                disconnect();
+                break;
             }
         }
     }

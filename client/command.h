@@ -1,5 +1,8 @@
 #pragma once
 
+#include <functional>
+#include <string.h>
+
 class UdpClient;
 
 class Command {
@@ -20,12 +23,16 @@ public:
 
 public:
     inline Command(UdpClient &cl): client_(cl) {}
-    void startSearch(int st, void *data);
+    void startSearch(int st, bool heap, void *data);
     void nextSearch(void *data);
     void startFuzzySearch(int st);
     void nextFuzzySearch(int direction);
     int getTypeSize(int type);
     void formatTypeData(char *output, int type, const void *data);
+
+    void refreshTrophy();
+    void unlockTrophy(int id);
+    void unlockAllTrophy();
 
 private:
     void sendCommand(int cmd, void *buf, int len);
@@ -33,4 +40,5 @@ private:
 private:
     UdpClient &client_;
     int searchType_ = st_none;
+    std::function<void(int id, int grade, bool hidden, const std::string &name, const std::string &desc)> trophyCb_;
 };

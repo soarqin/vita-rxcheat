@@ -9,15 +9,15 @@
 #include <cstdint>
 #include <cinttypes>
 
-void Command::startSearch(int st, void *data) {
-    searchType_ = st & 0xFF;
+void Command::startSearch(int st, bool heap, void *data) {
+    searchType_ = st;
     int size = getTypeSize(searchType_);
     if (size == 0) return;
-    sendCommand(st, data, size);
+    sendCommand(st | (heap ? 0x100 : 0), data, size);
 }
 
 void Command::nextSearch(void *data) {
-    startSearch(searchType_ | 0x200, data);
+    startSearch(searchType_ | 0x200, false, data);
 }
 
 void Command::startFuzzySearch(int st) {
@@ -84,6 +84,18 @@ void Command::formatTypeData(char *output, int type, const void *data) {
         default:
             output[0] = 0;
     }
+}
+
+void Command::refreshTrophy() {
+    sendCommand(0x8000, NULL, 0);
+}
+
+void Command::unlockTrophy(int id) {
+    sendCommand(0x8100, &id, 4);
+}
+
+void Command::unlockAllTrophy() {
+    sendCommand(0x8101, NULL, 0);
 }
 
 void Command::sendCommand(int cmd, void *buf, int len) {

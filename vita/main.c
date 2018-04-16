@@ -42,7 +42,7 @@ int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
         return 0;
     int ret = TAI_CONTINUE(int, ref[2], id);
     if (id == SCE_SYSMODULE_NP_TROPHY)
-        trophy_init();
+        trophy_hook();
     return ret;
 }
 
@@ -74,6 +74,8 @@ int module_start(SceSize argc, const void *args) {
     util_init();
     net_init();
     debug_init(DEBUG);
+    trophy_init();
+    mem_init();
 
     hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x4D695C1F, scePowerSetUsingWireless_patched);
     hooks[1] = taiHookFunctionImport(&ref[1], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x3CE187B6, scePowerSetConfigurationMode_patched);
@@ -96,6 +98,7 @@ int module_stop(SceSize argc, const void *args) {
     for (i = 0; i < HOOKS_NUM; i++)
         taiHookRelease(hooks[i], ref[i]);
 
+    mem_finish();
     trophy_finish();
     net_finish();
     return SCE_KERNEL_STOP_SUCCESS;

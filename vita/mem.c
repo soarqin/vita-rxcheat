@@ -27,11 +27,28 @@ typedef enum {
 
 static memory_range staticmem[32], stackmem[8], blockmem[128];
 static int static_sz = 0, stack_sz = 0, block_sz = 0;
-static int mem_inited = 0;
+static int mem_loaded = 0;
 static int stype = 0, last_sidx = 0;
+static SceUID searchMutex = -1, searchSema = -1;
 
 void mem_init() {
-    mem_inited = 1;
+    searchMutex = sceKernelCreateMutex("rcsvr_search_mutex", 0, 0, 0);
+    searchSema = sceKernelCreateSema("rcsvr_search_sema", 0, 0, 1, NULL);
+}
+
+void mem_finish() {
+    if (searchSema >= 0) {
+        sceKernelDeleteSema(searchSema);
+        searchSema = -1;
+    }
+    if (searchMutex >= 0) {
+        sceKernelDeleteMutex(searchMutex);
+        searchMutex = -1;
+    }
+}
+
+static void mem_load() {
+    mem_loaded = 1;
     static_sz = stack_sz = 0;
     SceUID modlist[256];
     int num_loaded = 256;
@@ -149,7 +166,7 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
     }
 }
 
-void mem_search(int type, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen), int heap) {
+void mem_search(int type, int heap, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen)) {
     int size = 0;
     switch(type) {
         case st_u32: case st_i32: case st_float: size = 4; break;
@@ -159,8 +176,8 @@ void mem_search(int type, const void *data, int len, void (*cb)(const uint32_t *
         default: return;
     }
     if (size > len) return;
-    if (!mem_inited) {
-        mem_init();
+    if (!mem_loaded) {
+        mem_load();
     }
     if (stype != type) {
         SceUID f = -1;
@@ -189,7 +206,7 @@ void mem_search(int type, const void *data, int len, void (*cb)(const uint32_t *
         sceClibSnprintf(infile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
         if (kIoOpen(infile, SCE_O_RDONLY, &f) < 0) {
             type = st_none;
-            mem_search(type, data, len, cb, heap);
+            mem_search(type, heap, data, len, cb);
             return;
         }
         last_sidx ^= 1;
@@ -213,4 +230,53 @@ void mem_search_reset() {
 
 void mem_set(uint32_t addr, const void *data, int size) {
     memcpy((void *)(addr | 0x80000000U), data, size);
+}
+
+typedef struct {
+    int type;
+    int heap;
+    const char *buf;
+    int len;
+    void (*cb)(const uint32_t *addr, int count, int datalen);
+    void (*cb_start)(int type);
+    void (*cb_end)(int err);
+} search_request;
+
+volatile search_request search_req;
+
+static int _search_thread(SceSize args, void *argp) {
+    if (sceKernelTryLockMutex(searchMutex, 1) < 0) {
+        search_req.cb_end(-1);
+        return sceKernelExitDeleteThread(0);
+    }
+    int type = search_req.type;
+    const char *buf = search_req.buf;
+    int len = search_req.len;
+    int heap = search_req.heap;
+    void (*cb)(const uint32_t *addr, int count, int datalen);
+    void (*cb_start)(int type);
+    void (*cb_end)();
+    cb = search_req.cb;
+    cb_start = search_req.cb_start;
+    cb_end = search_req.cb_end;
+    sceKernelSignalSema(searchSema, 1);
+    cb_start(type);
+    mem_search(type, heap, buf, len, cb);
+    cb_end(0);
+    sceKernelUnlockMutex(searchMutex, 1);
+    return sceKernelExitDeleteThread(0);
+}
+
+void mem_start_search(int type, int heap, const char *buf, int len, void (*cb)(const uint32_t *addr, int count, int datalen), void (*cb_start)(int type), void (*cb_end)(int err)) {
+    search_req.type = type;
+    search_req.heap = heap;
+    search_req.buf = buf;
+    search_req.len = len;
+    search_req.cb = cb;
+    search_req.cb_start = cb_start;
+    search_req.cb_end = cb_end;
+    SceUID thid = sceKernelCreateThread("rcsvr_search_thread", (SceKernelThreadEntry)_search_thread, 0x10000100, 0x10000, 0, 0, NULL);
+    if (thid >= 0)
+        sceKernelStartThread(thid, 0, NULL);
+    sceKernelWaitSema(searchSema, 1, NULL);
 }
