@@ -4,17 +4,19 @@
 #include <psp2/types.h>
 #include <psp2/rtc.h>
 
-typedef SceUID SceNpTrophyHandle;
-typedef SceUID SceNpTrophyContext;
-typedef int    SceNpTrophyId;
+typedef SceInt32 SceNpTrophyHandle;
+typedef SceInt32 SceNpTrophyContext;
+typedef SceInt32 SceNpTrophyId;
 
 enum {
-    SCE_NP_TROPHY_TITLE_MAX_SIZE      = 128,
-    SCE_NP_TROPHY_GAME_DESCR_MAX_SIZE = 1024,
-    SCE_NP_TROPHY_NAME_MAX_SIZE       = 128,
-    SCE_NP_TROPHY_DESCR_MAX_SIZE      = 1024,
-    SCE_NP_TROPHY_FLAG_SETSIZE        = 128,
-    SCE_NP_TROPHY_FLAG_BITS_SHIFT     = 5,
+    SCE_NP_TROPHY_GAME_TITLE_MAX_SIZE  = 128,
+    SCE_NP_TROPHY_GAME_DESCR_MAX_SIZE  = 1024,
+    SCE_NP_TROPHY_GROUP_TITLE_MAX_SIZE = 128,
+    SCE_NP_TROPHY_GROUP_DESCR_MAX_SIZE = 1024,
+    SCE_NP_TROPHY_NAME_MAX_SIZE        = 128,
+    SCE_NP_TROPHY_DESCR_MAX_SIZE       = 1024,
+    SCE_NP_TROPHY_FLAG_SETSIZE         = 128,
+    SCE_NP_TROPHY_FLAG_BITS_SHIFT      = 5,
 };
 
 typedef enum SceNpTrophyGrade {
@@ -26,42 +28,65 @@ typedef enum SceNpTrophyGrade {
 } SceNpTrophyGrade;
 
 typedef struct SceNpTrophyGameDetails {
-    int  size;
-    int  platinumId;
-    int  numTrophies;
-    int  numPlatinum;
-    int  numGold;
-    int  numSilver;
-    int  numBronze;
-    char title[SCE_NP_TROPHY_TITLE_MAX_SIZE];
-    char description[SCE_NP_TROPHY_GAME_DESCR_MAX_SIZE];
+    SceSize   size;
+    SceUInt32 numGroups;
+    SceUInt32 numTrophies;
+    SceUInt32 numPlatinum;
+    SceUInt32 numGold;
+    SceUInt32 numSilver;
+    SceUInt32 numBronze;
+    char      title[SCE_NP_TROPHY_GAME_TITLE_MAX_SIZE];
+    char      description[SCE_NP_TROPHY_GAME_DESCR_MAX_SIZE];
 } SceNpTrophyGameDetails;
 
 typedef struct SceNpTrophyGameData {
-    int size;
-    int unlockedTrophies;
-    int unlockedPlatinum;
-    int unlockedGold;
-    int unlockedSilver;
-    int unlockedBronze;
-    int unk0;
+    SceSize   size;
+    SceUInt32 unlockedTrophies;
+    SceUInt32 unlockedPlatinum;
+    SceUInt32 unlockedGold;
+    SceUInt32 unlockedSilver;
+    SceUInt32 unlockedBronze;
+    SceUInt32 progressPercentage;
 } SceNpTrophyGameData;
 
+typedef struct SceNpTrophyGroupDetails {
+    SceSize   size;
+    SceInt32  groupId;
+    SceUInt32 numTrophies;
+    SceUInt32 numPlatinum;
+    SceUInt32 numGold;
+    SceUInt32 numSilver;
+    SceUInt32 numBronze;
+    char      title[SCE_NP_TROPHY_GROUP_TITLE_MAX_SIZE];
+    char      description[SCE_NP_TROPHY_GROUP_DESCR_MAX_SIZE];
+} SceNpTrophyGroupDetails;
+
+typedef struct SceNpTrophyGroupData {
+    SceSize   size;
+    SceInt32  groupId;
+    SceUInt32 unlockedTrophies;
+    SceUInt32 unlockedPlatinum;
+    SceUInt32 unlockedGold;
+    SceUInt32 unlockedSilver;
+    SceUInt32 unlockedBronze;
+    SceUInt32 progressPercentage;
+} SceNpTrophyGroupData;
+
 typedef struct SceNpTrophyDetails {
-    int           size;
+    SceSize       size;
     SceNpTrophyId trophyId;
-    int           trophyGrade;
-    int           unk0;
-    int           hidden;
+    SceInt32      trophyGrade;
+    SceInt32      groupId;
+    SceInt32      hidden;
     char          name[SCE_NP_TROPHY_NAME_MAX_SIZE];
     char          description[SCE_NP_TROPHY_DESCR_MAX_SIZE];
 } SceNpTrophyDetails;
 
 typedef struct SceNpTrophyData {
-    int           size;
+    SceSize       size;
     SceNpTrophyId trophyId;
-    int           unlocked;
-    int           unk0;
+    SceInt32      unlocked;
+    SceInt32      unk0;
     SceRtcTick    timestamp;
 } SceNpTrophyData;
 
@@ -69,10 +94,24 @@ typedef struct SceNpTrophyFlagArray {
     SceUInt32 flag_bits[SCE_NP_TROPHY_FLAG_SETSIZE >> SCE_NP_TROPHY_FLAG_BITS_SHIFT];
 } SceNpTrophyFlagArray;
 
+/* dummy structure */
+typedef struct SceNpCommunicationId SceNpCommunicationId;
+typedef struct SceNpCommunicationSignature SceNpCommunicationSignature;
+
+extern int sceNpTrophyInit(void *opt);
+extern int sceNpTrophyTerm(void);
 extern int sceNpTrophyCreateHandle(SceNpTrophyHandle *handle);
-extern int sceNpTrophyGetGameInfo(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyGameDetails *details, SceNpTrophyGameData *data);
-extern int sceNpTrophyGetTrophyInfo(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyId trophyId, SceNpTrophyDetails *details, SceNpTrophyData *data);
-extern int sceNpTrophyGetTrophyUnlockState(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyFlagArray *flags, int *count);
+extern int sceNpTrophyDestroyHandle(SceNpTrophyHandle handle);
+extern int sceNpTrophyAbortHandle(SceNpTrophyHandle handle);
+extern int sceNpTrophyCreateContext(SceNpTrophyContext *context, const SceNpCommunicationId *commId, const SceNpCommunicationSignature *commSign, SceUInt64 options);
+extern int sceNpTrophyDestroyContext(SceNpTrophyContext context);
 extern int sceNpTrophyUnlockTrophy(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyId trophyId, int *platinumId);
+extern int sceNpTrophyGetTrophyUnlockState(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyFlagArray *flags, int *count);
+extern int sceNpTrophyGetGameInfo(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyGameDetails *details, SceNpTrophyGameData *data);
+extern int sceNpTrophyGetGroupInfo(SceNpTrophyContext context, SceNpTrophyHandle handle, SceInt32 groupId, SceNpTrophyGroupDetails *details, SceNpTrophyGroupData *data);
+extern int sceNpTrophyGetTrophyInfo(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyId trophyId, SceNpTrophyDetails *details, SceNpTrophyData *data);
+extern int sceNpTrophyGetGameIcon(SceNpTrophyContext context, SceNpTrophyHandle handle, void *buffer, SceSize *size);
+extern int sceNpTrophyGetGroupIcon(SceNpTrophyContext context, SceNpTrophyHandle handle, SceInt32 groupId, void *buffer, SceSize *size);
+extern int sceNpTrophyGetTrophyIcon(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyId trophyId, void *buffer, SceSize *size);
 
 #endif
