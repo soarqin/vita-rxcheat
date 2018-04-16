@@ -12,13 +12,17 @@ static tai_hook_ref_t ref[HOOKS_NUM];
 
 typedef SceUID SceNpTrophyHandle;
 typedef SceUID SceNpTrophyContext;
-typedef SceUID SceNpTrophyId;
+typedef int    SceNpTrophyId;
 
 static SceNpTrophyContext context = -1;
-static SceNpTrophyHandle handle = -1;
+static SceNpTrophyHandle  handle  = -1;
 
-#define SCE_NP_TROPHY_NAME_MAX_SIZE  128
-#define SCE_NP_TROPHY_DESCR_MAX_SIZE 1024
+#define SCE_NP_TROPHY_TITLE_MAX_SIZE      128
+#define SCE_NP_TROPHY_GAME_DESCR_MAX_SIZE 1024
+#define SCE_NP_TROPHY_NAME_MAX_SIZE       128
+#define SCE_NP_TROPHY_DESCR_MAX_SIZE      1024
+#define SCE_NP_TROPHY_FLAG_SETSIZE        128
+#define SCE_NP_TROPHY_FLAG_BITS_SHIFT     5
 
 typedef enum SceNpTrophyGrade {
     SCE_NP_TROPHY_GRADE_UNKNOWN        = 0,
@@ -27,6 +31,28 @@ typedef enum SceNpTrophyGrade {
     SCE_NP_TROPHY_GRADE_SILVER         = 3,
     SCE_NP_TROPHY_GRADE_BRONZE         = 4,
 } SceNpTrophyGrade;
+
+typedef struct SceNpTrophyGameDetails {
+    int  size;
+    int  unk0;
+    int  numTrophies;
+    int  numPlatinum;
+    int  numGold;
+    int  numSilver;
+    int  numBronze;
+    char title[SCE_NP_TROPHY_TITLE_MAX_SIZE];
+    char description[SCE_NP_TROPHY_GAME_DESCR_MAX_SIZE];
+} SceNpTrophyGameDetails;
+
+typedef struct SceNpTrophyGameData {
+    int size;
+    int unlockedTrophies;
+    int unlockedPlatinum;
+    int unlockedGold;
+    int unlockedSilver;
+    int unlockedBronze;
+    int unk0;
+} SceNpTrophyGameData;
 
 typedef struct SceNpTrophyDetails {
     int           size;
@@ -46,9 +72,15 @@ typedef struct SceNpTrophyData {
     SceRtcTick    timestamp;
 } SceNpTrophyData;
 
+typedef struct SceNpTrophyFlagArray {
+    uint32_t flag_bits[SCE_NP_TROPHY_FLAG_SETSIZE >> SCE_NP_TROPHY_FLAG_BITS_SHIFT];
+} SceNpTrophyFlagArray;
+
 extern int sceNpTrophyUnlockTrophy(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyId trophyId, int *platinumId);
 extern int sceNpTrophyCreateHandle(SceNpTrophyHandle *handle);
+extern int sceNpTrophyGetGameInfo(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyGameDetails *details, SceNpTrophyGameData *data);
 extern int sceNpTrophyGetTrophyInfo(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyId trophyId, SceNpTrophyDetails *details, SceNpTrophyData *data);
+extern int sceNpTrophyGetTrophyUnlockState(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyFlagArray *flags, int count);
 
 int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, void *commID, void *commSign, uint64_t options) {
     int ret = TAI_CONTINUE(SceUID, ref[0], c, commID, commSign, options);
@@ -91,14 +123,21 @@ void trophy_test() {
         if (ret < 0)
             log_debug("sceNpTrophyCreateHandle: %d\n", ret);
     }
+    SceNpTrophyGameDetails detail0;
+    SceNpTrophyGameData data0;
+    detail0.size = sizeof(SceNpTrophyGameDetails);
+    data0.size = sizeof(SceNpTrophyGameData);
+    int ret = sceNpTrophyGetGameInfo(context, handle, &detail0, &data0);
+    if (ret < 0)
+        log_debug("sceNpTrophyGetGameInfo: %d\n", ret);
     SceNpTrophyDetails detail;
-    detail.size = sizeof(SceNpTrophyDetails);
     SceNpTrophyData data;
+    detail.size = sizeof(SceNpTrophyDetails);
     data.size = sizeof(SceNpTrophyData);
     int id;
-    for (id = 0; id < 256; ++id) {
+    for (id = 0; id < detail0.numTrophies; ++id) {
         int ret = sceNpTrophyGetTrophyInfo(context, handle, id, &detail, &data);
         if (ret < 0 && ret != 0x8055160f) break;
-        log_debug("sceNpTrophyGetTrophyInfo: %08X %d %d %d %d\n", ret, detail.trophyId, detail.trophyGrade, detail.spec, detail.hidden);
+        log_debug("sceNpTrophyGetTrophyInfo: %08X %d %d %d %s %s\n", ret, detail.trophyId, detail.trophyGrade, detail.hidden, detail.name, detail.description);
     }
 }
