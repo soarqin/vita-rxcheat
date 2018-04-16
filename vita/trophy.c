@@ -80,7 +80,7 @@ extern int sceNpTrophyUnlockTrophy(SceNpTrophyContext context, SceNpTrophyHandle
 extern int sceNpTrophyCreateHandle(SceNpTrophyHandle *handle);
 extern int sceNpTrophyGetGameInfo(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyGameDetails *details, SceNpTrophyGameData *data);
 extern int sceNpTrophyGetTrophyInfo(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyId trophyId, SceNpTrophyDetails *details, SceNpTrophyData *data);
-extern int sceNpTrophyGetTrophyUnlockState(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyFlagArray *flags, int count);
+extern int sceNpTrophyGetTrophyUnlockState(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyFlagArray *flags, int *count);
 
 int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, void *commID, void *commSign, uint64_t options) {
     int ret = TAI_CONTINUE(SceUID, ref[0], c, commID, commSign, options);
@@ -130,6 +130,14 @@ void trophy_test() {
     int ret = sceNpTrophyGetGameInfo(context, handle, &detail0, &data0);
     if (ret < 0)
         log_debug("sceNpTrophyGetGameInfo: %d\n", ret);
+    SceNpTrophyFlagArray a;
+    int count;
+    ret = sceNpTrophyGetTrophyUnlockState(context, handle, &a, &count);
+    if (ret < 0)
+        log_debug("sceNpTrophyGetTrophyUnlockState: %d\n", ret);
+    else {
+        log_debug("sceNpTrophyGetTrophyUnlockState: %d %08X %08X\n", count, a.flag_bits[0], a.flag_bits[1]);
+    }
     SceNpTrophyDetails detail;
     SceNpTrophyData data;
     detail.size = sizeof(SceNpTrophyDetails);
