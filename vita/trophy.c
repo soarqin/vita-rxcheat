@@ -14,15 +14,14 @@ typedef SceUID SceNpTrophyHandle;
 typedef SceUID SceNpTrophyContext;
 typedef int    SceNpTrophyId;
 
-static SceNpTrophyContext context = -1;
-static SceNpTrophyHandle  handle  = -1;
-
-#define SCE_NP_TROPHY_TITLE_MAX_SIZE      128
-#define SCE_NP_TROPHY_GAME_DESCR_MAX_SIZE 1024
-#define SCE_NP_TROPHY_NAME_MAX_SIZE       128
-#define SCE_NP_TROPHY_DESCR_MAX_SIZE      1024
-#define SCE_NP_TROPHY_FLAG_SETSIZE        128
-#define SCE_NP_TROPHY_FLAG_BITS_SHIFT     5
+enum {
+    SCE_NP_TROPHY_TITLE_MAX_SIZE      = 128,
+    SCE_NP_TROPHY_GAME_DESCR_MAX_SIZE = 1024,
+    SCE_NP_TROPHY_NAME_MAX_SIZE       = 128,
+    SCE_NP_TROPHY_DESCR_MAX_SIZE      = 1024,
+    SCE_NP_TROPHY_FLAG_SETSIZE        = 128,
+    SCE_NP_TROPHY_FLAG_BITS_SHIFT     = 5,
+};
 
 typedef enum SceNpTrophyGrade {
     SCE_NP_TROPHY_GRADE_UNKNOWN        = 0,
@@ -81,6 +80,9 @@ extern int sceNpTrophyCreateHandle(SceNpTrophyHandle *handle);
 extern int sceNpTrophyGetGameInfo(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyGameDetails *details, SceNpTrophyGameData *data);
 extern int sceNpTrophyGetTrophyInfo(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyId trophyId, SceNpTrophyDetails *details, SceNpTrophyData *data);
 extern int sceNpTrophyGetTrophyUnlockState(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyFlagArray *flags, int *count);
+
+static SceNpTrophyContext context = -1;
+static SceNpTrophyHandle  handle  = -1;
 
 int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, void *commID, void *commSign, uint64_t options) {
     int ret = TAI_CONTINUE(SceUID, ref[0], c, commID, commSign, options);
