@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <Windows.h>
 
+#ifdef _WIN32
 int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 #ifndef NDEBUG
     AllocConsole();
@@ -12,8 +13,9 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     freopen("CONOUT$", "w", stdout);
     freopen("CONOUT$", "w", stderr);
 #endif
+#else
+int main(int argc, char *argv[]) {
+#endif
     Gui gui;
     return gui.run();
-
-    return 0;
 }
