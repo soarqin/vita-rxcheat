@@ -29,6 +29,14 @@ void Command::nextFuzzySearch(int direction) {
     startFuzzySearch(((direction + 3) << 8) | searchType_);
 }
 
+void Command::modifyMemory(int st, uint32_t offset, const void *data) {
+    int size = getTypeSize(st);
+    char cont[12];
+    *(uint32_t*)cont = offset;
+    memcpy(cont + 4, data, size);
+    sendCommand(0x800 | st, cont, 4 + size);
+}
+
 int Command::getTypeSize(int type) {
     switch (searchType_) {
         case st_u32:

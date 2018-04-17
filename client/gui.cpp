@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "gui.h"
 
 #include "net.h"
@@ -119,6 +121,7 @@ int Gui::run() {
             }
             ImGui::End();
         }
+        editPopup();
 
         glViewport(0, 0, dispWidth_, dispHeight_);
         glClearColor(0.f, 0.f, 0.f, 1.f);
@@ -252,9 +255,9 @@ inline void Gui::searchPanel() {
     if (searchStatus_ == 1) {
         ImGui::Button("Searching...", ImVec2(100.f, 0.f));
     } else {
-        if (ImGui::Button("Search!", ImVec2(100.f, 0.f))) {
+        if (ImGui::Button("Search!", ImVec2(100.f, 0.f)) && typeComboIndex_ >= 0) {
             uint64_t number = strtoull(searchVal_, NULL, hexSearch_ ? 16 : 10);
-            cmd_->startSearch(Command::st_i32, heapSearch_, &number);
+            cmd_->startSearch(comboItemType[typeComboIndex_], heapSearch_, &number);
         }
     }
     ImGui::SameLine(125.f);
@@ -264,11 +267,11 @@ inline void Gui::searchPanel() {
     ImGui::PopItemWidth();
     ImGui::SameLine();
     ImGui::PushItemWidth(100.f);
-    if (ImGui::BeginCombo("##Type", comboItems[comboIndex_], 0)) {
+    if (ImGui::BeginCombo("##Type", comboItems[typeComboIndex_], 0)) {
         for (int i = 0; i < 10; ++i) {
-            bool selected = comboIndex_ == i;
+            bool selected = typeComboIndex_ == i;
             if (ImGui::Selectable(comboItems[i], selected)) {
-                comboIndex_ = i;
+                typeComboIndex_ = i;
             }
             if (selected) ImGui::SetItemDefaultFocus();
         }
@@ -291,8 +294,13 @@ inline void Gui::searchPanel() {
             int sz = searchResult_.size();
             for (int i = 0; i < sz; ++i) {
                 bool selected = searchResultIdx_ == i;
-                if (ImGui::Selectable(searchResult_[i].hexaddr.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns))
+                if (ImGui::Selectable(searchResult_[i].hexaddr.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
                     searchResultIdx_ = i;
+                    if (ImGui::IsMouseDoubleClicked(0)) {
+                        strcpy(editVal_, searchResult_[i].value.c_str());
+                        ImGui::OpenPopup("Edit memory");
+                    }
+                }
                 if (selected) ImGui::SetItemDefaultFocus();
                 ImGui::NextColumn();
                 ImGui::Text(searchResult_[i].value.c_str());
@@ -372,5 +380,28 @@ inline void Gui::trophyPanel() {
             }
             cmd_->unlockAllTrophy(data);
         }
+    }
+}
+
+void Gui::editPopup() {
+    if (ImGui::BeginPopupModal("Edit memory", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Edit address: %s", searchResult_[searchResultIdx_].hexaddr.c_str());
+        ImGui::InputText("##EditValue", editVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
+        ImGui::SameLine();
+        if (ImGui::Checkbox("HEX", &hexSearch_)) {
+            searchVal_[0] = 0;
+            editVal_[0] = 0;
+        }
+        if (ImGui::Button("OK")) {
+            ImGui::CloseCurrentPopup();
+            uint64_t number = strtoull(searchVal_, NULL, hexSearch_ ? 16 : 10);
+            cmd_->modifyMemory(searchResultType_, searchResult_[searchResultIdx_].addr, &number);
+            editVal_[0] = 0;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
     }
 }

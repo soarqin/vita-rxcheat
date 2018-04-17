@@ -28,6 +28,7 @@ public:
     void nextSearch(void *data);
     void startFuzzySearch(int st);
     void nextFuzzySearch(int direction);
+    void modifyMemory(int st, uint32_t offset, const void *data);
     int getTypeSize(int type);
     void formatTypeData(char *output, int type, const void *data);
 
