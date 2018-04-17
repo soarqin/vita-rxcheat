@@ -23,7 +23,6 @@ void checkInput() {
     sceCtrlPeekBufferPositive(0, &ctrl, 1);
     if (old_buttons == ctrl.buttons) return;
     if ((ctrl.buttons & (SCE_CTRL_START | SCE_CTRL_SELECT)) == (SCE_CTRL_START | SCE_CTRL_SELECT)) {
-        mem_init();
         trophy_test();
     }
     old_buttons = ctrl.buttons;

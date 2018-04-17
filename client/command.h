@@ -1,7 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <string>
 #include <functional>
-#include <string.h>
 
 class UdpClient;
 
@@ -31,8 +32,8 @@ public:
     void formatTypeData(char *output, int type, const void *data);
 
     void refreshTrophy();
-    void unlockTrophy(int id);
-    void unlockAllTrophy();
+    void unlockTrophy(int id, bool hidden);
+    void unlockAllTrophy(uint32_t hidden[4]);
 
 private:
     void sendCommand(int cmd, void *buf, int len);

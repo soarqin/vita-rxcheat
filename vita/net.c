@@ -225,10 +225,20 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
         if (type == 0) {
             if (len < 4)
                 _kcp_send_cmd(0x8110, NULL, 0);
-            else
-                trophy_unlock(*(int*)buf, _kcp_trophy_list, _kcp_trophy_unlock);
+            else {
+                int id = *(int*)buf;
+                int hidden = 0;
+                if (id & 0x100) {
+                    id &= ~0x100;
+                    hidden = 1;
+                }
+                trophy_unlock(id, hidden, _kcp_trophy_list, _kcp_trophy_unlock);
+            }
         } else {
-            trophy_unlock_all(_kcp_trophy_list, _kcp_trophy_unlock);
+            if (len < 16)
+                _kcp_send_cmd(0x8110, NULL, 0);
+            else
+                trophy_unlock_all((uint32_t*)buf, _kcp_trophy_list, _kcp_trophy_unlock);
         }
         break;
     }

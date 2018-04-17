@@ -68,6 +68,7 @@ void trophy_finish() {
 typedef struct {
     int type;
     int id;
+    uint32_t hidden[4];
     void (*cb)(int id, int grade, int hidden, int unlocked, const char *name, const char *desc);
     void (*cb2)(int ret, int id, int platid);
     void (*cb_end)(int err);
@@ -82,6 +83,8 @@ static int _trophy_thread(SceSize args, void *argp) {
     }
     int type = trophy_req.type;
     int id = trophy_req.id;
+    uint32_t hidden[4];
+    memcpy(hidden, trophy_req.hidden, 4 * sizeof(uint32_t));
     void (*cb)(int id, int grade, int hidden, int unlocked, const char *name, const char *desc);
     void (*cb2)(int ret, int id, int platid);
     void (*cb_end)(int err);
@@ -124,13 +127,15 @@ static int _trophy_thread(SceSize args, void *argp) {
             int ret = sceNpTrophyUnlockTrophy(context, handle, id, &platid);
             cb2(ret, id, platid);
             if (ret < 0) break;
-            SceNpTrophyDetails detail;
-            SceNpTrophyData data;
-            detail.size = sizeof(SceNpTrophyDetails);
-            data.size = sizeof(SceNpTrophyData);
-            ret = sceNpTrophyGetTrophyInfo(context, handle, id, &detail, &data);
-            if (ret < 0 || !detail.hidden) break;
-            cb(detail.trophyId, detail.trophyGrade, detail.hidden, data.unlocked, detail.name, detail.description);
+            if (hidden[0]) {
+                SceNpTrophyDetails detail;
+                SceNpTrophyData data;
+                detail.size = sizeof(SceNpTrophyDetails);
+                data.size = sizeof(SceNpTrophyData);
+                ret = sceNpTrophyGetTrophyInfo(context, handle, id, &detail, &data);
+                if (ret < 0) break;
+                cb(detail.trophyId, detail.trophyGrade, detail.hidden, data.unlocked, detail.name, detail.description);
+            }
             break;
         }
     case 2: {
@@ -142,19 +147,21 @@ static int _trophy_thread(SceSize args, void *argp) {
                 cb2(ret, 0, 0);
                 break;
             }
-            SceNpTrophyDetails detail;
-            SceNpTrophyData data;
-            detail.size = sizeof(SceNpTrophyDetails);
-            data.size = sizeof(SceNpTrophyData);
             int i;
             for (i = 0; i < count; ++i) {
-                if (a.flag_bits[i >> 5] & (1U << (i &0x1F))) continue;
+                if (a.flag_bits[i >> 5] & (1U << (i & 0x1F))) continue;
                 ret = sceNpTrophyUnlockTrophy(context, handle, i, &platid);
                 cb2(ret, i, platid);
                 if (ret < 0) continue;
-                int ret = sceNpTrophyGetTrophyInfo(context, handle, i, &detail, &data);
-                if (ret < 0 || !detail.hidden) continue;
-                cb(detail.trophyId, detail.trophyGrade, detail.hidden, data.unlocked, detail.name, detail.description);
+                if (hidden[i >> 5] & (1U << (i & 0x1F))) {
+                    SceNpTrophyDetails detail;
+                    SceNpTrophyData data;
+                    detail.size = sizeof(SceNpTrophyDetails);
+                    data.size = sizeof(SceNpTrophyData);
+                    int ret = sceNpTrophyGetTrophyInfo(context, handle, i, &detail, &data);
+                    if (ret < 0) continue;
+                    cb(detail.trophyId, detail.trophyGrade, detail.hidden, data.unlocked, detail.name, detail.description);
+                }
             }
             break;
         }
@@ -174,9 +181,10 @@ void trophy_list(void (*cb)(int id, int grade, int hidden, int unlocked, const c
     sceKernelWaitSema(trophySema, 1, NULL);
 }
 
-void trophy_unlock(int id, void (*cb)(int id, int grade, int hidden, int unlocked, const char *name, const char *desc), void (*cb2)(int ret, int id, int platid)) {
+void trophy_unlock(int id, int hidden, void (*cb)(int id, int grade, int hidden, int unlocked, const char *name, const char *desc), void (*cb2)(int ret, int id, int platid)) {
     trophy_req.type = 1;
     trophy_req.id = id;
+    trophy_req.hidden[0] = hidden ? 1 : 0;
     trophy_req.cb = cb;
     trophy_req.cb2 = cb2;
     SceUID thid = sceKernelCreateThread("rcsvr_trophy_thread", (SceKernelThreadEntry)_trophy_thread, 0x10000100, 0x10000, 0, 0, NULL);
@@ -185,8 +193,9 @@ void trophy_unlock(int id, void (*cb)(int id, int grade, int hidden, int unlocke
     sceKernelWaitSema(trophySema, 1, NULL);
 }
 
-void trophy_unlock_all(void (*cb)(int id, int grade, int hidden, int unlocked, const char *name, const char *desc), void (*cb2)(int ret, int id, int platid)) {
+void trophy_unlock_all(uint32_t *hidden, void (*cb)(int id, int grade, int hidden, int unlocked, const char *name, const char *desc), void (*cb2)(int ret, int id, int platid)) {
     trophy_req.type = 2;
+    memcpy(trophy_req.hidden, hidden, 4 * sizeof(uint32_t));
     trophy_req.cb = cb;
     trophy_req.cb2 = cb2;
     SceUID thid = sceKernelCreateThread("rcsvr_trophy_thread", (SceKernelThreadEntry)_trophy_thread, 0x10000100, 0x10000, 0, 0, NULL);

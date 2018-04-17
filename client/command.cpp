@@ -90,12 +90,13 @@ void Command::refreshTrophy() {
     sendCommand(0x8000, NULL, 0);
 }
 
-void Command::unlockTrophy(int id) {
+void Command::unlockTrophy(int id, bool hidden) {
+    if (hidden) id |= 0x100;
     sendCommand(0x8100, &id, 4);
 }
 
-void Command::unlockAllTrophy() {
-    sendCommand(0x8101, NULL, 0);
+void Command::unlockAllTrophy(uint32_t hidden[4]) {
+    sendCommand(0x8101, hidden, 16);
 }
 
 void Command::sendCommand(int cmd, void *buf, int len) {
