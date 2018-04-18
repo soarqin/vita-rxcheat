@@ -2,6 +2,7 @@
 
 #include "gui.h"
 
+#include "lang.h"
 #include "net.h"
 #include "command.h"
 #include "handler.h"
@@ -25,15 +26,19 @@ static void glfwErrorCallback(int error, const char* description) {
 
 inline const char *getGradeName(int grade) {
     switch (grade) {
-        case 1: return "Platinum"; break;
-        case 2: return "Gold"; break;
-        case 3: return "Silver"; break;
-        case 4: return "Bronze"; break;
-        default: return "Unknown"; break;
+        case 1: return LS(TROPHY_GRADE_PLATINUM); break;
+        case 2: return LS(TROPHY_GRADE_GOLD); break;
+        case 3: return LS(TROPHY_GRADE_SILVER); break;
+        case 4: return LS(TROPHY_GRADE_BRONZE); break;
+        default: return LS(TROPHY_GRADE_UNKNOWN); break;
     }
 }
 
 Gui::Gui() {
+    std::vector<std::string> langs;
+    g_lang.listLanguages(langs);
+    g_lang.loadDefault();
+    g_lang.load("chs");
     UdpClient::init();
     client_ = new UdpClient;
     cmd_ = new Command(*client_);
@@ -51,7 +56,7 @@ Gui::Gui() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
     glfwWindowHint(GLFW_RESIZABLE, 0);
-    window_ = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "VITA Remote Cheat Client", NULL, NULL);
+    window_ = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, LS(WINDOW_TITLE), NULL, NULL);
     glfwMakeContextCurrent(window_);
     glfwSwapInterval(1);
     gl3wInit2(glfwGetProcAddress);
@@ -75,13 +80,15 @@ Gui::Gui() {
         0xFF00, 0xFFEF, // Half-width characters
         0,
     };
-    if (!f->AddFontFromFileTTF("font.ttc", 18.0f, NULL, ranges)
-#ifdef _WIN32
-        && !f->AddFontFromFileTTF("C:/Windows/Fonts/msyh.ttc", 18.0f, NULL, ranges)
-        && !f->AddFontFromFileTTF("C:/Windows/Fonts/simsun.ttc", 18.0f, NULL, ranges)
-#endif
-        )
-        f->AddFontDefault();
+    if (!f->AddFontFromFileTTF("font.ttc", 18.0f, NULL, ranges)) {
+        bool found = false;
+        for (auto &p: g_lang.fonts()) {
+            if (f->AddFontFromFileTTF(p.c_str(), 18.0f, NULL, ranges)) {
+                found = true;  break;
+            }
+        }
+        if (!found) f->AddFontDefault();
+    }
 }
 
 Gui::~Gui() {
@@ -106,7 +113,7 @@ int Gui::run() {
 
         ImGui_ImplGlfwGL3_NewFrame();
         char title[256];
-        snprintf(title, 256, "VITA Remote Cheat Client" " - %.1f FPS", ImGui::GetIO().Framerate);
+        snprintf(title, 256, "%s" " - %.1f FPS", LS(WINDOW_TITLE), ImGui::GetIO().Framerate);
         glfwSetWindowTitle(window_, title);
 
         if (ImGui::Begin("", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize)) {
@@ -197,26 +204,26 @@ inline void Gui::connectPanel() {
     ImGui::SetWindowSize(ImVec2(dispWidth_ - 20.f, dispHeight_ - 20.f));
     if (client_->isConnected()) {
         ImGui::Text("%s - %s", client_->titleId().c_str(), client_->title().c_str());
-        if (ImGui::Button("Disconnect", ImVec2(100.f, 0.f))) {
+        if (ImGui::Button(LS(DISCONNECT), ImVec2(100.f, 0.f))) {
             client_->disconnect();
         }
     } else {
-        ImGui::Text("Not connected");
-        if (ImGui::Button("Connect", ImVec2(100.f, 0.f))) {
+        ImGui::Text(LS(NOT_CONNECTED));
+        if (ImGui::Button(LS(CONNECT), ImVec2(100.f, 0.f))) {
             client_->connect(ip_, 9527);
         }
     }
     ImGui::SameLine(125.f);
-    ImGui::Text("IP Address:"); ImGui::SameLine();
+    ImGui::Text(LS(IP_ADDR)); ImGui::SameLine();
     ImGui::PushItemWidth(200.f);
     ImGui::InputText("##IP", ip_, 256, client_->isConnected() ? ImGuiInputTextFlags_ReadOnly : 0);
     ImGui::PopItemWidth();
 }
 
 inline void Gui::tabPanel() {
-    ImGui::RadioButton("Memory Searcher", &tabIndex_, 0);
+    ImGui::RadioButton(LS(MEM_SEARCHER), &tabIndex_, 0);
     ImGui::SameLine();
-    ImGui::RadioButton("Trophy", &tabIndex_, 1);
+    ImGui::RadioButton(LS(TROPHY), &tabIndex_, 1);
 }
 
 inline void formatData(int type, const char *src, bool isHex, void *dst) {
@@ -261,41 +268,35 @@ inline void formatData(int type, const char *src, bool isHex, void *dst) {
 }
 
 inline void Gui::searchPanel() {
-    const char* comboItems[] = {
-        "int32", "uint32", "int16", "uint16",
-        "int8", "uint8", "int64", "uint64",
-        "float", "double",
-    };
-
     const int comboItemType[] = {Command::st_i32, Command::st_u32,
         Command::st_i16, Command::st_u16, Command::st_i8, Command::st_u8,
         Command::st_i64, Command::st_u64, Command::st_float, Command::st_double,
     };
 
     if (searchStatus_ == 1) {
-        ImGui::Button("Searching...", ImVec2(100.f, 0.f));
+        ImGui::Button(LS(SEARCHING), ImVec2(100.f, 0.f));
     } else {
-        if (ImGui::Button("New Search", ImVec2(100.f, 0.f)) && typeComboIndex_ >= 0) {
+        if (ImGui::Button(LS(NEW_SEARCH), ImVec2(100.f, 0.f)) && typeComboIndex_ >= 0) {
             char output[8];
             formatData(comboItemType[typeComboIndex_], searchVal_, hexSearch_, output);
             cmd_->startSearch(comboItemType[typeComboIndex_], heapSearch_, output);
         }
-        if ((searchStatus_ == 2 || searchStatus_ == 3) && (ImGui::SameLine(), ImGui::Button("Next", ImVec2(50.f, 0.f)) && typeComboIndex_ >= 0)) {
+        if ((searchStatus_ == 2 || searchStatus_ == 3) && (ImGui::SameLine(), ImGui::Button(LS(NEXT_SEARCH), ImVec2(70.f, 0.f)) && typeComboIndex_ >= 0)) {
             char output[8];
             formatData(searchResultType_, searchVal_, hexSearch_, output);
             cmd_->nextSearch(output);
         }
     }
-    ImGui::SameLine(); ImGui::Text("Value:"); ImGui::SameLine();
+    ImGui::SameLine(); ImGui::Text(LS(VALUE)); ImGui::SameLine();
     ImGui::PushItemWidth(120.f);
     ImGui::InputText("##Value", searchVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
     ImGui::PopItemWidth();
     ImGui::SameLine();
     ImGui::PushItemWidth(100.f);
-    if (ImGui::BeginCombo("##Type", comboItems[typeComboIndex_], 0)) {
+    if (ImGui::BeginCombo("##Type", LS(DATATYPE_FIRST + typeComboIndex_), 0)) {
         for (int i = 0; i < 10; ++i) {
             bool selected = typeComboIndex_ == i;
-            if (ImGui::Selectable(comboItems[i], selected)) {
+            if (ImGui::Selectable(LS(DATATYPE_FIRST + i), selected)) {
                 if (typeComboIndex_ != i) {
                     typeComboIndex_ = i;
                     if (searchResultType_ != comboItemType[i] || searchResult_.empty()) {
@@ -311,16 +312,16 @@ inline void Gui::searchPanel() {
     }
     ImGui::PopItemWidth();
     ImGui::SameLine();
-    if (ImGui::Checkbox("HEX", &hexSearch_)) {
+    if (ImGui::Checkbox(LS(HEX), &hexSearch_)) {
         searchVal_[0] = 0;
     }
     ImGui::SameLine();
-    ImGui::Checkbox("HEAP", &heapSearch_);
+    ImGui::Checkbox(LS(HEAP), &heapSearch_);
 
     switch (searchStatus_) {
         case 2:
         {
-            ImGui::Text("Search result");
+            ImGui::Text(LS(SEARCH_RESULT));
             ImGui::ListBoxHeader("##Result");
             ImGui::Columns(2, NULL, true);
             int sz = searchResult_.size();
@@ -342,10 +343,10 @@ inline void Gui::searchPanel() {
             break;
         }
         case 3:
-            ImGui::Text("Too many results, do more search please");
+            ImGui::Text(LS(TOO_MANY_RESULTS));
             break;
         case 4:
-            ImGui::Text("Searching in progress, please do it later");
+            ImGui::Text(LS(SEARCH_IN_PROGRESS));
             break;
     }
 }
@@ -354,7 +355,7 @@ inline void Gui::trophyPanel() {
     switch (trophyStatus_) {
         case 0:
         case 2:
-            if (ImGui::Button("Refresh trophies")) {
+            if (ImGui::Button(LS(REFRESH_TROPHY))) {
                 trophyStatus_ = 1;
                 trophyIdx_ = -1;
                 trophyPlat_ = -1;
@@ -363,7 +364,7 @@ inline void Gui::trophyPanel() {
             }
             break;
         case 1:
-            ImGui::Text("Refreshing");
+            ImGui::Text(LS(REFRESHING));
             break;
     }
     int sz = trophies_.size();
@@ -374,37 +375,37 @@ inline void Gui::trophyPanel() {
     ImGui::SetColumnWidth(1, 70.f);
     ImGui::SetColumnWidth(2, 70.f);
     ImGui::SetColumnWidth(3, 70.f);
-    ImGui::Text("Name");
+    ImGui::Text(LS(TROPHY_NAME));
     ImGui::NextColumn();
-    ImGui::Text("Grade");
+    ImGui::Text(LS(TROPHY_GRADE));
     ImGui::NextColumn();
-    ImGui::Text("Hidden");
+    ImGui::Text(LS(TROPHY_HIDDEN));
     ImGui::NextColumn();
-    ImGui::Text("Unlocked");
+    ImGui::Text(LS(TROPHY_UNLOCKED));
     ImGui::NextColumn();
     for (int i = 0; i < sz; ++i) {
         auto &t = trophies_[i];
         char hiddenname[32];
-        if (ImGui::Selectable(t.name.empty() ? (snprintf(hiddenname, 32, "Hidden##%d", i), hiddenname) : t.name.c_str(), trophyIdx_ == i, ImGuiSelectableFlags_SpanAllColumns))
+        if (ImGui::Selectable(t.name.empty() ? (snprintf(hiddenname, 32, LS(TROPHY_TITLE_HIDDEN), i), hiddenname) : t.name.c_str(), trophyIdx_ == i, ImGuiSelectableFlags_SpanAllColumns))
             trophyIdx_ = i;
         ImGui::NextColumn();
         ImGui::Text(getGradeName(t.grade));
         ImGui::NextColumn();
         if (t.hidden)
-            ImGui::Text("YES");
+            ImGui::Text(LS(YES));
         ImGui::NextColumn();
         if (t.unlocked)
-            ImGui::Text("YES");
+            ImGui::Text(LS(YES));
         ImGui::NextColumn();
     }
     ImGui::ListBoxFooter();
     if (trophyIdx_ >= 0 && trophyIdx_ < sz && trophies_[trophyIdx_].grade != 1 && !trophies_[trophyIdx_].unlocked) {
-        if (ImGui::Button("Unlock")) {
+        if (ImGui::Button(LS(TROPHY_UNLOCK))) {
             cmd_->unlockTrophy(trophies_[trophyIdx_].id, trophies_[trophyIdx_].hidden);
         }
     }
     if (trophyPlat_ >= 0 && !trophies_[trophyPlat_].unlocked) {
-        if (ImGui::Button("Unlock All")) {
+        if (ImGui::Button(LS(TROPHY_UNLOCK_ALL))) {
             uint32_t data[4];
             for (auto &t: trophies_) {
                 if (t.hidden)
@@ -417,16 +418,16 @@ inline void Gui::trophyPanel() {
 
 void Gui::editPopup() {
     if (!editing_) return;
-    ImGui::OpenPopup("Edit memory");
-    if (ImGui::BeginPopupModal("Edit memory", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Edit address: %s", searchResult_[searchResultIdx_].hexaddr.c_str());
+    ImGui::OpenPopup(LS(POPUP_EDIT));
+    if (ImGui::BeginPopupModal(LS(POPUP_EDIT), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("%s: %s", LS(EDIT_ADDR), searchResult_[searchResultIdx_].hexaddr.c_str());
         ImGui::InputText("##EditValue", editVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
         ImGui::SameLine();
-        if (ImGui::Checkbox("HEX", &hexSearch_)) {
+        if (ImGui::Checkbox(LS(HEX), &hexSearch_)) {
             searchVal_[0] = 0;
             editVal_[0] = 0;
         }
-        if (ImGui::Button("OK")) {
+        if (ImGui::Button(LS(OK))) {
             editing_ = false;
             ImGui::CloseCurrentPopup();
             char output[8];
@@ -435,7 +436,8 @@ void Gui::editPopup() {
             editVal_[0] = 0;
         }
         ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
+        if (ImGui::Button(LS(CANCEL))) {
+            editing_ = false;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();

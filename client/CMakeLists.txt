@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.8.12)
 
 project(rcsvr_client)
 
+set(CMAKE_CXX_STANDARD 14)
+
 if (MSVC)
     set(CompilerFlags
             CMAKE_CXX_FLAGS
@@ -18,6 +20,7 @@ endif()
 add_subdirectory(gl3w)
 add_subdirectory(glfw)
 add_subdirectory(imgui)
+add_subdirectory(yaml-cpp)
 
 add_definitions(-DUNICODE -D_UNICODE)
 
@@ -32,5 +35,17 @@ add_executable(rcsvr_client WIN32
     ../kcp/ikcp.c ../kcp/ikcp.h
     )
 
-target_include_directories(rcsvr_client PRIVATE glfw/include PRIVATE imgui PRIVATE ../kcp)
-target_link_libraries(rcsvr_client imgui glfw ${GLFW_PKG_DEPS} ${GLFW_PKG_LIBS} gl3w ws2_32)
+if(MSVC)
+	set_target_properties(rcsvr_client PROPERTIES
+		DEBUG_POSTFIX "${LIB_TARGET_SUFFIX}d"
+		RELEASE_POSTFIX "${LIB_TARGET_SUFFIX}"
+		MINSIZEREL_POSTFIX "${LIB_TARGET_SUFFIX}"
+		RELWITHDEBINFO_POSTFIX "${LIB_TARGET_SUFFIX}"
+	)
+endif()
+
+target_include_directories(rcsvr_client PRIVATE glfw/include PRIVATE imgui PRIVATE yaml-cpp/include PRIVATE ../kcp)
+target_link_libraries(rcsvr_client imgui glfw ${GLFW_PKG_DEPS} ${GLFW_PKG_LIBS} gl3w yaml-cpp ws2_32)
+if(WIN32)
+    target_link_libraries(rcsvr_client shlwapi)
+endif()
