@@ -6,6 +6,7 @@
 
 class UdpClient;
 class Command;
+class Handler;
 
 extern "C" typedef struct GLFWwindow GLFWwindow;
 
@@ -16,8 +17,30 @@ public:
 
     int run();
 
+#pragma pack(push, 1)
+    struct SearchVal {
+        uint32_t addr;
+        uint64_t val;
+    }
+#ifdef __GNUC__
+    __attribute__((packed))
+#endif
+    ;
+#pragma pack(pop)
+
+
+    inline bool inSearching() { return searchStatus_ == 1; }
+    void searchResultStart(int type);
+    void searchResult(const SearchVal *vals, int count);
+    void searchEnd(int ret);
+
+    void trophyList(int id, int grade, bool hidden, bool unlocked, const char *name, const char *desc);
+    void trophyListEnd();
+    void trophyListErr();
+    void trophyUnlocked(int idx, int platidx);
+    void trophyUnlockErr();
+
 private:
-    void handlePacket(int op, const char *buf, int len);
     void connectPanel();
     void tabPanel();
     void searchPanel();
@@ -27,6 +50,7 @@ private:
 private:
     UdpClient *client_;
     Command *cmd_;
+    Handler *handler_;
 
     GLFWwindow* window_ = NULL;
     int dispWidth_ = 0, dispHeight_ = 0;

@@ -4,6 +4,7 @@
 
 #include "net.h"
 #include "command.h"
+#include "handler.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw_gl3.h"
@@ -36,8 +37,9 @@ Gui::Gui() {
     UdpClient::init();
     client_ = new UdpClient;
     cmd_ = new Command(*client_);
+    handler_ = new Handler(*this);
 
-    client_->setOnRecv(std::bind(&Gui::handlePacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+    client_->setOnRecv(std::bind(&Handler::process, handler_, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
     glfwSetErrorCallback(glfwErrorCallback);
     if (!glfwInit())
@@ -83,6 +85,7 @@ Gui::Gui() {
 }
 
 Gui::~Gui() {
+    delete handler_;
     delete cmd_;
     delete client_;
 
@@ -103,7 +106,7 @@ int Gui::run() {
 
         ImGui_ImplGlfwGL3_NewFrame();
         char title[256];
-        snprintf(title, 256, "%.1f FPS", ImGui::GetIO().Framerate);
+        snprintf(title, 256, "VITA Remote Cheat Client" " - %.1f FPS", ImGui::GetIO().Framerate);
         glfwSetWindowTitle(window_, title);
 
         if (ImGui::Begin("", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize)) {
@@ -134,83 +137,56 @@ int Gui::run() {
     return 0;
 }
 
-void Gui::handlePacket(int op, const char *buf, int len) {
-    if (op < 0x100) {
-        searchResult_.clear();
-        searchStatus_ = 1;
-        searchResultType_ = op;
-    } else {
-        switch (op) {
-            case 0x8000:
-            {
-                if (len < 240) break;
-                int id = *(int*)buf;
-                if (id >= (int)trophies_.size()) trophies_.resize(id + 1);
-                TrophyInfo &ti = trophies_[id];
-                ti.id = id;
-                ti.grade = *(int*)(buf+4);
-                ti.hidden = *(int*)(buf+8) != 0;
-                ti.unlocked = *(int*)(buf+12) != 0;
-                ti.name = buf + 16;
-                ti.desc = buf + 80;
-                if (ti.grade == 1) trophyPlat_ = id;
-                break;
-            }
-            case 0x8001:
-            {
-                trophyStatus_ = 0;
-                break;
-            }
-            case 0x8002:
-            {
-                trophyStatus_ = 2;
-                break;
-            }
-            case 0x8100:
-            {
-                int idx = *(int*)buf;
-                int platidx = *(int*)(buf + 4);
-                if (idx >= 0 && idx < (int)trophies_.size()) {
-                    trophies_[idx].unlocked = true;
-                }
-                if (platidx >= 0) {
-                    trophies_[platidx].unlocked = true;
-                }
-                break;
-            }
-            case 0x8110:
-            {
-                break;
-            }
-            case 0x10000:
-            {
-                if (searchStatus_ != 1) break;
-                searchResultIdx_ = -1;
-                len /= 12;
-                const uint32_t *res = (const uint32_t*)buf;
-                for (int i = 0; i < len; ++i) {
-                    char hex[16], value[64];
-                    uint32_t addr = res[i * 3];
-                    snprintf(hex, 16, "%08X", addr);
-                    cmd_->formatTypeData(value, searchResultType_, &res[i * 3 + 1]);
-                    SearchResult sr = {addr, hex, value};
-                    searchResult_.push_back(sr);
-                }
-                break;
-            }
-            case 0x20000:
-                searchStatus_ = 2;
-                break;
-            case 0x30000:
-                searchResult_.clear();
-                searchStatus_ = 3;
-                break;
-            case 0x30001:
-                searchResult_.clear();
-                searchStatus_ = 4;
-                break;
-        }
+void Gui::searchResultStart(int type) {
+    searchResult_.clear();
+    searchStatus_ = 1;
+    searchResultType_ = type;
+}
+
+void Gui::searchResult(const SearchVal *vals, int count) {
+    for (int i = 0; i < count; ++i) {
+        char hex[16], value[64];
+        snprintf(hex, 16, "%08X", vals[i].addr);
+        cmd_->formatTypeData(value, searchResultType_, &vals[i].val);
+        SearchResult sr = {vals[i].addr, hex, value};
+        searchResult_.push_back(sr);
     }
+}
+
+void Gui::searchEnd(int ret) {
+    searchStatus_ = 2 + ret;
+}
+
+void Gui::trophyList(int id, int grade, bool hidden, bool unlocked, const char *name, const char *desc) {
+    if (id >= (int)trophies_.size()) trophies_.resize(id + 1);
+    TrophyInfo &ti = trophies_[id];
+    ti.id = id;
+    ti.grade = grade;
+    ti.hidden = hidden;
+    ti.unlocked = unlocked;
+    ti.name = name;
+    ti.desc = desc;
+    if (ti.grade == 1) trophyPlat_ = id;
+}
+
+void Gui::trophyListEnd() {
+    trophyStatus_ = 0;
+}
+
+void Gui::trophyListErr() {
+    trophyStatus_ = 2;
+}
+
+void Gui::trophyUnlocked(int idx, int platidx) {
+    if (idx >= 0 && idx < (int)trophies_.size()) {
+        trophies_[idx].unlocked = true;
+    }
+    if (platidx >= 0) {
+        trophies_[platidx].unlocked = true;
+    }
+}
+
+void Gui::trophyUnlockErr() {
 }
 
 inline void Gui::connectPanel() {
