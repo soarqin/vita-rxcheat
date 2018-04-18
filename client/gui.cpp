@@ -154,7 +154,10 @@ void Gui::searchResult(const SearchVal *vals, int count) {
 }
 
 void Gui::searchEnd(int ret) {
-    searchStatus_ = 2 + ret;
+    if (ret == 0 && searchResult_.empty())
+        searchStatus_ = 0;
+    else
+        searchStatus_ = 2 + ret;
 }
 
 void Gui::trophyList(int id, int grade, bool hidden, bool unlocked, const char *name, const char *desc) {
@@ -272,15 +275,19 @@ inline void Gui::searchPanel() {
     if (searchStatus_ == 1) {
         ImGui::Button("Searching...", ImVec2(100.f, 0.f));
     } else {
-        if (ImGui::Button("Search!", ImVec2(100.f, 0.f)) && typeComboIndex_ >= 0) {
+        if (ImGui::Button("New Search", ImVec2(100.f, 0.f)) && typeComboIndex_ >= 0) {
             char output[8];
-            formatData(searchResultType_, searchVal_, hexSearch_ ? 16 : 10, output);
+            formatData(comboItemType[typeComboIndex_], searchVal_, hexSearch_, output);
             cmd_->startSearch(comboItemType[typeComboIndex_], heapSearch_, output);
         }
+        if ((searchStatus_ == 2 || searchStatus_ == 3) && (ImGui::SameLine(), ImGui::Button("Next", ImVec2(50.f, 0.f)) && typeComboIndex_ >= 0)) {
+            char output[8];
+            formatData(searchResultType_, searchVal_, hexSearch_, output);
+            cmd_->nextSearch(output);
+        }
     }
-    ImGui::SameLine(125.f);
-    ImGui::Text("Value:"); ImGui::SameLine();
-    ImGui::PushItemWidth(200.f);
+    ImGui::SameLine(); ImGui::Text("Value:"); ImGui::SameLine();
+    ImGui::PushItemWidth(120.f);
     ImGui::InputText("##Value", searchVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
     ImGui::PopItemWidth();
     ImGui::SameLine();
@@ -289,7 +296,14 @@ inline void Gui::searchPanel() {
         for (int i = 0; i < 10; ++i) {
             bool selected = typeComboIndex_ == i;
             if (ImGui::Selectable(comboItems[i], selected)) {
-                typeComboIndex_ = i;
+                if (typeComboIndex_ != i) {
+                    typeComboIndex_ = i;
+                    if (searchResultType_ != comboItemType[i] || searchResult_.empty()) {
+                        searchStatus_ = 0;
+                    } else {
+                        searchStatus_ = 2;
+                    }
+                }
             }
             if (selected) ImGui::SetItemDefaultFocus();
         }
@@ -416,7 +430,7 @@ void Gui::editPopup() {
             editing_ = false;
             ImGui::CloseCurrentPopup();
             char output[8];
-            formatData(searchResultType_, editVal_, hexSearch_ ? 16 : 10, output);
+            formatData(searchResultType_, editVal_, hexSearch_, output);
             cmd_->modifyMemory(searchResultType_, searchResult_[searchResultIdx_].addr, output);
             editVal_[0] = 0;
         }

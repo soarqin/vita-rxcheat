@@ -1,5 +1,4 @@
-#ifndef __HANDLER_H_
-#define __HANDLER_H_
+#pragma once
 
 class Gui;
 
@@ -11,5 +10,3 @@ public:
 private:
     Gui &gui_;
 };
-
-#endif

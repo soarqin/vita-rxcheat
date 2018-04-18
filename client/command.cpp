@@ -10,7 +10,7 @@
 #include <cinttypes>
 
 void Command::startSearch(int st, bool heap, void *data) {
-    searchType_ = st;
+    searchType_ = st & 0xFF;
     int size = getTypeSize(searchType_);
     if (size == 0) return;
     sendCommand(st | (heap ? 0x100 : 0), data, size);

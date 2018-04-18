@@ -27,6 +27,7 @@ add_executable(rcsvr_client WIN32
     gui.cpp gui.h
     handler.cpp handler.h
     command.cpp command.h
+    lang.cpp lang.h
     net.cpp net.h
     ../kcp/ikcp.c ../kcp/ikcp.h
     )
