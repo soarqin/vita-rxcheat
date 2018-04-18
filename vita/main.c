@@ -59,11 +59,11 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(5000000);
     net_kcp_listen(9527);
     while(running) {
-        checkInput();
-        static uint64_t last_tick = 0ULL;
+        // checkInput();
+        // static uint64_t last_tick = 0ULL;
         uint64_t curr_tick = util_gettick();
         net_kcp_process(curr_tick);
-        last_tick = curr_tick;
+        // last_tick = curr_tick;
     }
     return sceKernelExitDeleteThread(0);
 }
