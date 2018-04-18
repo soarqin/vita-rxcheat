@@ -218,6 +218,9 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
     case 2:
         mem_start_search(type, op == 1, buf, len, _kcp_search_cb, _kcp_search_start, _kcp_search_end);
         break;
+    case 8:
+        mem_set(*(uint32_t*)buf, buf + 4, len - 4);
+        break;
     case 0x80:
         trophy_list(_kcp_trophy_list, _kcp_trophy_list_end);
         break;
@@ -364,18 +367,17 @@ void net_kcp_process(uint32_t tick) {
                     uint32_t n = strtoul(buf + 1, &bufend, 16);
                     while(*bufend == ' ') ++bufend;
                     uint32_t val = strtoul(bufend, NULL, 10);
-                    log_debug("Writing %u to 0x%08X\n", val, n);
                     mem_set(n, &val, 4);
                     break;
                 }
                 case 'K': {
                     if (kcp == NULL
                         || saddr.sin_addr.s_addr != saddr_remote.sin_addr.s_addr
-                        || saddr.sin_port != saddr_remote.sin_port) {
+                        || saddr.sin_port != saddr_remote.sin_port
+                        || ikcp_input(kcp, buf + 4, len - 4) < 0) {
                         _kcp_send("D", 1, &saddr, 0);
                         break;
                     }
-                    ikcp_input(kcp, buf + 4, len - 4);
                     break;
                 }
                 case 'D': {

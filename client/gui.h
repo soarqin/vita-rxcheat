@@ -79,6 +79,7 @@ private:
     bool hexSearch_ = false;
     bool heapSearch_ = false;
     int searchResultIdx_ = -1;
+    bool editing_ = false;
     char editVal_[32] = "";
     int trophyStatus_ = 0;
     int trophyIdx_ = -1;

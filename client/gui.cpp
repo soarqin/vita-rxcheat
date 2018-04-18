@@ -193,7 +193,7 @@ inline void Gui::connectPanel() {
     ImGui::SetWindowPos(ImVec2(10.f, 10.f));
     ImGui::SetWindowSize(ImVec2(dispWidth_ - 20.f, dispHeight_ - 20.f));
     if (client_->isConnected()) {
-        ImGui::Text(client_->titleId().c_str()); ImGui::SameLine(); ImGui::Text(client_->title().c_str());
+        ImGui::Text("%s - %s", client_->titleId().c_str(), client_->title().c_str());
         if (ImGui::Button("Disconnect", ImVec2(100.f, 0.f))) {
             client_->disconnect();
         }
@@ -216,6 +216,47 @@ inline void Gui::tabPanel() {
     ImGui::RadioButton("Trophy", &tabIndex_, 1);
 }
 
+inline void formatData(int type, const char *src, bool isHex, void *dst) {
+    switch (type) {
+        case Command::st_u64:
+        {
+            uint64_t val = strtoull(src, NULL, isHex ? 16 : 10);
+            memcpy(dst, &val, 8);
+            break;
+        }
+        case Command::st_i64:
+        {
+            int64_t val = strtoll(src, NULL, isHex ? 16 : 10);
+            memcpy(dst, &val, 8);
+            break;
+        }
+        case Command::st_u32: case Command::st_u16: case Command::st_u8:
+        {
+            uint32_t val = strtoul(src, NULL, isHex ? 16 : 10);
+            memcpy(dst, &val, 4);
+            break;
+        }
+        case Command::st_i32: case Command::st_i16: case Command::st_i8:
+        {
+            int32_t val = strtol(src, NULL, isHex ? 16 : 10);
+            memcpy(dst, &val, 4);
+            break;
+        }
+        case Command::st_float:
+        {
+            float val = strtof(src, NULL);
+            memcpy(dst, &val, 4);
+            break;
+        }
+        case Command::st_double:
+        {
+            double val = strtod(src, NULL);
+            memcpy(dst, &val, 8);
+            break;
+        }
+    }
+}
+
 inline void Gui::searchPanel() {
     const char* comboItems[] = {
         "int32", "uint32", "int16", "uint16",
@@ -232,8 +273,9 @@ inline void Gui::searchPanel() {
         ImGui::Button("Searching...", ImVec2(100.f, 0.f));
     } else {
         if (ImGui::Button("Search!", ImVec2(100.f, 0.f)) && typeComboIndex_ >= 0) {
-            uint64_t number = strtoull(searchVal_, NULL, hexSearch_ ? 16 : 10);
-            cmd_->startSearch(comboItemType[typeComboIndex_], heapSearch_, &number);
+            char output[8];
+            formatData(searchResultType_, searchVal_, hexSearch_ ? 16 : 10, output);
+            cmd_->startSearch(comboItemType[typeComboIndex_], heapSearch_, output);
         }
     }
     ImGui::SameLine(125.f);
@@ -274,7 +316,7 @@ inline void Gui::searchPanel() {
                     searchResultIdx_ = i;
                     if (ImGui::IsMouseDoubleClicked(0)) {
                         strcpy(editVal_, searchResult_[i].value.c_str());
-                        ImGui::OpenPopup("Edit memory");
+                        editing_ = true;
                     }
                 }
                 if (selected) ImGui::SetItemDefaultFocus();
@@ -360,6 +402,8 @@ inline void Gui::trophyPanel() {
 }
 
 void Gui::editPopup() {
+    if (!editing_) return;
+    ImGui::OpenPopup("Edit memory");
     if (ImGui::BeginPopupModal("Edit memory", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Edit address: %s", searchResult_[searchResultIdx_].hexaddr.c_str());
         ImGui::InputText("##EditValue", editVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
@@ -369,9 +413,11 @@ void Gui::editPopup() {
             editVal_[0] = 0;
         }
         if (ImGui::Button("OK")) {
+            editing_ = false;
             ImGui::CloseCurrentPopup();
-            uint64_t number = strtoull(searchVal_, NULL, hexSearch_ ? 16 : 10);
-            cmd_->modifyMemory(searchResultType_, searchResult_[searchResultIdx_].addr, &number);
+            char output[8];
+            formatData(searchResultType_, editVal_, hexSearch_ ? 16 : 10, output);
+            cmd_->modifyMemory(searchResultType_, searchResult_[searchResultIdx_].addr, output);
             editVal_[0] = 0;
         }
         ImGui::SameLine();

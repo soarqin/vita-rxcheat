@@ -167,14 +167,7 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
 }
 
 void mem_search(int type, int heap, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen)) {
-    int size = 0;
-    switch(type) {
-        case st_u32: case st_i32: case st_float: size = 4; break;
-        case st_u16: case st_i16: size = 2; break;
-        case st_u8: case st_i8: size = 1; break;
-        case st_u64: case st_i64: case st_double: size = 8; break;
-        default: return;
-    }
+    int size = mem_get_type_size(type);
     if (size > len) return;
     if (!mem_loaded) {
         mem_load();
@@ -229,6 +222,7 @@ void mem_search_reset() {
 }
 
 void mem_set(uint32_t addr, const void *data, int size) {
+    log_debug("Writing %d bytes to 0x%08X\n", size, addr);
     memcpy((void *)(addr | 0x80000000U), data, size);
 }
 
@@ -279,4 +273,14 @@ void mem_start_search(int type, int heap, const char *buf, int len, void (*cb)(c
     if (thid >= 0)
         sceKernelStartThread(thid, 0, NULL);
     sceKernelWaitSema(searchSema, 1, NULL);
+}
+
+int mem_get_type_size(int type) {
+    switch(type) {
+        case st_u32: case st_i32: case st_float: return 4;
+        case st_u16: case st_i16: return 2;
+        case st_u8: case st_i8: return 1;
+        case st_u64: case st_i64: case st_double: return 8;
+    }
+    return 0;
 }
