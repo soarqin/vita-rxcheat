@@ -47,6 +47,9 @@ private:
     void trophyPanel();
     void editPopup();
 
+    void saveData();
+    void loadData();
+
 private:
     UdpClient *client_;
     Command *cmd_;
@@ -55,7 +58,13 @@ private:
     GLFWwindow* window_ = NULL;
     int dispWidth_ = 0, dispHeight_ = 0;
 
-    char ip_[256] = "172.27.15.216";
+    char ip_[256] =
+#ifdef NDEBUG
+        ""
+#else
+        "172.27.15.216"
+#endif
+        ;
     int tabIndex_ = 0;
 
     struct SearchResult {

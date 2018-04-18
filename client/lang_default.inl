@@ -9,8 +9,10 @@ strings:
   TROPHY_GRADE_BRONZE: Bronze
   TROPHY_GRADE_UNKNOWN: Unknown
   CONNECT: Connect
+  AUTOCONNECT: Detect&Connect
   DISCONNECT: Disconnect
   NOT_CONNECTED: Not connected
+  CONNECTING: Connecting
   IP_ADDR: "IP Address:"
   MEM_SEARCHER: Memory Searcher
   TROPHY: Trophy

@@ -60,58 +60,35 @@ UdpClient::~UdpClient() {
     closesocket(fd_);
 }
 
+void UdpClient::autoconnect(uint16_t port) {
+    disconnect();
+    struct sockaddr_in sa;
+    sa.sin_family = AF_INET;
+    sa.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+    sa.sin_port = htons(port);
+    ::sendto(fd_, "B", 1, 0, (const struct sockaddr*)&sa, sizeof(struct sockaddr_in));
+}
+
 bool UdpClient::connect(const std::string &addr, uint16_t port) {
     disconnect();
-    recvBuf_.clear();
-    sockaddr_in sa;
+    struct sockaddr_in sa;
     sa.sin_family = AF_INET;
     if (inet_pton(AF_INET, addr.c_str(), &sa.sin_addr) < 0)
         return false;
     sa.sin_port = htons(port);
-    if (::connect(fd_, (const sockaddr*)&sa, sizeof(sa)) < 0)
-        return false;
-    char res[256] = {0};
-    int r = _sendAndRecv("C", 1, res, 255);
-    if (r < 14 || res[0] != 'C') return false;
-    conv_ = *(uint32_t*)&res[1];
-    titleid_.assign(res + 5, res + 14);
-    title_ = res + 14;
-    kcp_ = ikcp_create(conv_, this);
-    ikcp_nodelay(kcp_, 0, 50, 0, 0);
-    ikcp_setmtu(kcp_, 1440);
-    kcp_->output = [](const char *buf, int len, ikcpcb *kcp, void *user) {
-        fprintf(stdout, "Sending K packets: %d\n", len);
-        UdpClient *uc = (UdpClient*)user;
-        std::string tosend;
-        tosend.resize(len + 4);
-        tosend[0] = 'K';
-        memcpy(&tosend[4], buf, len);
-        uc->packets_.push_back(tosend);
-        return 0;
-    };
-#ifdef _WIN32
-    u_long n = 1;
-    ioctlsocket(fd_, FIONBIO, &n);
-#else
-    int flags;
-    if ((flags = fcntl(fd, F_GETFL, NULL)) < 0) {
-        return true;
-    }
-    if (!(flags & O_NONBLOCK)) {
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-    }
-#endif
-    return true;
+    return _startConnect(&sa);
 }
 
 void UdpClient::disconnect() {
-    if (kcp_ == NULL) return;
     title_.clear();
     titleid_.clear();
-    _send("D", 1);
-    ikcp_release(kcp_);
-    kcp_ = NULL;
-    recvBuf_.clear();
+    if (kcp_ != NULL) {
+        _send("D", 1);
+        ikcp_release(kcp_);
+        kcp_ = NULL;
+        conv_ = 0;
+        recvBuf_.clear();
+    }
     closesocket(fd_);
     _init();
 }
@@ -152,14 +129,39 @@ void UdpClient::process() {
     if (rfds.fd_count > 0) {
         int r;
         char buf[2048];
-        while ((r = _recv(buf, 2048)) > 0) {
+        struct sockaddr_in addr;
+        while ((r = _recv(buf, 2048, &addr)) > 0) {
             switch (buf[0]) {
-            case 'K':
-                ikcp_input(kcp_, buf + 4, r - 4);
-                break;
-            case 'D':
-                disconnect();
-                break;
+                case 'B':
+                    _startConnect(&addr);
+                    break;
+                case 'C':
+                    if (r < 14) break;
+                    conv_ = *(uint32_t*)&buf[1];
+                    titleid_.assign(buf + 5, buf + 14);
+                    title_ = buf + 14;
+                    kcp_ = ikcp_create(conv_, this);
+                    ikcp_nodelay(kcp_, 0, 50, 0, 0);
+                    ikcp_setmtu(kcp_, 1440);
+                    kcp_->output = [](const char *buf, int len, ikcpcb *kcp, void *user) {
+                        fprintf(stdout, "Sending K packets: %d\n", len);
+                        UdpClient *uc = (UdpClient*)user;
+                        std::string tosend;
+                        tosend.resize(len + 4);
+                        tosend[0] = 'K';
+                        memcpy(&tosend[4], buf, len);
+                        uc->packets_.push_back(tosend);
+                        return 0;
+                    };
+                    connecting_ = false;
+                    if (onConnected_) onConnected_();
+                    break;
+                case 'K':
+                    ikcp_input(kcp_, buf + 4, r - 4);
+                    break;
+                case 'D':
+                    disconnect();
+                    break;
             }
         }
     }
@@ -173,6 +175,7 @@ int UdpClient::send(const char *buf, int len) {
 }
 
 void UdpClient::_init() {
+    connecting_ = false;
     fd_ = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd_ < 0)
         throw std::exception("unable to create socket");
@@ -180,10 +183,33 @@ void UdpClient::_init() {
     setsockopt(fd_, SOL_SOCKET, SO_BROADCAST, (const char*)&n, sizeof(n));
     sockaddr_in sa;
     sa.sin_family = AF_INET;
-    sa.sin_addr.s_addr = INADDR_ANY;
+    sa.sin_addr.s_addr = htonl(INADDR_ANY);
     sa.sin_port = 0;
     if (bind(fd_, (const sockaddr*)&sa, sizeof(sa)) < 0)
         throw std::exception("unable to bind address");
+}
+
+bool UdpClient::_startConnect(void *addr) {
+    recvBuf_.clear();
+    if (::connect(fd_, (const struct sockaddr*)addr, sizeof(struct sockaddr_in)) < 0) {
+        return false;
+    }
+#ifdef _WIN32
+    u_long n = 1;
+    ioctlsocket(fd_, FIONBIO, &n);
+#else
+    int flags;
+    if ((flags = fcntl(fd, F_GETFL, NULL)) < 0) {
+        return true;
+    }
+    if (!(flags & O_NONBLOCK)) {
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    }
+#endif
+    char res[256] = {0};
+    packets_.push_back("C");
+    connecting_ = true;
+    return true;
 }
 
 int UdpClient::_send(const char *buf, int len) {
@@ -198,8 +224,9 @@ int UdpClient::_send(const char *buf, int len) {
     return n;
 }
 
-int UdpClient::_recv(char *buf, int len) {
-    int n = ::recv(fd_, buf, len, 0);
+int UdpClient::_recv(char *buf, int len, void *addr) {
+    int addrlen = sizeof(struct sockaddr_in);
+    int n = ::recvfrom(fd_, buf, len, 0, (struct sockaddr *)addr, &addrlen);
     if (n < 0) {
         int err = WSAGetLastError();
         if (err == WSAEINTR || err == WSAEWOULDBLOCK || err == WSATRY_AGAIN) {
@@ -208,9 +235,4 @@ int UdpClient::_recv(char *buf, int len) {
         return -1;
     }
     return n;
-}
-
-int UdpClient::_sendAndRecv(const char *buf, int len, char *res, int reslen) {
-    if (::send(fd_, buf, len, 0) < 0) return -1;
-    return ::recv(fd_, res, reslen, 0);
 }

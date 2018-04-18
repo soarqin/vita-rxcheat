@@ -346,7 +346,7 @@ void net_kcp_process(uint32_t tick) {
                     *(uint32_t*)&n[1] = conv;
                     sceAppMgrAppParamGetString(0, 12, &n[5], 16);
                     sceAppMgrAppParamGetString(0, 9, &n[14], 256 - 14);
-                    _kcp_send(n, strlen(n + 14) + 14, &saddr, 0);
+                    _kcp_send(n, strlen(n + 14) + 14 + 1, &saddr, 0);
                     ++conv;
                     break;
                 }

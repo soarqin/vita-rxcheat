@@ -10,8 +10,13 @@
 #include "imgui.h"
 #include "imgui_impl_glfw_gl3.h"
 
-#include <stdio.h>
+#include "yaml-cpp/yaml.h"
+
+#ifdef _WIN32
 #include <windows.h>
+#endif
+#include <cstdio>
+#include <fstream>
 #include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
 
@@ -38,11 +43,15 @@ Gui::Gui() {
     std::vector<std::string> langs;
     g_lang.listLanguages(langs);
     g_lang.loadDefault();
-    g_lang.load("chs");
+    try {
+        g_lang.load("chs");
+    } catch(...) {}
     UdpClient::init();
     client_ = new UdpClient;
     cmd_ = new Command(*client_);
     handler_ = new Handler(*this);
+
+    loadData();
 
     client_->setOnRecv(std::bind(&Handler::process, handler_, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
@@ -71,6 +80,7 @@ Gui::Gui() {
     style.WindowRounding = 0.f;
     style.ItemSpacing = ImVec2(5.f, 5.f);
 
+    io.IniFilename = NULL;
     ImFontAtlas *f = io.Fonts;
     static const ImWchar ranges[] =
     {
@@ -92,6 +102,7 @@ Gui::Gui() {
 }
 
 Gui::~Gui() {
+    saveData();
     delete handler_;
     delete cmd_;
     delete client_;
@@ -112,9 +123,11 @@ int Gui::run() {
         glfwGetFramebufferSize(window_, &dispWidth_, &dispHeight_);
 
         ImGui_ImplGlfwGL3_NewFrame();
+#ifndef NDEBUG
         char title[256];
         snprintf(title, 256, "%s" " - %.1f FPS", LS(WINDOW_TITLE), ImGui::GetIO().Framerate);
         glfwSetWindowTitle(window_, title);
+#endif
 
         if (ImGui::Begin("", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize)) {
             connectPanel();
@@ -208,12 +221,29 @@ inline void Gui::connectPanel() {
             client_->disconnect();
         }
     } else {
-        ImGui::Text(LS(NOT_CONNECTED));
-        if (ImGui::Button(LS(CONNECT), ImVec2(100.f, 0.f))) {
-            client_->connect(ip_, 9527);
+        if (client_->isConnecting()) {
+            ImGui::Text(LS(CONNECTING));
+            if (ImGui::Button(LS(DISCONNECT), ImVec2(100.f, 0.f))) {
+                client_->disconnect();
+            }
+            /*
+            ImGui::SameLine();
+            ImGui::Button(LS(AUTOCONNECT), ImVec2(100.f, 0.f));
+            */
+        } else {
+            ImGui::Text(LS(NOT_CONNECTED));
+            if (ImGui::Button(LS(CONNECT), ImVec2(100.f, 0.f))) {
+                client_->connect(ip_, 9527);
+            }
+            /*
+            ImGui::SameLine();
+            if (ImGui::Button(LS(AUTOCONNECT), ImVec2(100.f, 0.f))) {
+                client_->autoconnect(9527);
+            }
+            */
         }
     }
-    ImGui::SameLine(125.f);
+    ImGui::SameLine();
     ImGui::Text(LS(IP_ADDR)); ImGui::SameLine();
     ImGui::PushItemWidth(200.f);
     ImGui::InputText("##IP", ip_, 256, client_->isConnected() ? ImGuiInputTextFlags_ReadOnly : 0);
@@ -442,4 +472,26 @@ void Gui::editPopup() {
         }
         ImGui::EndPopup();
     }
+}
+
+void Gui::saveData() {
+    YAML::Emitter out;
+    out << YAML::BeginMap;
+    out << YAML::Key << "IPAddr" << YAML::Value << ip_;
+    out << YAML::Key << "HEX" << YAML::Value << hexSearch_;
+    out << YAML::Key << "HEAP" << YAML::Value << heapSearch_;
+    out << YAML::EndMap;
+    std::ofstream f("rcsvr.yml");
+    f << out.c_str();
+    f.close();
+}
+
+void Gui::loadData() {
+    YAML::Node node;
+    try {
+        node = YAML::LoadFile("rcsvr.yml");
+        strncpy(ip_, node["IPAddr"].as<std::string>().c_str(), 256);
+        hexSearch_ = node["HEX"].as<bool>();
+        heapSearch_ = node["HEAP"].as<bool>();
+    } catch (...) { return; }
 }

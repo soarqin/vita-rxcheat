@@ -10,8 +10,10 @@ strings:
   TROPHY_GRADE_BRONZE: 铜
   TROPHY_GRADE_UNKNOWN: 未知
   CONNECT: 连接
+  AUTOCONNECT: 检测并连接
   DISCONNECT: 断开
   NOT_CONNECTED: 未连接
+  CONNECTING: 正在连接中
   IP_ADDR: "IP地址:"
   MEM_SEARCHER: 内存搜索
   TROPHY: 奖杯
