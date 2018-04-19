@@ -11,7 +11,7 @@
 
 void Command::startSearch(int st, bool heap, void *data) {
     searchType_ = st & 0xFF;
-    int size = getTypeSize(searchType_);
+    int size = getTypeSize(searchType_, data);
     if (size == 0) return;
     sendCommand(st | (heap ? 0x100 : 0), data, size);
 }
@@ -30,15 +30,31 @@ void Command::nextFuzzySearch(int direction) {
 }
 
 void Command::modifyMemory(int st, uint32_t offset, const void *data) {
-    int size = getTypeSize(st);
+    int size = getTypeSize(st, data);
     char cont[12];
     *(uint32_t*)cont = offset;
     memcpy(cont + 4, data, size);
     sendCommand(0x800 | st, cont, 4 + size);
 }
 
-int Command::getTypeSize(int type) {
+int Command::getTypeSize(int type, const void* data) {
     switch (searchType_) {
+        case st_autoint:
+        {
+            int64_t val = *(int64_t*)data;
+            if (val >= 0x80000000LL || val < -0x80000000LL) return 8;
+            if (val >= 0x8000LL || val < -0x8000LL) return 4;
+            if (val >= 0x80LL || val < -0x80LL) return 2;
+            return 1;
+        }
+        case st_autouint:
+        {
+            int64_t val = *(int64_t*)data;
+            if (val >= 0x100000000ULL) return 8;
+            if (val >= 0x10000ULL) return 4;
+            if (val >= 0x100ULL) return 2;
+            return 1;
+        }
         case st_u32:
         case st_i32:
         case st_float:
@@ -68,6 +84,7 @@ void Command::formatTypeData(char *output, int type, const void *data) {
         case st_i32:
             sprintf(output, "%d", *(int32_t*)data);
             break;
+        case st_autoint:
         case st_i64:
             sprintf(output, "%" PRId64, *(int64_t*)data);
             break;
@@ -80,6 +97,7 @@ void Command::formatTypeData(char *output, int type, const void *data) {
         case st_u32:
             sprintf(output, "%u", *(uint32_t*)data);
             break;
+        case st_autouint:
         case st_u64:
             sprintf(output, "%" PRIu64, *(uint64_t*)data);
             break;

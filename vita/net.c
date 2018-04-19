@@ -6,6 +6,7 @@
 #include "debug.h"
 
 #include <vitasdk.h>
+#include <taipool.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -22,11 +23,13 @@ int net_loaded() {
 
 int net_init() {
     if (isNetAvailable) return 1;
+    taipool_init(0x200000);
+    ikcp_allocator(taipool_alloc, taipool_free);
     if (sceSysmoduleIsLoaded(SCE_SYSMODULE_NET) != SCE_SYSMODULE_LOADED)
         sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
     int ret = sceNetShowNetstat();
     if (ret == SCE_NET_ERROR_ENOTINIT) {
-        isNetAvailable = (SceUID)malloc(NET_SIZE);
+        isNetAvailable = (SceUID)taipool_alloc(NET_SIZE);
         if (!isNetAvailable) return 1;
         SceNetInitParam initparam;
         initparam.memory = (void*)isNetAvailable;
@@ -49,7 +52,7 @@ void net_finish() {
         packetMutex = -1;
     }
     if (isNetAvailable) {
-        free((void*)isNetAvailable);
+        taipool_free((void*)isNetAvailable);
         isNetAvailable = 0;
     }
 }
@@ -82,7 +85,7 @@ static void _kcp_disconnect() {
 }
 
 static void _kcp_send(const char *buf, int len, SceNetSockaddrIn *addr, int is_kcp) {
-    send_buf *b = (send_buf*)malloc(sizeof(send_buf) + (is_kcp ? (len + 4) : len));
+    send_buf *b = (send_buf*)taipool_alloc(sizeof(send_buf) + (is_kcp ? (len + 4) : len));
     memcpy(&b->addr, addr, sizeof(SceNetSockaddrIn));
     b->len = is_kcp ? (len + 4) : len;
     if (is_kcp) {
@@ -131,7 +134,7 @@ static void _kcp_clear() {
     while (shead != NULL) {
         send_buf *rem = shead;
         shead = shead->next;
-        free(rem);
+        taipool_free(rem);
     }
     stail = NULL;
 }
@@ -398,7 +401,7 @@ void net_kcp_process(uint32_t tick) {
             }
             send_buf *rem = shead;
             shead = shead->next;
-            free(rem);
+            taipool_free(rem);
         }
         stail = NULL;
         events[0].events = SCE_NET_EPOLLIN;

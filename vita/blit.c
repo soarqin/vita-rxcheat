@@ -75,7 +75,7 @@ int blit_string(int sx,int sy,const char *msg)
         for(y=0;y<8;y++)
         {
             offset = (sy+(y*2))*bufferwidth + sx+x*16;
-            font = y>=7 ? 0x00 : msx[ code*8 + y ];
+            font = msx[ code*8 + y ];
             for(p=0;p<8;p++)
             {
                 uint32_t color = (font & 0x80) ? fg_col : bg_col;

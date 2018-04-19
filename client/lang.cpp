@@ -77,6 +77,8 @@ void Lang::load(const std::string &name) {
         C(IP_ADDR)
         C(MEM_SEARCHER)
         C(TROPHY)
+        C(AUTOINT)
+        C(AUTOUINT)
         C(INT32)
         C(UINT32)
         C(INT16)

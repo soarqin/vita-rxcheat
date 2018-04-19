@@ -63,6 +63,7 @@ add_executable(${TARGET_NAME}
 target_include_directories(${TARGET_NAME} PRIVATE ../kcp PRIVATE kernel)
 
 target_link_libraries(${TARGET_NAME}
+    taipool
     taihen_stub
     SceLibc_stub_weak
     SceLibKernel_stub_weak

@@ -23,9 +23,11 @@ typedef enum {
     st_i64 = 8,
     st_float = 9,
     st_double = 10,
+    st_autouint = 21,
+    st_autoint = 22,
 } search_type;
 
-static memory_range staticmem[32], stackmem[8], blockmem[128];
+static memory_range staticmem[64], stackmem[32], blockmem[1024];
 static int static_sz = 0, stack_sz = 0, block_sz = 0;
 static int mem_loaded = 0;
 static int stype = 0, last_sidx = 0;
@@ -131,8 +133,8 @@ static void single_search(SceUID outfile, memory_range *mr, const void *data, in
         }
     }
     if (addr_count > 0) {
-        kIoWrite(outfile, addr, addr_count * 4, NULL);
         cb(addr, addr_count, size);
+        kIoWrite(outfile, addr, addr_count * 4, NULL);
     }
 }
 
@@ -168,7 +170,7 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
 }
 
 void mem_search(int type, int heap, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen)) {
-    int size = mem_get_type_size(type);
+    int size = mem_get_type_size(type, data);
     if (size > len) return;
     if (!mem_loaded) {
         mem_load();
@@ -276,8 +278,22 @@ void mem_start_search(int type, int heap, const char *buf, int len, void (*cb)(c
     sceKernelWaitSema(searchSema, 1, NULL);
 }
 
-int mem_get_type_size(int type) {
+int mem_get_type_size(int type, const void *data) {
     switch(type) {
+        case st_autoint: {
+            int64_t val = *(int64_t*)data;
+            if (val >= 0x80000000LL || val < -0x80000000LL) return 8;
+            if (val >= 0x8000LL || val < -0x8000LL) return 4;
+            if (val >= 0x80LL || val < -0x80LL) return 2;
+            return 1;
+        }
+        case st_autouint: {
+            int64_t val = *(int64_t*)data;
+            if (val >= 0x100000000ULL) return 8;
+            if (val >= 0x10000ULL) return 4;
+            if (val >= 0x100ULL) return 2;
+            return 1;
+        }
         case st_u32: case st_i32: case st_float: return 4;
         case st_u16: case st_i16: return 2;
         case st_u8: case st_i8: return 1;

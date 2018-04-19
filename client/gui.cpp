@@ -218,6 +218,10 @@ inline void Gui::connectPanel() {
     if (client_->isConnected()) {
         ImGui::Text("%s - %s", client_->titleId().c_str(), client_->title().c_str());
         if (ImGui::Button(LS(DISCONNECT), ImVec2(100.f, 0.f))) {
+            searchResult_.clear();
+            searchStatus_ = 0;
+            trophies_.clear();
+            trophyStatus_ = 0;
             client_->disconnect();
         }
     } else {
@@ -258,13 +262,13 @@ inline void Gui::tabPanel() {
 
 inline void formatData(int type, const char *src, bool isHex, void *dst) {
     switch (type) {
-        case Command::st_u64:
+        case Command::st_autouint: case Command::st_u64:
         {
             uint64_t val = strtoull(src, NULL, isHex ? 16 : 10);
             memcpy(dst, &val, 8);
             break;
         }
-        case Command::st_i64:
+        case Command::st_autoint: case Command::st_i64:
         {
             int64_t val = strtoll(src, NULL, isHex ? 16 : 10);
             memcpy(dst, &val, 8);
@@ -298,7 +302,7 @@ inline void formatData(int type, const char *src, bool isHex, void *dst) {
 }
 
 inline void Gui::searchPanel() {
-    const int comboItemType[] = {Command::st_i32, Command::st_u32,
+    const int comboItemType[] = {Command::st_autoint, Command::st_autouint, Command::st_i32, Command::st_u32,
         Command::st_i16, Command::st_u16, Command::st_i8, Command::st_u8,
         Command::st_i64, Command::st_u64, Command::st_float, Command::st_double,
     };

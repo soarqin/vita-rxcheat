@@ -17,14 +17,16 @@ strings:
   IP_ADDR: "IP地址:"
   MEM_SEARCHER: 内存搜索
   TROPHY: 奖杯
+  AUTOINT: 整数(自动)
+  AUTOUINT: 正整数(自动)
   INT32: 32位整数
-  UINT32: 32位无符号
+  UINT32: 32位正整数
   INT16: 16位整数
-  UINT16: 16位无符号
+  UINT16: 16位正整数
   INT8: 8位整数
-  UINT8: 8位无符号
+  UINT8: 8位正整数
   INT64: 64位整数
-  UINT64: 64位无符号
+  UINT64: 64位正整数
   FLOAT: 浮点数
   DOUBLE: 双精度浮点数
   NEW_SEARCH: 重新开始搜索

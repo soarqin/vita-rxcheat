@@ -20,6 +20,8 @@ public:
         st_i64 = 8,
         st_float = 9,
         st_double = 10,
+        st_autouint = 21,
+        st_autoint = 22,
     };
 
 public:
@@ -29,7 +31,7 @@ public:
     void startFuzzySearch(int st);
     void nextFuzzySearch(int direction);
     void modifyMemory(int st, uint32_t offset, const void *data);
-    int getTypeSize(int type);
+    int getTypeSize(int type, const void* data);
     void formatTypeData(char *output, int type, const void *data);
 
     void refreshTrophy();

@@ -16,6 +16,8 @@ strings:
   IP_ADDR: "IP Address:"
   MEM_SEARCHER: Memory Searcher
   TROPHY: Trophy
+  AUTOINT: int(auto)
+  AUTOUINT: uint(auto)
   INT32: int32
   UINT32: uint32
   INT16: int16
