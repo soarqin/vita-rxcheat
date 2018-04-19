@@ -10,6 +10,6 @@
 
 3. 确保 PSVITA/PSTV 的 IP 地址可以被你的 PC 访问，然后通过网络设置菜单或者VitaShell(FTP模式下按SELECT)获取 PSVITA 的 IP 地址
 
-4. 在 PC 上运行 rcsvr_client，输入 PSVITA 的 IP 地址，点击连接按钮
+4. 首先运行任意游戏，等待屏幕上出现 VITA Remote Cheat 加载的字样后在 PC 上运行 rcsvr_client，输入 PSVITA 的 IP 地址，点击连接按钮
 
 5. 现在你可以搜索内存或者解锁奖杯了
