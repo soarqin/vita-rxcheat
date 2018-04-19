@@ -44,9 +44,15 @@ endif()
 
 add_executable(${TARGET_NAME}
     main.c
+    # network
     net.c net.h
+    # memory search
     mem.c mem.h
+    # trophy
     trophy.c trophy.h
+    # draw
+    font.c blit.c blit.h
+    # util
     util.c util.h
     # debug
     debug.c debug.h
@@ -67,13 +73,13 @@ target_link_libraries(${TARGET_NAME}
     SceKernelModulemgr_stub_weak
     SceAppMgr_stub_weak
     SceCtrl_stub_weak
+    SceDisplay_stub_weak
     SceIofilemgr_stub_weak
     SceNet_stub_weak
     SceNetCtl_stub_weak
     ScePower_stub_weak
     SceRtc_stub_weak
     SceNpTrophy_stub_weak
-    kuio_stub_weak
     ${CMAKE_BINARY_DIR}/kernel/stubs/librcsvr_stub_weak.a
 )
 

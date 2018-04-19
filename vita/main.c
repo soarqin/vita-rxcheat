@@ -3,11 +3,14 @@
 #include "trophy.h"
 #include "util.h"
 #include "debug.h"
+#include "blit.h"
+
+#include "version.h"
 
 #include <vitasdk.h>
 #include <taihen.h>
 
-#define HOOKS_NUM      5
+#define HOOKS_NUM      6
 
 static SceUID hooks[HOOKS_NUM];
 static tai_hook_ref_t ref[HOOKS_NUM];
@@ -16,6 +19,9 @@ static tai_hook_ref_t ref[HOOKS_NUM];
 static uint32_t old_buttons = 0;
 
 static int running = 1;
+
+static int show_loaded = 0;
+static uint64_t show_loaded_deadline = 0ULL;
 
 // Checking buttons startup/closeup
 void checkInput() {
@@ -55,13 +61,28 @@ int sceNetCtlInit_patched() {
     return TAI_CONTINUE(int, ref[4]);
 }
 
+int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam, int sync) {
+    if (show_loaded) {
+        blit_set_frame_buf(pParam);
+        blit_string_ctr(2, "VITA Remote Cheat v" VERSION_STR);
+        blit_string_ctr(20, "by Soar Qin");
+    }
+    return TAI_CONTINUE(int, ref[5], pParam, sync);
+}
+
 int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(5000000);
+    show_loaded_deadline = util_gettick() + 10000;
+    show_loaded = 1;
     net_kcp_listen(9527);
     while(running) {
         // checkInput();
         // static uint64_t last_tick = 0ULL;
         uint64_t curr_tick = util_gettick();
+        if (show_loaded && curr_tick >= show_loaded_deadline) {
+            show_loaded = 0;
+            show_loaded_deadline = 0;
+        }
         net_kcp_process(curr_tick);
         // last_tick = curr_tick;
     }
@@ -81,6 +102,7 @@ int module_start(SceSize argc, const void *args) {
     hooks[2] = taiHookFunctionImport(&ref[2], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x79A0160A, sceSysmoduleLoadModule_patched);
     hooks[3] = taiHookFunctionImport(&ref[3], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0xEB03E265, sceNetInit_patched);
     hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x495CA1DB, sceNetCtlInit_patched);
+    hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x7A410B64, sceDisplaySetFrameBuf_patched);
 
     running = 1;
     SceUID thid = sceKernelCreateThread("rcsvr_main_thread", (SceKernelThreadEntry)rcsvr_main_thread, 0x10000100, 0x10000, 0, 0, NULL);
