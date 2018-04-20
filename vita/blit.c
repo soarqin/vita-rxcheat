@@ -157,7 +157,6 @@ int blit_set_frame_buf(const SceDisplayFrameBuf *param) {
     pixelformat = param->pixelformat;
 
     if (bufferwidth == 0 || pixelformat != 0) return -1;
-    blit_set_color(0xffffffff, 0xff000000);
 
     return 0;
 }

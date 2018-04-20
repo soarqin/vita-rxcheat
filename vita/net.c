@@ -16,6 +16,9 @@ static uint64_t vita_addr;
 static SceUID isNetAvailable = 0;
 static SceUID packetMutex = -1;
 
+extern void set_show_msg(uint64_t millisec, const char *msg, const char *msg2);
+extern void clear_show_msg();
+
 int net_loaded() {
     return isNetAvailable != 0;
 }
@@ -146,11 +149,13 @@ void _kcp_send_cmd(int op, const void *buf, int len) {
 }
 
 static void _kcp_search_start(int type) {
+    set_show_msg(3600000, "Searching...", NULL);
     _kcp_send_cmd(type, NULL, 0);
     total_count = 0;
 }
 
 static void _kcp_search_end(int err) {
+    clear_show_msg(0, NULL, NULL);
     if (err == 0)
         _kcp_send_cmd(total_count > 100 ? 0x30000 : 0x20000, NULL, 0);
     else
@@ -196,6 +201,10 @@ static void _kcp_trophy_unlock(int ret, int id, int platid) {
     if (ret < 0) {
         _kcp_send_cmd(0x8110, NULL, 0);
     } else {
+        if (platid < 0)
+            set_show_msg(5000, "Unlocked trophy", NULL);
+        else
+            set_show_msg(5000, "Unlocked platinum trophy", NULL);
         int buf[2];
         buf[0] = id;
         buf[1] = platid;

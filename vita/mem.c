@@ -58,7 +58,7 @@ static void mem_load() {
     ret = sceKernelGetModuleList(0xFF, modlist, &num_loaded);
     if (ret == 0) {
         int i;
-        for (i = 0; i < num_loaded; ++i) {
+        for (i = 0; i < num_loaded && static_sz < 64; ++i) {
             SceKernelModuleInfo info;
             if (sceKernelGetModuleInfo(modlist[i], &info) < 0) continue;
             if (strncmp(info.path, "ux0:", 4) != 0 && strncmp(info.path, "app0:", 5) != 0 && strncmp(info.path, "gro0:", 5) != 0) continue;
@@ -78,7 +78,9 @@ static void mem_load() {
     SceKernelThreadInfo status;
     status.size = sizeof(SceKernelThreadInfo);
     SceUID thid = 0x40010001;
-    for(; thid <= 0x40010050; ++thid) {
+    SceUID curr = sceKernelGetThreadId();
+    for(; thid <= 0x40010FFF && stack_sz < 32; ++thid) {
+        if (thid == curr) continue;
         ret = sceKernelGetThreadInfo(thid, &status);
         if (ret < 0) continue;
         log_debug("0x%08X %s 0x%08X 0x%08X\n", thid, status.name, status.stack, status.stackSize);
@@ -91,7 +93,7 @@ static void mem_load() {
 static void reload_blocks() {
     block_sz = 0;
     uint32_t addr = 0x80000000U;
-    while(addr < 0xA0000000U) {
+    while(addr < 0xA0000000U && block_sz < 1024) {
         SceUID heap_memblock = sceKernelFindMemBlockByAddr((const void*)addr, 0);
         if (heap_memblock >= 0) {
             void* heap_addr;

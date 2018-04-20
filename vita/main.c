@@ -21,21 +21,21 @@ static uint32_t old_buttons = 0;
 
 static int running = 1;
 
-const char *show_msg = NULL, *show_msg2 = NULL;
-uint64_t msg_deadline = 0ULL;
+static const char *show_msg = NULL, *show_msg2 = NULL;
+static uint64_t msg_deadline = 0ULL;
 
-inline void set_show_msg(uint64_t millisec, const char *msg, const char *msg2) {
+void set_show_msg(uint64_t millisec, const char *msg, const char *msg2) {
     msg_deadline = millisec + util_gettick();
     show_msg = msg;
     show_msg2 = msg2;
 }
 
-inline void clear_show_msg() {
+void clear_show_msg() {
     msg_deadline = 0;
     show_msg = NULL; show_msg2 = NULL;
 }
 
-inline void check_msg_timeout(uint64_t curr_tick) {
+void check_msg_timeout(uint64_t curr_tick) {
     if (show_msg && curr_tick >= msg_deadline) {
         show_msg = show_msg2 = NULL;
         msg_deadline = 0;
@@ -115,6 +115,7 @@ int module_start(SceSize argc, const void *args) {
     trophy_init();
     mem_init();
     font_pgf_init();
+    blit_set_color(0xffffffff, 0xff000000);
 
     hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x4D695C1F, scePowerSetUsingWireless_patched);
     hooks[1] = taiHookFunctionImport(&ref[1], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x3CE187B6, scePowerSetConfigurationMode_patched);
