@@ -51,7 +51,7 @@ add_executable(${TARGET_NAME}
     # trophy
     trophy.c trophy.h
     # draw
-    font.c blit.c blit.h
+    blit.c blit.h font_pgf.c
     # util
     util.c util.h
     # debug
@@ -63,7 +63,6 @@ add_executable(${TARGET_NAME}
 target_include_directories(${TARGET_NAME} PRIVATE ../kcp PRIVATE kernel)
 
 target_link_libraries(${TARGET_NAME}
-    taipool
     taihen_stub
     SceLibc_stub_weak
     SceLibKernel_stub_weak
@@ -80,6 +79,7 @@ target_link_libraries(${TARGET_NAME}
     SceNetCtl_stub_weak
     ScePower_stub_weak
     SceRtc_stub_weak
+    ScePgf_stub_weak
     SceNpTrophy_stub_weak
     ${CMAKE_BINARY_DIR}/kernel/stubs/librcsvr_stub_weak.a
 )

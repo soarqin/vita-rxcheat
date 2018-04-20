@@ -4,6 +4,7 @@
 #include "util.h"
 #include "debug.h"
 #include "blit.h"
+#include "font_pgf.h"
 
 #include "version.h"
 
@@ -45,6 +46,8 @@ int scePowerSetConfigurationMode_patched(int mode) {
 int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
     if (id == SCE_SYSMODULE_NET && net_loaded())
         return 0;
+    if (id == SCE_SYSMODULE_PGF && font_pgf_loaded())
+        return 0;
     int ret = TAI_CONTINUE(int, ref[2], id);
     if (id == SCE_SYSMODULE_NP_TROPHY)
         trophy_hook();
@@ -64,8 +67,8 @@ int sceNetCtlInit_patched() {
 int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam, int sync) {
     if (show_loaded) {
         blit_set_frame_buf(pParam);
-        blit_string_ctr(2, "VITA Remote Cheat v" VERSION_STR);
-        blit_string_ctr(20, "by Soar Qin");
+        blit_string(320, 2, "VITA Remote Cheat v" VERSION_STR);
+        blit_string(400, 20, "by Soar Qin");
     }
     return TAI_CONTINUE(int, ref[5], pParam, sync);
 }
@@ -96,6 +99,7 @@ int module_start(SceSize argc, const void *args) {
     debug_init(DEBUG);
     trophy_init();
     mem_init();
+    font_pgf_init();
 
     hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x4D695C1F, scePowerSetUsingWireless_patched);
     hooks[1] = taiHookFunctionImport(&ref[1], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x3CE187B6, scePowerSetConfigurationMode_patched);
@@ -119,6 +123,7 @@ int module_stop(SceSize argc, const void *args) {
     for (i = 0; i < HOOKS_NUM; i++)
         taiHookRelease(hooks[i], ref[i]);
 
+    font_pgf_finish();
     mem_finish();
     trophy_finish();
     net_finish();

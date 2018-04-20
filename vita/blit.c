@@ -4,21 +4,21 @@
 
 #include "blit.h"
 
+#include "debug.h"
+#include "font_pgf.h"
+
 #include <psp2/types.h>
 #include <psp2/display.h>
 #include <psp2/kernel/clib.h> 
 
 #include <stdarg.h>
 
-extern unsigned char msx[];
-
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 static int pwidth, pheight, bufferwidth, pixelformat;
-static unsigned int* vram32;
+static uint32_t* vram32;
 
-static uint32_t fcolor = 0x00ffffff;
-static uint32_t bcolor = 0xff000000;
+static uint32_t colors[16];
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -37,8 +37,7 @@ int blit_setup(void)
 
     if( (bufferwidth==0) || (pixelformat!=0)) return -1;
 
-    fcolor = 0x00ffffff;
-    bcolor = 0xff000000;
+    blit_set_color(0xffffffff, 0xff000000);
 
     return 0;
 }
@@ -46,55 +45,72 @@ int blit_setup(void)
 /////////////////////////////////////////////////////////////////////////////
 // blit text
 /////////////////////////////////////////////////////////////////////////////
-void blit_set_color(int fg_col,int bg_col)
+void blit_set_color(uint32_t fg_col, uint32_t bg_col)
 {
-    fcolor = fg_col;
-    bcolor = bg_col;
+    int i;
+    for (i = 1; i < 15; ++i) {
+#define TCOLOR(c1, c2, a, b) (((c1) * (a) + (c2) * ((b) - (a))) / (b))
+        uint32_t a = TCOLOR(fg_col>>24, bg_col>>24, i, 15);
+        uint32_t b = TCOLOR((fg_col>>16)&0xFF, (bg_col>>16)&0xFF, i, 15);
+        uint32_t g = TCOLOR((fg_col>>8)&0xFF, (bg_col>>8)&0xFF, i, 15);
+        uint32_t r = TCOLOR(fg_col&0xFF, bg_col&0xFF, i, 15);
+#undef TCOLOR
+        colors[i] = (a<<24) | (b<<16) | (g<<8) | r;
+    }
+    colors[15] = fg_col;
+    colors[0] = bg_col;
+}
+
+int utf8_to_ucs2(const char *utf8, unsigned int *character)
+{
+    if (((utf8[0] & 0xF0) == 0xE0) && ((utf8[1] & 0xC0) == 0x80) && ((utf8[2] & 0xC0) == 0x80)) {
+        *character = ((utf8[0] & 0x0F) << 12) | ((utf8[1] & 0x3F) << 6) | (utf8[2] & 0x3F);
+        return 3;
+    } else if (((utf8[0] & 0xE0) == 0xC0) && ((utf8[1] & 0xC0) == 0x80)) {
+        *character = ((utf8[0] & 0x1F) << 6) | (utf8[1] & 0x3F);
+        return 2;
+    } else {
+        *character = utf8[0];
+        return 1;
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // blit text
 /////////////////////////////////////////////////////////////////////////////
-int blit_string(int sx,int sy,const char *msg)
+int blit_string(int sx, int sy, const char *msg)
 {
-    int x,y,p;
-    int offset;
-    char code;
-    unsigned char font;
-    uint32_t fg_col,bg_col;
+    uint32_t *offset = vram32 + sy * bufferwidth + sx;
+    int rw = 0;
 
-    fg_col = fcolor;
-    bg_col = bcolor;
-
-//Kprintf("MODE %d WIDTH %d\n",pixelformat,bufferwidth);
     if( (bufferwidth==0) || (pixelformat!=0)) return -1;
-
-    for(x=0;msg[x] && x<(pwidth/16);x++)
-    {
-        code = msg[x] & 0x7f; // 7bit ANK
-        for(y=0;y<8;y++)
-        {
-            offset = (sy+(y*2))*bufferwidth + sx+x*16;
-            font = msx[ code*8 + y ];
-            for(p=0;p<8;p++)
-            {
-                uint32_t color = (font & 0x80) ? fg_col : bg_col;
-                vram32[offset] = color;
-                vram32[offset + 1] = color;
-                vram32[offset + bufferwidth] = color;
-                vram32[offset + bufferwidth + 1] = color;
-                font <<= 1;
-                offset+=2;
+    while(*msg != 0) {
+        unsigned int wch;
+        const uint8_t *lines;
+        int pitch;
+        uint8_t realw, w, h, l, t;
+        msg += utf8_to_ucs2(msg, &wch);
+        if (font_pgf_char_glyph(wch, &lines, &pitch, &realw, &w, &h, &l, &t) != 0) continue;
+        uint32_t *loffset = offset + (18 - (int)t) * bufferwidth + l;
+        int i, j;
+        int hw = (w + 1) / 2;
+        for (j = 0; j < h; ++j) {
+            uint32_t *soffset = loffset;
+            const uint8_t *ll = lines;
+            for (i = 0; i < hw; ++i) {
+                uint8_t c = *ll++;
+                soffset[0] = colors[c & 0x0F];
+                soffset[1] = colors[c >> 4];
+                soffset += 2;
             }
+            loffset += bufferwidth;
+            lines += pitch;
         }
+        offset += realw;
+        rw += realw;
     }
-    return x;
-}
 
-int blit_string_ctr(int sy,const char *msg)
-{
-    int sx = (960 / 2) - (sceClibStrnlen(msg, 1024) * (16 / 2));
-    return blit_string(sx,sy,msg);
+    return rw;
 }
 
 int blit_stringf(int sx, int sy, const char *msg, ...)
@@ -111,7 +127,6 @@ int blit_stringf(int sx, int sy, const char *msg, ...)
 
 int blit_set_frame_buf(const SceDisplayFrameBuf *param)
 {
-    
     pwidth = param->width;
     pheight = param->height;
     vram32 = param->base;
@@ -120,8 +135,7 @@ int blit_set_frame_buf(const SceDisplayFrameBuf *param)
 
     if( (bufferwidth==0) || (pixelformat!=0)) return -1;
 
-    fcolor = 0x00ffffff;
-    bcolor = 0xff000000;
+    blit_set_color(0xffffffff, 0xff000000);
 
-  return 0;
+    return 0;
 }
