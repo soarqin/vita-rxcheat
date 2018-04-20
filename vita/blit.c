@@ -4,7 +4,6 @@
 
 #include "blit.h"
 
-#include "debug.h"
 #include "font_pgf.h"
 
 #include <psp2/types.h>
@@ -15,16 +14,22 @@
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
-static int pwidth, pheight, bufferwidth, pixelformat;
-static uint32_t* vram32;
+int pwidth, pheight, bufferwidth, pixelformat;
+uint32_t* vram32;
 
-static uint32_t colors[16];
+uint32_t colors[16];
+typedef struct wchar_info {
+    const uint8_t *lines;
+    int pitch;
+    uint16_t wch;
+    uint8_t realw, w, h, l, t;
+} wchar_info;
+static wchar_info wci[128];
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 //int blit_setup(int sx,int sy,const char *msg,int fg_col,int bg_col)
-int blit_setup(void)
-{
+int blit_setup(void) {
     SceDisplayFrameBuf param;
     param.size = sizeof(SceDisplayFrameBuf);
     sceDisplayGetFrameBuf(&param, SCE_DISPLAY_SETBUF_IMMEDIATE);
@@ -35,9 +40,8 @@ int blit_setup(void)
     bufferwidth = param.pitch;
     pixelformat = param.pixelformat;
 
-    if( (bufferwidth==0) || (pixelformat!=0)) return -1;
-
-    blit_set_color(0xffffffff, 0xff000000);
+    if (bufferwidth == 0 || pixelformat != 0) return -1;
+    blit_set_color(0x00ffffff, 0xff000000);
 
     return 0;
 }
@@ -45,8 +49,7 @@ int blit_setup(void)
 /////////////////////////////////////////////////////////////////////////////
 // blit text
 /////////////////////////////////////////////////////////////////////////////
-void blit_set_color(uint32_t fg_col, uint32_t bg_col)
-{
+void blit_set_color(uint32_t fg_col, uint32_t bg_col) {
     int i;
     for (i = 1; i < 15; ++i) {
 #define TCOLOR(c1, c2, a, b) (((c1) * (a) + (c2) * ((b) - (a))) / (b))
@@ -61,8 +64,7 @@ void blit_set_color(uint32_t fg_col, uint32_t bg_col)
     colors[0] = bg_col;
 }
 
-int utf8_to_ucs2(const char *utf8, unsigned int *character)
-{
+inline int utf8_to_ucs2(const char *utf8, uint16_t *character) {
     if (((utf8[0] & 0xF0) == 0xE0) && ((utf8[1] & 0xC0) == 0x80) && ((utf8[2] & 0xC0) == 0x80)) {
         *character = ((utf8[0] & 0x0F) << 12) | ((utf8[1] & 0x3F) << 6) | (utf8[2] & 0x3F);
         return 3;
@@ -75,26 +77,15 @@ int utf8_to_ucs2(const char *utf8, unsigned int *character)
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// blit text
-/////////////////////////////////////////////////////////////////////////////
-int blit_string(int sx, int sy, const char *msg)
-{
+inline void blit_stringw(int sx, int sy, const wchar_info *wci) {
     uint32_t *offset = vram32 + sy * bufferwidth + sx;
-    int rw = 0;
-
-    if( (bufferwidth==0) || (pixelformat!=0)) return -1;
-    while(*msg != 0) {
-        unsigned int wch;
-        const uint8_t *lines;
-        int pitch;
-        uint8_t realw, w, h, l, t;
-        msg += utf8_to_ucs2(msg, &wch);
-        if (font_pgf_char_glyph(wch, &lines, &pitch, &realw, &w, &h, &l, &t) != 0) continue;
-        uint32_t *loffset = offset + (18 - (int)t) * bufferwidth + l;
+    const wchar_info *pwci = wci;
+    while(pwci->wch != 0) {
+        const uint8_t *lines = pwci->lines;
+        uint32_t *loffset = offset + (18 - (int)pwci->t) * bufferwidth + pwci->l;
         int i, j;
-        int hw = (w + 1) / 2;
-        for (j = 0; j < h; ++j) {
+        int hw = (pwci->w + 1) / 2;
+        for (j = 0; j < pwci->h; ++j) {
             uint32_t *soffset = loffset;
             const uint8_t *ll = lines;
             for (i = 0; i < hw; ++i) {
@@ -104,37 +95,68 @@ int blit_string(int sx, int sy, const char *msg)
                 soffset += 2;
             }
             loffset += bufferwidth;
-            lines += pitch;
+            lines += pwci->pitch;
         }
-        offset += realw;
-        rw += realw;
+        offset += pwci->realw;
+        ++pwci;
     }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// blit text
+/////////////////////////////////////////////////////////////////////////////
+int blit_string(int sx, int sy, const char *msg) {
+    if (bufferwidth == 0 || pixelformat != 0) return -1;
+
+    int rw = 0;
+    wchar_info *pwci = wci;
+    while(*msg != 0) {
+        msg += utf8_to_ucs2(msg, &pwci->wch);
+        if (font_pgf_char_glyph(pwci->wch, &pwci->lines, &pwci->pitch, &pwci->realw, &pwci->w, &pwci->h, &pwci->l, &pwci->t) != 0) continue;
+        rw += pwci->realw;
+        ++pwci;
+    }
+    pwci->wch = 0;
+    blit_stringw(sx, sy, wci);
+    return rw;
+}
+
+int blit_string_ctr(int sy, const char *msg) {
+    if (bufferwidth == 0 || pixelformat != 0) return -1;
+    int rw = 0;
+    wchar_info *pwci = wci;
+    while(*msg != 0) {
+        msg += utf8_to_ucs2(msg, &pwci->wch);
+        if (font_pgf_char_glyph(pwci->wch, &pwci->lines, &pwci->pitch, &pwci->realw, &pwci->w, &pwci->h, &pwci->l, &pwci->t) != 0) continue;
+        rw += pwci->realw;
+        ++pwci;
+    }
+    int sx = pwidth / 2 - rw / 2;
+    pwci->wch = 0;
+    blit_stringw(sx, sy, wci);
 
     return rw;
 }
 
-int blit_stringf(int sx, int sy, const char *msg, ...)
-{
+int blit_stringf(int sx, int sy, const char *msg, ...) {
     va_list list;
-    char string[512];
+    char string[256];
 
     va_start(list, msg);
-    sceClibVsnprintf(string, 512, msg, list);
+    sceClibVsnprintf(string, 256, msg, list);
     va_end(list);
 
     return blit_string(sx, sy, string);
 }
 
-int blit_set_frame_buf(const SceDisplayFrameBuf *param)
-{
+int blit_set_frame_buf(const SceDisplayFrameBuf *param) {
     pwidth = param->width;
     pheight = param->height;
     vram32 = param->base;
     bufferwidth = param->pitch;
     pixelformat = param->pixelformat;
 
-    if( (bufferwidth==0) || (pixelformat!=0)) return -1;
-
+    if (bufferwidth == 0 || pixelformat != 0) return -1;
     blit_set_color(0xffffffff, 0xff000000);
 
     return 0;

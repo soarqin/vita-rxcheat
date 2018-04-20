@@ -21,8 +21,26 @@ static uint32_t old_buttons = 0;
 
 static int running = 1;
 
-static int show_loaded = 0;
-static uint64_t show_loaded_deadline = 0ULL;
+const char *show_msg = NULL, *show_msg2 = NULL;
+uint64_t msg_deadline = 0ULL;
+
+inline void set_show_msg(uint64_t millisec, const char *msg, const char *msg2) {
+    msg_deadline = millisec + util_gettick();
+    show_msg = msg;
+    show_msg2 = msg2;
+}
+
+inline void clear_show_msg() {
+    msg_deadline = 0;
+    show_msg = NULL; show_msg2 = NULL;
+}
+
+inline void check_msg_timeout(uint64_t curr_tick) {
+    if (show_msg && curr_tick >= msg_deadline) {
+        show_msg = show_msg2 = NULL;
+        msg_deadline = 0;
+    }
+}
 
 // Checking buttons startup/closeup
 void checkInput() {
@@ -65,27 +83,24 @@ int sceNetCtlInit_patched() {
 }
 
 int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam, int sync) {
-    if (show_loaded) {
+    if (show_msg) {
         blit_set_frame_buf(pParam);
-        blit_string(320, 2, "VITA Remote Cheat v" VERSION_STR);
-        blit_string(400, 20, "by Soar Qin");
+        blit_string_ctr(2, show_msg);
+        if (show_msg2)
+            blit_string_ctr(20, show_msg2);
     }
     return TAI_CONTINUE(int, ref[5], pParam, sync);
 }
 
 int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(5000000);
-    show_loaded_deadline = util_gettick() + 10000;
-    show_loaded = 1;
+    set_show_msg(10000, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
     net_kcp_listen(9527);
     while(running) {
         // checkInput();
         // static uint64_t last_tick = 0ULL;
         uint64_t curr_tick = util_gettick();
-        if (show_loaded && curr_tick >= show_loaded_deadline) {
-            show_loaded = 0;
-            show_loaded_deadline = 0;
-        }
+        check_msg_timeout(curr_tick);
         net_kcp_process(curr_tick);
         // last_tick = curr_tick;
     }

@@ -15,6 +15,7 @@
 int blit_setup(void);
 void blit_set_color(uint32_t fg_col, uint32_t bg_col);
 int blit_string(int sx,int sy,const char *msg);
+int blit_string_ctr(int sy,const char *msg);
 int blit_stringf(int sx, int sy, const char *msg, ...);
 int blit_set_frame_buf(const SceDisplayFrameBuf *param);
 

@@ -13,7 +13,7 @@ uint16_t glyph_index_next = 0;
 
 typedef struct glyph_entry {
     RB_ENTRY(glyph_entry) entry;
-    uint32_t code;
+    uint16_t code;
     uint16_t index;
     uint8_t realw, w, h, l, t;
 } glyph_entry;
@@ -34,7 +34,7 @@ struct glyph_map glyph_charmap = RB_INITIALIZER(&glyph_charmap);
 
 RB_GENERATE(glyph_map, glyph_entry, entry, glyph_entry_compare);
 
-inline uint16_t find_glyph(uint32_t code, uint8_t *realw, uint8_t *w, uint8_t *h, uint8_t *l, uint8_t *t) {
+inline uint16_t find_glyph(uint16_t code, uint8_t *realw, uint8_t *w, uint8_t *h, uint8_t *l, uint8_t *t) {
     glyph_entry ge;
     ge.code = code;
     glyph_entry *res = RB_FIND(glyph_map, &glyph_charmap, &ge);
@@ -47,7 +47,7 @@ inline uint16_t find_glyph(uint32_t code, uint8_t *realw, uint8_t *w, uint8_t *h
     return res->index;
 }
 
-inline uint16_t insert_glyph(uint32_t code, uint8_t realw, uint8_t w, uint8_t h, uint8_t l, uint8_t t) {
+inline uint16_t insert_glyph(uint16_t code, uint8_t realw, uint8_t w, uint8_t h, uint8_t l, uint8_t t) {
     glyph_entry *ge = &entries[entry_used++];
     ge->code = code;
     ge->index = glyph_index_next++;
@@ -109,7 +109,7 @@ void font_pgf_init() {
     }
 }
 
-int font_pgf_char_glyph(uint32_t code, const uint8_t **lines, int *pitch, uint8_t *realw, uint8_t *w, uint8_t *h, uint8_t *l, uint8_t *t) {
+int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, uint8_t *realw, uint8_t *w, uint8_t *h, uint8_t *l, uint8_t *t) {
     SceFontCharInfo char_info;
     int ret = sceFontGetCharInfo(font_handle, code, &char_info);
     if (ret < 0) {

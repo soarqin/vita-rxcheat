@@ -422,6 +422,8 @@ inline void Gui::trophyPanel() {
         char hiddenname[32];
         if (ImGui::Selectable(t.name.empty() ? (snprintf(hiddenname, 32, LS(TROPHY_TITLE_HIDDEN), i), hiddenname) : t.name.c_str(), trophyIdx_ == i, ImGuiSelectableFlags_SpanAllColumns))
             trophyIdx_ = i;
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s", t.desc.c_str());
         ImGui::NextColumn();
         ImGui::Text(getGradeName(t.grade));
         ImGui::NextColumn();
