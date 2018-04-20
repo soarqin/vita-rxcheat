@@ -1,3 +1,7 @@
+VITA Remote Cheat
+=================
+VITA Remote Cheat 是一个在PC上通过网络连接到PSVTIA以修改游戏内存和解锁奖杯taihen插件
+
 安装说明
 ============
 
