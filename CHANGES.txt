@@ -1,0 +1,8 @@
+v0.2:
+  1. increased heap size to avoid crash
+  2. fixed VITA info display
+  3. added int/uint(auto) mode to simplify searching
+  4. use taipool to handle mem alloc in network thread
+
+v0.1:
+  initial release
