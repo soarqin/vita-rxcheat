@@ -12,8 +12,10 @@ VITA Remote Cheat 是一个在PC上通过网络连接到PSVTIA以修改游戏内
 
 2. 将 tai/rcsvr.suprx 复制到 ux0:tai/
 
-3. 确保 PSVITA/PSTV 的 IP 地址可以被你的 PC 访问，然后通过网络设置菜单或者VitaShell(FTP模式下按SELECT)获取 PSVITA 的 IP 地址
+3. 然后通过网络设置菜单或者VitaShell(FTP模式下按SELECT)获取 PSVITA 的 IP 地址
 
-4. 首先运行任意游戏，等待屏幕上出现 VITA Remote Cheat 加载的字样后在 PC 上运行 rcsvr_client，输入 PSVITA 的 IP 地址，点击连接按钮
+4. 确保 PSVITA/PSTV 的 IP 地址可以被你的 PC 访问，运行任意游戏，等待屏幕上出现 VITA Remote Cheat 加载的字样后在 PC 上运行 rcsvr_client，点击自动连接按钮
+
+4. 如果第三步无法连上插件，那么可以通过网络设置菜单或者VitaShell(FTP模式下按SELECT)获取 PSVITA 的 IP 地址，然后在客户都按内输入地址并点击连接按钮
 
 5. 现在你可以搜索内存或者解锁奖杯了

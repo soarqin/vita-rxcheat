@@ -1,3 +1,9 @@
+v0.3:
+  1. removed taipool to handle larger memory
+  2. display some tips in game and use PGF font to handle display
+  3. show trophy description on hover
+  4. some minor tweaks and fixes
+
 v0.2:
   1. increased heap size to avoid crash
   2. fixed VITA info display

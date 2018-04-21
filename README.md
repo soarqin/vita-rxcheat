@@ -11,8 +11,8 @@ Installation
 
 2. Copy tai/rcsvr.suprx to ux0:tai/
 
-3. Ensure the IP address of your PSVITA/PSTV can be accessed from your PC, then get your PSVITA IP address in Network Settings or VitaShell (Press SELECT in FTP MODE)
+3. Ensure the IP address of your PSVITA/PSTV can be accessed from your PC, start any game on PSVITA, run rcsvr_client on PC after "VITA Remote Cheat" shown up, click Autoconnect button
 
-4. Start any game on PSVITA, run rcsvr_client on PC after "VITA Remote Cheat" shown up, input your PSVITA IP address and click Connect button
+4. If step 3 is not connecting, you can get PSVITA IP address in Network Settings or VitaShell (Press SELECT in FTP MODE), input in the client and click Connect button
 
 5. Now your can search memory or unlock trophies as well
