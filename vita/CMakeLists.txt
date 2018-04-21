@@ -69,7 +69,7 @@ target_link_libraries(${TARGET_NAME}
     gcc
     SceSysmem_stub_weak
     SceSysmodule_stub_weak
-    SceKernelThreadmgr_stub_weak
+    SceKernelThreadMgr_stub_weak
     SceKernelModulemgr_stub_weak
     SceAppMgr_stub_weak
     SceCtrl_stub_weak
