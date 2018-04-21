@@ -5,6 +5,7 @@
 #include "net.h"
 
 #include <string>
+#include <cstring>
 #include <cstdlib>
 #include <cstdint>
 #include <cinttypes>

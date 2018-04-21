@@ -3,7 +3,9 @@
 #include "gui.h"
 
 #include <cstdio>
+#ifdef _WIN32
 #include <Windows.h>
+#endif
 
 #ifdef _WIN32
 int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {

@@ -17,10 +17,11 @@
 #include <windows.h>
 #include <Shlwapi.h>
 #endif
-#include <cstdio>
-#include <fstream>
 #include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
+#include <cstdio>
+#include <fstream>
+#include <stdexcept>
 
 enum:int {
     WIN_WIDTH = 640,
@@ -62,7 +63,7 @@ Gui::Gui() {
 
     glfwSetErrorCallback(glfwErrorCallback);
     if (!glfwInit())
-        throw std::exception("Unable to initialize GLFW");
+        throw std::runtime_error("Unable to initialize GLFW");
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);

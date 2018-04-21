@@ -54,10 +54,10 @@ void Lang::load(const std::string &name) {
         node = YAML::LoadFile(name + ".lng");
 #endif
     }
-    for (auto &n: node["fonts"]) {
+    for (auto n: node["fonts"]) {
         fonts_.push_back(n.as<std::string>());
     }
-    for (auto &n: node["strings"]) {
+    for (auto n: node["strings"]) {
         tempTable[n.first.as<std::string>()] = n.second.as<std::string>();
     }
     for (auto &p: tempTable) {

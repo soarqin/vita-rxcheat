@@ -8,6 +8,18 @@
 #include <iphlpapi.h>
 #include <Windows.h>
 
+#undef EINTR
+#undef EAGAIN
+#undef EWOULDBLOCK
+
+#define EINTR WSAEINTR
+#define EWOULDBLOCK WSAEWOULDBLOCK
+#define EAGAIN WSATRY_AGAIN
+#define socklen_t int
+
+#undef errno
+#define errno WSAGetLastError()
+
 #if NTDDI_VERSION < NTDDI_VISTA
 int inet_pton(int af, const char *src, void *dst) {
     struct sockaddr_storage ss;
@@ -34,10 +46,25 @@ int inet_pton(int af, const char *src, void *dst) {
 #endif
 #else
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #define closesocket close
+#endif
+#include <cstring>
+#include <stdexcept>
+
+#ifndef _WIN32
+#include <ctime>
+uint32_t GetTickCount() {
+    struct timespec ts;
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+
+    return (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+}
 #endif
 
 static std::vector<struct in_addr> broadcastAddr_;
@@ -141,17 +168,19 @@ void UdpClient::process() {
             }
         }
     }
-    fd_set rfds = {1, {fd_}}, efds = {1, {fd_}};
+    fd_set rfds, efds;
+    FD_ZERO(&rfds); FD_ZERO(&efds); FD_SET(fd_, &rfds); FD_SET(fd_, &efds);
     struct timeval tv = {0, 0};
     int n;
     if (packets_.empty()) {
         n = select(1, &rfds, NULL, &efds, &tv);
         if (n == 0) return;
     } else {
-        fd_set wfds = {1, {fd_}};
+        fd_set wfds;
+        FD_ZERO(&wfds); FD_SET(fd_, &wfds);
         n = select(1, &rfds, &wfds, &efds, &tv);
         if (n == 0) return;
-        if (wfds.fd_count > 0) {
+        if (FD_ISSET(fd_, &wfds)) {
             while (!packets_.empty()) {
                 std::string &s = packets_.front();
                 if (_send(s.c_str(), s.length()) <= 0) break;
@@ -159,7 +188,7 @@ void UdpClient::process() {
             }
         }
     }
-    if (rfds.fd_count > 0) {
+    if (FD_ISSET(fd_, &rfds)) {
         int r;
         char buf[2048];
         struct sockaddr_in addr;
@@ -198,7 +227,7 @@ void UdpClient::process() {
             }
         }
     }
-    if (efds.fd_count > 0) {
+    if (FD_ISSET(fd_, &efds)) {
         // handle exception
     }
 }
@@ -211,7 +240,7 @@ void UdpClient::_init() {
     connecting_ = false;
     fd_ = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd_ < 0)
-        throw std::exception("unable to create socket");
+        throw std::runtime_error("unable to create socket");
     int n = 1;
     setsockopt(fd_, SOL_SOCKET, SO_BROADCAST, (const char*)&n, sizeof(n));
     sockaddr_in sa;
@@ -219,7 +248,7 @@ void UdpClient::_init() {
     sa.sin_addr.s_addr = htonl(INADDR_ANY);
     sa.sin_port = 0;
     if (bind(fd_, (const sockaddr*)&sa, sizeof(sa)) < 0)
-        throw std::exception("unable to bind address");
+        throw std::runtime_error("unable to bind address");
 }
 
 bool UdpClient::_startConnect(void *addr) {
@@ -232,11 +261,11 @@ bool UdpClient::_startConnect(void *addr) {
     ioctlsocket(fd_, FIONBIO, &n);
 #else
     int flags;
-    if ((flags = fcntl(fd, F_GETFL, NULL)) < 0) {
+    if ((flags = fcntl(fd_, F_GETFL, NULL)) < 0) {
         return true;
     }
     if (!(flags & O_NONBLOCK)) {
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+        fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
     }
 #endif
     char res[256] = {0};
@@ -248,8 +277,8 @@ bool UdpClient::_startConnect(void *addr) {
 int UdpClient::_send(const char *buf, int len) {
     int n = ::send(fd_, buf, len, 0);
     if (n < 0) {
-        int err = WSAGetLastError();
-        if (err == WSAEINTR || err == WSAEWOULDBLOCK || err == WSATRY_AGAIN) {
+        int err = errno;
+        if (err == EINTR || err == EWOULDBLOCK || err == EAGAIN) {
             return 0;
         }
         return -1;
@@ -258,11 +287,11 @@ int UdpClient::_send(const char *buf, int len) {
 }
 
 int UdpClient::_recv(char *buf, int len, void *addr) {
-    int addrlen = sizeof(struct sockaddr_in);
+    socklen_t addrlen = sizeof(struct sockaddr_in);
     int n = ::recvfrom(fd_, buf, len, 0, (struct sockaddr *)addr, &addrlen);
     if (n < 0) {
-        int err = WSAGetLastError();
-        if (err == WSAEINTR || err == WSAEWOULDBLOCK || err == WSATRY_AGAIN) {
+        int err = errno;
+        if (err == EINTR || err == EWOULDBLOCK || err == EAGAIN) {
             return 0;
         }
         return -1;
