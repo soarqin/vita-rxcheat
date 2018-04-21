@@ -229,6 +229,7 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
         break;
     case 8:
         mem_set(*(uint32_t*)buf, buf + 4, len - 4);
+        _kcp_send_cmd(cmd, buf, len);
         break;
     case 0x80:
         trophy_list(_kcp_trophy_list, _kcp_trophy_list_end);

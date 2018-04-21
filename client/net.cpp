@@ -5,6 +5,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <iphlpapi.h>
 #include <Windows.h>
 
 #if NTDDI_VERSION < NTDDI_VISTA
@@ -39,14 +40,44 @@ int inet_pton(int af, const char *src, void *dst) {
 #define closesocket close
 #endif
 
+static std::vector<struct in_addr> broadcastAddr_;
+
 void UdpClient::init() {
 #ifdef _WIN32
     WSADATA wsadata;
     WSAStartup(MAKEWORD(2, 2), &wsadata);
+
+    PMIB_IPADDRTABLE pIPAddrTable;
+    DWORD dwSize = 0;
+    DWORD dwRetVal = 0;
+    struct in_addr IPAddr;
+
+    pIPAddrTable = (MIB_IPADDRTABLE *)malloc(sizeof(MIB_IPADDRTABLE));
+    if (pIPAddrTable) {
+        if (GetIpAddrTable(pIPAddrTable, &dwSize, 0) == ERROR_INSUFFICIENT_BUFFER) {
+            free(pIPAddrTable);
+            pIPAddrTable = (MIB_IPADDRTABLE *)malloc(dwSize);
+            if (pIPAddrTable == NULL)
+                return;
+        }
+    } else return;
+    if ((dwRetVal = GetIpAddrTable(pIPAddrTable, &dwSize, 0)) != NO_ERROR) {
+        return;
+    }
+
+    for (int i = 0; i < (int)pIPAddrTable->dwNumEntries; i++) {
+        IPAddr.s_addr = (u_long)(pIPAddrTable->table[i].dwAddr | ~pIPAddrTable->table[i].dwMask);
+        printf("\tBroadCast[%d]:      \t%s\n", i, inet_ntoa(IPAddr));
+        broadcastAddr_.push_back(IPAddr);
+        printf("\n");
+    }
+
+    free(pIPAddrTable);
 #endif
 }
 
 void UdpClient::finish() {
+    broadcastAddr_.clear();
 #ifdef _WIN32
     WSACleanup();
 #endif
@@ -64,9 +95,11 @@ void UdpClient::autoconnect(uint16_t port) {
     disconnect();
     struct sockaddr_in sa;
     sa.sin_family = AF_INET;
-    sa.sin_addr.s_addr = htonl(INADDR_BROADCAST);
     sa.sin_port = htons(port);
-    ::sendto(fd_, "B", 1, 0, (const struct sockaddr*)&sa, sizeof(struct sockaddr_in));
+    for (auto &p: broadcastAddr_) {
+        sa.sin_addr = p;
+        ::sendto(fd_, "B", 1, 0, (const struct sockaddr*)&sa, sizeof(struct sockaddr_in));
+    }
 }
 
 bool UdpClient::connect(const std::string &addr, uint16_t port) {
@@ -154,7 +187,7 @@ void UdpClient::process() {
                         return 0;
                     };
                     connecting_ = false;
-                    if (onConnected_) onConnected_();
+                    if (onConnected_) onConnected_(inet_ntoa(addr.sin_addr));
                     break;
                 case 'K':
                     ikcp_input(kcp_, buf + 4, r - 4);

@@ -40,12 +40,16 @@ public:
     void trophyUnlocked(int idx, int platidx);
     void trophyUnlockErr();
 
+    void updateMemory(uint32_t addr, int type, const void *data);
+
 private:
     void connectPanel();
     void tabPanel();
     void searchPanel();
+    void searchPopup();
+    void tablePanel();
+    void tablePopup();
     void trophyPanel();
-    void editPopup();
 
     void saveData();
     void loadData();
@@ -67,10 +71,12 @@ private:
         ;
     int tabIndex_ = 0;
 
-    struct SearchResult {
+    struct MemoryItem {
         uint32_t addr;
+        int type;
         std::string hexaddr;
         std::string value;
+        std::string name;
     };
     struct TrophyInfo {
         int id = -1;
@@ -80,7 +86,8 @@ private:
         std::string name;
         std::string desc;
     };
-    std::vector<SearchResult> searchResult_;
+    std::vector<MemoryItem> searchResults_;
+    std::vector<MemoryItem> memTable_;
     int searchStatus_ = 0;
     int searchResultType_ = 0;
     char searchVal_[32] = "";
@@ -88,8 +95,10 @@ private:
     bool hexSearch_ = false;
     bool heapSearch_ = false;
     int searchResultIdx_ = -1;
-    bool editing_ = false;
-    char editVal_[32] = "";
+    bool memEditing_ = false;
+    char memEditVal_[32] = "";
+    bool tableEditing_ = false;
+    char tableEditVal_[32] = "";
     int trophyStatus_ = 0;
     int trophyIdx_ = -1;
     int trophyPlat_ = -1;

@@ -9,6 +9,9 @@ void Handler::process(int op, const char *buf, int len) {
         case 0:
             gui_.searchResultStart(sub);
             break;
+        case 0x8:
+            gui_.updateMemory(*(uint32_t*)buf, sub, buf+4);
+            break;
         case 0x80:
             switch (sub) {
                 case 0:

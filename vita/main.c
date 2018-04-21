@@ -6,7 +6,7 @@
 #include "blit.h"
 #include "font_pgf.h"
 
-#include "version.h"
+#include "../version.h"
 
 #include <vitasdk.h>
 #include <taihen.h>

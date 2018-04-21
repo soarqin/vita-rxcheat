@@ -6,6 +6,7 @@
 #include "net.h"
 #include "command.h"
 #include "handler.h"
+#include "../version.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw_gl3.h"
@@ -14,6 +15,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <Shlwapi.h>
 #endif
 #include <cstdio>
 #include <fstream>
@@ -48,6 +50,9 @@ Gui::Gui() {
     } catch(...) {}
     UdpClient::init();
     client_ = new UdpClient;
+    client_->setOnConnected([&](const char *addr) {
+        strncpy(ip_, addr, 256);
+    });
     cmd_ = new Command(*client_);
     handler_ = new Handler(*this);
 
@@ -65,7 +70,9 @@ Gui::Gui() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
     glfwWindowHint(GLFW_RESIZABLE, 0);
-    window_ = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, LS(WINDOW_TITLE), NULL, NULL);
+    char title[256];
+    snprintf(title, 256, "%s v" VERSION_STR, LS(WINDOW_TITLE));
+    window_ = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, title, NULL, NULL);
     glfwMakeContextCurrent(window_);
     glfwSwapInterval(1);
     gl3wInit2(glfwGetProcAddress);
@@ -86,7 +93,7 @@ Gui::Gui() {
     {
         0x0020, 0x00FF, // Basic Latin + Latin Supplement
         0x2000, 0x31FF, // Katakana Phonetic Extensions
-        0x4e00, 0x9FAF, // CJK Ideograms
+        0x4E00, 0x9FAF, // CJK Ideograms
         0xFF00, 0xFFEF, // Half-width characters
         0,
     };
@@ -125,7 +132,7 @@ int Gui::run() {
         ImGui_ImplGlfwGL3_NewFrame();
 #ifndef NDEBUG
         char title[256];
-        snprintf(title, 256, "%s" " - %.1f FPS", LS(WINDOW_TITLE), ImGui::GetIO().Framerate);
+        snprintf(title, 256, "%s v" VERSION_STR " - %.1f FPS", LS(WINDOW_TITLE), ImGui::GetIO().Framerate);
         glfwSetWindowTitle(window_, title);
 #endif
 
@@ -136,15 +143,19 @@ int Gui::run() {
                 switch (tabIndex_) {
                     case 0:
                         searchPanel();
+                        searchPopup();
                         break;
                     case 1:
+                        tablePanel();
+                        tablePopup();
+                        break;
+                    case 2:
                         trophyPanel();
                         break;
                 }
             }
             ImGui::End();
         }
-        editPopup();
 
         glViewport(0, 0, dispWidth_, dispHeight_);
         glClearColor(0.f, 0.f, 0.f, 1.f);
@@ -158,7 +169,7 @@ int Gui::run() {
 }
 
 void Gui::searchResultStart(int type) {
-    searchResult_.clear();
+    searchResults_.clear();
     searchStatus_ = 1;
     searchResultType_ = type;
 }
@@ -168,13 +179,13 @@ void Gui::searchResult(const SearchVal *vals, int count) {
         char hex[16], value[64];
         snprintf(hex, 16, "%08X", vals[i].addr);
         cmd_->formatTypeData(value, searchResultType_, &vals[i].val);
-        SearchResult sr = {vals[i].addr, hex, value};
-        searchResult_.push_back(sr);
+        MemoryItem sr = {vals[i].addr, searchResultType_, hex, value};
+        searchResults_.push_back(sr);
     }
 }
 
 void Gui::searchEnd(int ret) {
-    if (ret == 0 && searchResult_.empty())
+    if (ret == 0 && searchResults_.empty())
         searchStatus_ = 0;
     else
         searchStatus_ = 2 + ret;
@@ -212,13 +223,34 @@ void Gui::trophyUnlocked(int idx, int platidx) {
 void Gui::trophyUnlockErr() {
 }
 
+void Gui::updateMemory(uint32_t addr, int type, const void *data) {
+    for (auto &p: searchResults_) {
+        if (p.addr == addr) {
+            char value[64];
+            cmd_->formatTypeData(value, type, data);
+            p.type = type;
+            p.value = value;
+            break;
+        }
+    }
+    for (auto &p: memTable_) {
+        if (p.addr == addr) {
+            char value[64];
+            cmd_->formatTypeData(value, type, data);
+            p.type = type;
+            p.value = value;
+            break;
+        }
+    }
+}
+
 inline void Gui::connectPanel() {
     ImGui::SetWindowPos(ImVec2(10.f, 10.f));
     ImGui::SetWindowSize(ImVec2(dispWidth_ - 20.f, dispHeight_ - 20.f));
     if (client_->isConnected()) {
         ImGui::Text("%s - %s", client_->titleId().c_str(), client_->title().c_str());
         if (ImGui::Button(LS(DISCONNECT), ImVec2(100.f, 0.f))) {
-            searchResult_.clear();
+            searchResults_.clear();
             searchStatus_ = 0;
             trophies_.clear();
             trophyStatus_ = 0;
@@ -230,21 +262,17 @@ inline void Gui::connectPanel() {
             if (ImGui::Button(LS(DISCONNECT), ImVec2(100.f, 0.f))) {
                 client_->disconnect();
             }
-            /*
             ImGui::SameLine();
-            ImGui::Button(LS(AUTOCONNECT), ImVec2(100.f, 0.f));
-            */
+            ImGui::InvisibleButton(LS(AUTOCONNECT), ImVec2(100.f, 0.f));
         } else {
             ImGui::Text(LS(NOT_CONNECTED));
             if (ImGui::Button(LS(CONNECT), ImVec2(100.f, 0.f))) {
                 client_->connect(ip_, 9527);
             }
-            /*
             ImGui::SameLine();
             if (ImGui::Button(LS(AUTOCONNECT), ImVec2(100.f, 0.f))) {
                 client_->autoconnect(9527);
             }
-            */
         }
     }
     ImGui::SameLine();
@@ -256,8 +284,12 @@ inline void Gui::connectPanel() {
 
 inline void Gui::tabPanel() {
     ImGui::RadioButton(LS(MEM_SEARCHER), &tabIndex_, 0);
+    /* TODO: memory table
     ImGui::SameLine();
-    ImGui::RadioButton(LS(TROPHY), &tabIndex_, 1);
+    ImGui::RadioButton(LS(MEM_TABLE), &tabIndex_, 1);
+    */
+    ImGui::SameLine();
+    ImGui::RadioButton(LS(TROPHY), &tabIndex_, 2);
 }
 
 inline void formatData(int type, const char *src, bool isHex, void *dst) {
@@ -333,7 +365,7 @@ inline void Gui::searchPanel() {
             if (ImGui::Selectable(LS(DATATYPE_FIRST + i), selected)) {
                 if (typeComboIndex_ != i) {
                     typeComboIndex_ = i;
-                    if (searchResultType_ != comboItemType[i] || searchResult_.empty()) {
+                    if (searchResultType_ != comboItemType[i] || searchResults_.empty()) {
                         searchStatus_ = 0;
                     } else {
                         searchStatus_ = 2;
@@ -358,22 +390,26 @@ inline void Gui::searchPanel() {
             ImGui::Text(LS(SEARCH_RESULT));
             ImGui::ListBoxHeader("##Result");
             ImGui::Columns(2, NULL, true);
-            int sz = searchResult_.size();
+            int sz = searchResults_.size();
             for (int i = 0; i < sz; ++i) {
                 bool selected = searchResultIdx_ == i;
-                if (ImGui::Selectable(searchResult_[i].hexaddr.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
+                if (ImGui::Selectable(searchResults_[i].hexaddr.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
                     searchResultIdx_ = i;
                     if (ImGui::IsMouseDoubleClicked(0)) {
-                        strcpy(editVal_, searchResult_[i].value.c_str());
-                        editing_ = true;
+                        strcpy(memEditVal_, searchResults_[i].value.c_str());
+                        memEditing_ = true;
                     }
                 }
                 if (selected) ImGui::SetItemDefaultFocus();
                 ImGui::NextColumn();
-                ImGui::Text(searchResult_[i].value.c_str());
+                ImGui::Text(searchResults_[i].value.c_str());
                 ImGui::NextColumn();
             }
             ImGui::ListBoxFooter();
+            if (searchResultIdx_ >= 0 && (ImGui::SameLine(), ImGui::Button(LS(EDIT_MEM)))) {
+                strcpy(memEditVal_, searchResults_[searchResultIdx_].value.c_str());
+                memEditing_ = true;
+            }
             break;
         }
         case 3:
@@ -383,6 +419,41 @@ inline void Gui::searchPanel() {
             ImGui::Text(LS(SEARCH_IN_PROGRESS));
             break;
     }
+}
+
+void Gui::searchPopup() {
+    if (!memEditing_) return;
+    ImGui::OpenPopup(LS(POPUP_EDIT));
+    if (ImGui::BeginPopupModal(LS(POPUP_EDIT), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+        auto &mi = searchResults_[searchResultIdx_];
+        ImGui::Text("%s: %s", LS(EDIT_ADDR), mi.hexaddr.c_str());
+        ImGui::InputText("##EditValue", memEditVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
+        ImGui::SameLine();
+        if (ImGui::Checkbox(LS(HEX), &hexSearch_)) {
+            searchVal_[0] = 0;
+            memEditVal_[0] = 0;
+        }
+        if (ImGui::Button(LS(OK))) {
+            memEditing_ = false;
+            ImGui::CloseCurrentPopup();
+            char output[8];
+            formatData(mi.type, memEditVal_, hexSearch_, output);
+            cmd_->modifyMemory(mi.type, mi.addr, output);
+            memEditVal_[0] = 0;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(LS(CANCEL))) {
+            memEditing_ = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+}
+
+void Gui::tablePanel() {
+}
+
+void Gui::tablePopup() {
 }
 
 inline void Gui::trophyPanel() {
@@ -452,50 +523,36 @@ inline void Gui::trophyPanel() {
     }
 }
 
-void Gui::editPopup() {
-    if (!editing_) return;
-    ImGui::OpenPopup(LS(POPUP_EDIT));
-    if (ImGui::BeginPopupModal(LS(POPUP_EDIT), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("%s: %s", LS(EDIT_ADDR), searchResult_[searchResultIdx_].hexaddr.c_str());
-        ImGui::InputText("##EditValue", editVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
-        ImGui::SameLine();
-        if (ImGui::Checkbox(LS(HEX), &hexSearch_)) {
-            searchVal_[0] = 0;
-            editVal_[0] = 0;
-        }
-        if (ImGui::Button(LS(OK))) {
-            editing_ = false;
-            ImGui::CloseCurrentPopup();
-            char output[8];
-            formatData(searchResultType_, editVal_, hexSearch_, output);
-            cmd_->modifyMemory(searchResultType_, searchResult_[searchResultIdx_].addr, output);
-            editVal_[0] = 0;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button(LS(CANCEL))) {
-            editing_ = false;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
+inline void getConfigFilePath(char *path) {
+#ifdef _WIN32
+    GetModuleFileNameA(NULL, path, 256);
+    PathRemoveFileSpecA(path);
+    PathAppendA(path, "rcsvr.yml");
+#else
+    strcpy(path, "rcsvr.yml");
+#endif
 }
 
 void Gui::saveData() {
+    char path[256];
+    getConfigFilePath(path);
     YAML::Emitter out;
     out << YAML::BeginMap;
     out << YAML::Key << "IPAddr" << YAML::Value << ip_;
     out << YAML::Key << "HEX" << YAML::Value << hexSearch_;
     out << YAML::Key << "HEAP" << YAML::Value << heapSearch_;
     out << YAML::EndMap;
-    std::ofstream f("rcsvr.yml");
+    std::ofstream f(path);
     f << out.c_str();
     f.close();
 }
 
 void Gui::loadData() {
+    char path[256];
+    getConfigFilePath(path);
     YAML::Node node;
     try {
-        node = YAML::LoadFile("rcsvr.yml");
+        node = YAML::LoadFile(path);
         strncpy(ip_, node["IPAddr"].as<std::string>().c_str(), 256);
         hexSearch_ = node["HEX"].as<bool>();
         heapSearch_ = node["HEAP"].as<bool>();
