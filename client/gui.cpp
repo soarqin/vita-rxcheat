@@ -14,11 +14,17 @@
 #include "yaml-cpp/yaml.h"
 
 #ifdef _WIN32
+#include "resource.h"
+
 #include <windows.h>
 #include <Shlwapi.h>
 #endif
 #include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
+#ifdef _WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#endif
 #include <cstdio>
 #include <fstream>
 #include <stdexcept>
@@ -74,6 +80,11 @@ Gui::Gui() {
     char title[256];
     snprintf(title, 256, "%s v" VERSION_STR, LS(WINDOW_TITLE));
     window_ = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, title, NULL, NULL);
+#ifdef _WIN32
+    HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_MAINICON));
+    SendMessage(glfwGetWin32Window(window_), WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+    SendMessage(glfwGetWin32Window(window_), WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+#endif
     glfwMakeContextCurrent(window_);
     glfwSwapInterval(1);
     gl3wInit2(glfwGetProcAddress);

@@ -24,6 +24,10 @@ add_subdirectory(yaml-cpp)
 
 add_definitions(-DUNICODE -D_UNICODE)
 
+if(WIN32)
+    set(RESOURCE_FILES rcsvr_client.rc)
+endif()
+
 add_executable(rcsvr_client WIN32
     main.cpp
     imgui_impl_glfw_gl3.cpp imgui_impl_glfw_gl3.h
@@ -33,6 +37,7 @@ add_executable(rcsvr_client WIN32
     lang.cpp lang.h
     net.cpp net.h
     ../kcp/ikcp.c ../kcp/ikcp.h
+    ${RESOURCE_FILES}
     )
 
 if(MSVC)
