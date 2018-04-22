@@ -94,14 +94,27 @@ int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam, int sync) {
 
 int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(5000000);
-    set_show_msg(10000, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
+    util_init();
+    net_init();
+    debug_init(DEBUG);
+    font_pgf_init();
+    mem_init();
+    trophy_init();
+    blit_set_color(0xffffffff, 0xff000000);
     net_kcp_listen(9527);
+
+    hooks[2] = taiHookFunctionImport(&ref[2], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x79A0160A, sceSysmoduleLoadModule_patched);
+    hooks[3] = taiHookFunctionImport(&ref[3], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0xEB03E265, sceNetInit_patched);
+    hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x495CA1DB, sceNetCtlInit_patched);
+
+    set_show_msg(10000, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
     while(running) {
         // checkInput();
         // static uint64_t last_tick = 0ULL;
         uint64_t curr_tick = util_gettick();
         check_msg_timeout(curr_tick);
         net_kcp_process(curr_tick);
+        // sceKernelDelayThread(100000);
         // last_tick = curr_tick;
     }
     return sceKernelExitDeleteThread(0);
@@ -109,19 +122,8 @@ int rcsvr_main_thread(SceSize args, void *argp) {
 
 void _start() __attribute__((weak, alias ("module_start")));
 int module_start(SceSize argc, const void *args) {
-    util_init();
-    net_init();
-    debug_init(DEBUG);
-    trophy_init();
-    mem_init();
-    font_pgf_init();
-    blit_set_color(0xffffffff, 0xff000000);
-
     hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x4D695C1F, scePowerSetUsingWireless_patched);
     hooks[1] = taiHookFunctionImport(&ref[1], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x3CE187B6, scePowerSetConfigurationMode_patched);
-    hooks[2] = taiHookFunctionImport(&ref[2], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x79A0160A, sceSysmoduleLoadModule_patched);
-    hooks[3] = taiHookFunctionImport(&ref[3], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0xEB03E265, sceNetInit_patched);
-    hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x495CA1DB, sceNetCtlInit_patched);
     hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x7A410B64, sceDisplaySetFrameBuf_patched);
 
     running = 1;
@@ -137,7 +139,8 @@ int module_stop(SceSize argc, const void *args) {
 
     int i;
     for (i = 0; i < HOOKS_NUM; i++)
-        taiHookRelease(hooks[i], ref[i]);
+        if (hooks[i] > 0)
+            taiHookRelease(hooks[i], ref[i]);
 
     font_pgf_finish();
     mem_finish();

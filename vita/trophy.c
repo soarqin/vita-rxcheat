@@ -16,7 +16,7 @@ static SceNpTrophyContext context = -1;
 static SceUID trophyMutex = -1, trophySema = -1;
 
 int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, void *commID, void *commSign, uint64_t options) {
-    int ret = TAI_CONTINUE(SceUID, ref[0], c, commID, commSign, options);
+    int ret = TAI_CONTINUE(int, ref[0], c, commID, commSign, options);
     if (ret >= 0)
         context = *c;
     log_debug("sceNpTrophyCreateContext %d %d\n", ret, *c);
@@ -24,7 +24,7 @@ int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, void *commID, void *
 }
 
 int sceNpTrophyInit_patched(void *opt) {
-    int ret = TAI_CONTINUE(SceUID, ref[1], opt);
+    int ret = TAI_CONTINUE(int, ref[1], opt);
     return ret;
 }
 
