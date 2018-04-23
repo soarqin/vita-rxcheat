@@ -224,20 +224,25 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
     case 0x01:
         mem_search_reset();
         /* fallthrough */
-    case 0x02: {
-        char nbuf[8];
-        memset(nbuf, 0, 8);
+    case 0x02:
+        mem_start_search(type, op == 0x01, buf, len, _kcp_search_cb, _kcp_search_start, _kcp_search_end);
+        break;
+    case 0x08: {
+        mem_set(*(uint32_t*)buf, buf + 4, len - 4);
+        char nbuf[12];
+        memset(nbuf, 0, 12);
         memcpy(nbuf, buf, len);
-        mem_start_search(type, op == 0x01, nbuf, len, _kcp_search_cb, _kcp_search_start, _kcp_search_end);
+        _kcp_send_cmd(cmd, nbuf, 12);
         break;
     }
-    case 0x08:
-        mem_set(*(uint32_t*)buf, buf + 4, len - 4);
-        _kcp_send_cmd(cmd, buf, len);
-        break;
     case 0x0A: {
         memory_range data[0x100];
-        mem_list(data, 0x100, 0);
+        int r = mem_list(data, 0x100, 0);
+        if (r <= 0) {
+            _kcp_send_cmd(0x0A01, NULL, 0);
+        } else {
+            _kcp_send_cmd(0x0A00, data, r * sizeof(memory_range));
+        }
     }
     case 0x0C: {
         char data[0x104];

@@ -39,7 +39,7 @@ void Command::modifyMemory(int st, uint32_t offset, const void *data) {
 }
 
 int Command::getTypeSize(int type, const void* data) {
-    switch (searchType_) {
+    switch (type) {
         case st_autoint:
         {
             int64_t val = *(int64_t*)data;
@@ -111,6 +111,10 @@ void Command::formatTypeData(char *output, int type, const void *data) {
         default:
             output[0] = 0;
     }
+}
+
+void Command::readMem(uint32_t addr) {
+    sendCommand(0x0C00, &addr, 4);
 }
 
 void Command::refreshTrophy() {

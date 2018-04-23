@@ -15,6 +15,7 @@ strings:
   CONNECTING: Connecting
   IP_ADDR: "IP Address:"
   MEM_SEARCHER: Memory Searcher
+  MEM_VIEWER: Memory Viewer
   MEM_TABLE: Memory Table
   TROPHY: Trophy
   AUTOINT: int(auto)
@@ -39,6 +40,7 @@ strings:
   TOO_MANY_RESULTS: Too many results, do more search please
   SEARCH_IN_PROGRESS: Searching in progress, please do it later
   EDIT_MEM: Edit
+  VIEW_MEMORY: View Memory
   REFRESH_TROPHY: Refresh trophies
   REFRESHING: Refreshing
   TROPHY_NAME: Name

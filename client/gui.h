@@ -41,12 +41,15 @@ public:
     void trophyUnlockErr();
 
     void updateMemory(uint32_t addr, int type, const void *data);
+    void setMemViewData(uint32_t addr, const void *data, int len);
 
 private:
     void connectPanel();
     void tabPanel();
     void searchPanel();
     void searchPopup();
+    void memoryPanel();
+    void memoryPopup();
     void tablePanel();
     void tablePopup();
     void trophyPanel();
@@ -95,8 +98,15 @@ private:
     bool hexSearch_ = false;
     bool heapSearch_ = false;
     int searchResultIdx_ = -1;
-    bool memEditing_ = false;
-    char memEditVal_[32] = "";
+    bool searchEditing_ = false;
+    char searchEditVal_[32] = "";
+    char memoryAddr_[9] = "";
+    uint32_t memAddr_ = 0U;
+    int memViewIndex_ = -1;
+    std::vector<uint8_t> memViewData_;
+    bool memoryEditing_ = false;
+    uint32_t memoryEditingAddr_ = 0;
+    char memoryEditVal_[32] = "";
     bool tableEditing_ = false;
     char tableEditVal_[32] = "";
     int trophyStatus_ = 0;

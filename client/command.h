@@ -34,6 +34,8 @@ public:
     int getTypeSize(int type, const void* data);
     void formatTypeData(char *output, int type, const void *data);
 
+    void readMem(uint32_t addr);
+
     void refreshTrophy();
     void unlockTrophy(int id, bool hidden);
     void unlockAllTrophy(uint32_t hidden[4]);

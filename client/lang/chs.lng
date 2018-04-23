@@ -16,6 +16,7 @@ strings:
   CONNECTING: 正在连接中
   IP_ADDR: "IP地址:"
   MEM_SEARCHER: 内存搜索
+  MEM_VIEWER: 内存视图
   MEM_TABLE: 内存表格
   TROPHY: 奖杯
   AUTOINT: 整数(自动)
@@ -40,6 +41,7 @@ strings:
   TOO_MANY_RESULTS: 结果太多，请进一步搜索
   SEARCH_IN_PROGRESS: 正在搜索，请稍后重试
   EDIT_MEM: 修改
+  VIEW_MEMORY: 查看内存
   REFRESH_TROPHY: 刷新奖杯列表
   REFRESHING: 正在刷新
   TROPHY_NAME: 名称

@@ -77,7 +77,7 @@ static void mem_load() {
     for(; thid <= 0x40010FFF && stack_sz < 32; ++thid) {
         if (thid == curr) continue;
         ret = sceKernelGetThreadInfo(thid, &status);
-        if (ret < 0) continue;
+        if (ret < 0 || strncmp(status.name, "rcsvr_", 6) == 0) continue;
         log_debug("0x%08X %s 0x%08X 0x%08X\n", thid, status.name, status.stack, status.stackSize);
         memory_range *mr = &stackmem[stack_sz++];
         mr->start = (uint32_t)status.stack;
@@ -199,7 +199,7 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
         sceClibSnprintf(infile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
         if (kIoOpen(infile, SCE_O_RDONLY, &f) < 0) {
             type = st_none;
-            mem_search(type, heap, data, len, cb);
+            mem_search(type, heap, data, size, cb);
             return;
         }
         last_sidx ^= 1;
@@ -229,7 +229,7 @@ void mem_set(uint32_t addr, const void *data, int size) {
 typedef struct {
     int type;
     int heap;
-    const char *buf;
+    char buf[8];
     int len;
     void (*cb)(const uint32_t *addr, int count, int datalen);
     void (*cb_start)(int type);
@@ -244,7 +244,8 @@ static int _search_thread(SceSize args, void *argp) {
         return sceKernelExitDeleteThread(0);
     }
     int type = search_req.type;
-    const char *buf = search_req.buf;
+    char buf[8];
+    memcpy(buf, (const char*)search_req.buf, 8);
     int len = search_req.len;
     int heap = search_req.heap;
     void (*cb)(const uint32_t *addr, int count, int datalen);
@@ -264,7 +265,8 @@ static int _search_thread(SceSize args, void *argp) {
 void mem_start_search(int type, int heap, const char *buf, int len, void (*cb)(const uint32_t *addr, int count, int datalen), void (*cb_start)(int type), void (*cb_end)(int err)) {
     search_req.type = type;
     search_req.heap = heap;
-    search_req.buf = buf;
+    memset((char*)search_req.buf, 0, 8);
+    memcpy((char*)search_req.buf, buf, len);
     search_req.len = len;
     search_req.cb = cb;
     search_req.cb_start = cb_start;

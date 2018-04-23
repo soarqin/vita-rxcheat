@@ -157,6 +157,10 @@ int Gui::run() {
                         searchPanel();
                         searchPopup();
                         break;
+                    case 1:
+                        memoryPanel();
+                        memoryPopup();
+                        break;
                     case 2:
                         tablePanel();
                         tablePopup();
@@ -254,6 +258,20 @@ void Gui::updateMemory(uint32_t addr, int type, const void *data) {
             break;
         }
     }
+    uint32_t e = memAddr_ + (uint32_t)memViewData_.size();
+    if (addr >= memAddr_ && addr < e) {
+        int sz = cmd_->getTypeSize(type, data);
+        if (sz >= 0) {
+            if (addr + sz > e) sz = e - addr;
+            memcpy(&memViewData_[addr - memAddr_], data, sz);
+        }
+    }
+}
+
+void Gui::setMemViewData(uint32_t addr, const void *data, int len) {
+    memAddr_ = addr;
+    snprintf(memoryAddr_, 9, "%08X", memAddr_);
+    memViewData_.assign((const uint8_t*)data, (const uint8_t*)data + len);
 }
 
 inline void Gui::connectPanel() {
@@ -296,9 +314,9 @@ inline void Gui::connectPanel() {
 
 inline void Gui::tabPanel() {
     ImGui::RadioButton(LS(MEM_SEARCHER), &tabIndex_, 0);
-    /* TODO: memory table
     ImGui::SameLine();
     ImGui::RadioButton(LS(MEM_VIEWER), &tabIndex_, 1);
+    /* TODO: memory table
     ImGui::SameLine();
     ImGui::RadioButton(LS(MEM_TABLE), &tabIndex_, 2);
     */
@@ -410,8 +428,8 @@ inline void Gui::searchPanel() {
                 if (ImGui::Selectable(searchResults_[i].hexaddr.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
                     searchResultIdx_ = i;
                     if (ImGui::IsMouseDoubleClicked(0)) {
-                        strcpy(memEditVal_, searchResults_[i].value.c_str());
-                        memEditing_ = true;
+                        strcpy(searchEditVal_, searchResults_[i].value.c_str());
+                        searchEditing_ = true;
                     }
                 }
                 if (selected) ImGui::SetItemDefaultFocus();
@@ -420,9 +438,20 @@ inline void Gui::searchPanel() {
                 ImGui::NextColumn();
             }
             ImGui::ListBoxFooter();
-            if (searchResultIdx_ >= 0 && (ImGui::SameLine(), ImGui::Button(LS(EDIT_MEM)))) {
-                strcpy(memEditVal_, searchResults_[searchResultIdx_].value.c_str());
-                memEditing_ = true;
+            if (searchResultIdx_ >= 0) {
+                if (ImGui::Button(LS(EDIT_MEM))) {
+                    strcpy(searchEditVal_, searchResults_[searchResultIdx_].value.c_str());
+                    searchEditing_ = true;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button(LS(VIEW_MEMORY))) {
+                    tabIndex_ = 1;
+                    memAddr_ = searchResults_[searchResultIdx_].addr & ~0xFF;
+                    snprintf(memoryAddr_, 9, "%08X", memAddr_);
+                    memViewData_.clear();
+                    memViewIndex_ = -1;
+                    cmd_->readMem(memAddr_);
+                }
             }
             break;
         }
@@ -436,28 +465,108 @@ inline void Gui::searchPanel() {
 }
 
 void Gui::searchPopup() {
-    if (!memEditing_) return;
+    if (!searchEditing_) return;
     ImGui::OpenPopup(LS(POPUP_EDIT));
     if (ImGui::BeginPopupModal(LS(POPUP_EDIT), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
         auto &mi = searchResults_[searchResultIdx_];
         ImGui::Text("%s: %s", LS(EDIT_ADDR), mi.hexaddr.c_str());
-        ImGui::InputText("##EditValue", memEditVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
+        ImGui::InputText("##EditValue", searchEditVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
         ImGui::SameLine();
         if (ImGui::Checkbox(LS(HEX), &hexSearch_)) {
             searchVal_[0] = 0;
-            memEditVal_[0] = 0;
+            searchEditVal_[0] = 0;
         }
         if (ImGui::Button(LS(OK))) {
-            memEditing_ = false;
+            searchEditing_ = false;
             ImGui::CloseCurrentPopup();
             char output[8];
-            formatData(mi.type, memEditVal_, hexSearch_, output);
+            formatData(mi.type, searchEditVal_, hexSearch_, output);
             cmd_->modifyMemory(mi.type, mi.addr, output);
-            memEditVal_[0] = 0;
+            searchEditVal_[0] = 0;
         }
         ImGui::SameLine();
         if (ImGui::Button(LS(CANCEL))) {
-            memEditing_ = false;
+            searchEditing_ = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+}
+
+void Gui::memoryPanel() {
+    if (ImGui::Button("<##PageUp") && memAddr_ != 0) {
+        memAddr_ -= 0x100;
+        snprintf(memoryAddr_, 9, "%08X", memAddr_);
+        memViewData_.clear();
+        memViewIndex_ = -1;
+        cmd_->readMem(memAddr_);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(">##PageDown") && memAddr_ != 0) {
+        memAddr_ += 0x100;
+        snprintf(memoryAddr_, 9, "%08X", memAddr_);
+        memViewData_.clear();
+        memViewIndex_ = -1;
+        cmd_->readMem(memAddr_);
+    }
+    ImGui::SameLine(100.f);
+    ImGui::Text(LS(EDIT_ADDR));
+    ImGui::SameLine();
+    ImGui::PushItemWidth(80.f);
+    ImGui::InputText("##MemViewAddr", memoryAddr_, 9, ImGuiInputTextFlags_CharsHexadecimal);
+    ImGui::PopItemWidth();
+    ImGui::SameLine();
+    if (ImGui::Button("->##GotoMemAddr")) {
+        memAddr_ = (uint32_t)strtoul(memoryAddr_, NULL, 16) & ~0xFF;
+        snprintf(memoryAddr_, 9, "%08X", memAddr_);
+        memViewData_.clear();
+        memViewIndex_ = -1;
+        cmd_->readMem(memAddr_);
+    }
+    size_t sz = memViewData_.size();
+    size_t lines = sz / 0x10;
+    for (size_t i = 0; i < lines; ++i) {
+        size_t curr = i * 0x10;
+        size_t end = curr + 0x10;
+        size_t count;
+        if (end > sz) {
+            end = sz; count = end - curr;
+        } else count = 0x10;
+        ImGui::Text("%08X", memAddr_ + curr);
+        float pos = 65.f;
+        for (size_t j = 0; j < count; ++j, ++curr) {
+            pos += j == 8 ? 35.f : 25.f;
+            ImGui::SameLine(pos);
+            char n[3];
+            snprintf(n, 3, "%02X##%d", memViewData_[curr], curr);
+            if (ImGui::Selectable(n, memViewIndex_ == curr, ImGuiSelectableFlags_AllowDoubleClick, ImVec2(20.f, 20.f))) {
+                memoryEditingAddr_ = memAddr_ + curr;
+                if (ImGui::IsMouseDoubleClicked(0)) {
+                    memoryEditing_ = true;
+                    snprintf(memoryEditVal_, 3, "%02X", memViewData_[curr]);
+                }
+            }
+        }
+    }
+}
+
+void Gui::memoryPopup() {
+    if (!memoryEditing_) return;
+    ImGui::OpenPopup(LS(POPUP_EDIT));
+    if (ImGui::BeginPopupModal(LS(POPUP_EDIT), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("%s: %08X", LS(EDIT_ADDR), memoryEditingAddr_);
+        ImGui::InputText("##MemEditValue", memoryEditVal_, 31, ImGuiInputTextFlags_CharsHexadecimal);
+        if (ImGui::Button(LS(OK))) {
+            memoryEditing_ = false;
+            ImGui::CloseCurrentPopup();
+            char output[8];
+            formatData(Command::st_u8, memoryEditVal_, true, output);
+            cmd_->modifyMemory(Command::st_u8, memoryEditingAddr_, output);
+            memoryEditVal_[0] = 0;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(LS(CANCEL))) {
+            memoryEditing_ = false;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
