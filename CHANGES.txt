@@ -1,3 +1,9 @@
+v0.3.2:
+  1. fixed bug in searching memory of auto int types
+
+v0.3.1:
+  1. delayed initialization to support some games
+
 v0.3:
   1. removed taipool to handle larger memory
   2. display some tips in game and use PGF font to handle display

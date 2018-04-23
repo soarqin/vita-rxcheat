@@ -6,11 +6,6 @@
 #include "kio.h"
 #include <stdlib.h>
 
-typedef struct memory_range {
-    uint32_t start;
-    uint32_t size;
-} memory_range;
-
 typedef enum {
     st_none = 0,
     st_u32 = 1,
@@ -278,6 +273,61 @@ void mem_start_search(int type, int heap, const char *buf, int len, void (*cb)(c
     if (thid >= 0)
         sceKernelStartThread(thid, 0, NULL);
     sceKernelWaitSema(searchSema, 1, NULL);
+}
+
+int mem_read(uint32_t addr, void *data, int size) {
+    if (!mem_loaded) {
+        mem_load();
+    }
+    int i;
+    for (i = 0; i < static_sz; ++i) {
+        if (addr >= staticmem[i].start && addr < staticmem[i].start + staticmem[i].size) {
+            uint32_t end = staticmem[i].start + staticmem[i].size;
+            if (addr + size > end) size = end - addr;
+            memcpy(data, (void*)addr, size);
+            return size;
+        }
+    }
+    for (i = 0; i < stack_sz; ++i) {
+        if (addr >= stackmem[i].start && addr < stackmem[i].start + stackmem[i].size) {
+            uint32_t end = stackmem[i].start + stackmem[i].size;
+            if (addr + size > end) size = end - addr;
+            memcpy(data, (void*)addr, size);
+            return size;
+        }
+    }
+    SceUID heap_memblock = sceKernelFindMemBlockByAddr((const void*)addr, 0);
+    if (heap_memblock < 0) return -1;
+    void* heap_addr;
+    int ret = sceKernelGetMemBlockBase(heap_memblock, &heap_addr);
+    if (ret < 0) return -1;
+    SceKernelMemBlockInfo heap_info;
+    heap_info.size = sizeof(SceKernelMemBlockInfo);
+    ret = sceKernelGetMemBlockInfoByAddr(heap_addr, &heap_info);
+    if (ret < 0 || (heap_info.access & 6) != 6) return -1;
+    log_debug("%08X %08X %08X %08X %08X\n", heap_info.mappedBase, heap_info.mappedSize, heap_info.access, heap_info.memoryType, heap_info.type);
+    uint32_t end = (uint32_t)heap_info.mappedBase + heap_info.mappedSize;
+    if (addr + size > end)
+        size = end - addr;
+    memcpy(data, (void*)addr, size);
+    return size;
+}
+
+int mem_list(memory_range *range, int size, int heap) {
+    int res = 0;
+    int i;
+    for (i = 0; i < static_sz && res < size; ++i) {
+        range[res++] = staticmem[i];
+    }
+    for (i = 0; i < stack_sz && res < size; ++i) {
+        range[res++] = stackmem[i];
+    }
+    if (!heap) return res;
+    reload_blocks();
+    for (i = 0; i < block_sz && res < size; ++i) {
+        range[res++] = blockmem[i];
+    }
+    return res;
 }
 
 int mem_get_type_size(int type, const void *data) {

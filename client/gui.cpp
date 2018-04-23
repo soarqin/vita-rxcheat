@@ -157,11 +157,11 @@ int Gui::run() {
                         searchPanel();
                         searchPopup();
                         break;
-                    case 1:
+                    case 2:
                         tablePanel();
                         tablePopup();
                         break;
-                    case 2:
+                    case 3:
                         trophyPanel();
                         break;
                 }
@@ -298,10 +298,12 @@ inline void Gui::tabPanel() {
     ImGui::RadioButton(LS(MEM_SEARCHER), &tabIndex_, 0);
     /* TODO: memory table
     ImGui::SameLine();
-    ImGui::RadioButton(LS(MEM_TABLE), &tabIndex_, 1);
+    ImGui::RadioButton(LS(MEM_VIEWER), &tabIndex_, 1);
+    ImGui::SameLine();
+    ImGui::RadioButton(LS(MEM_TABLE), &tabIndex_, 2);
     */
     ImGui::SameLine();
-    ImGui::RadioButton(LS(TROPHY), &tabIndex_, 2);
+    ImGui::RadioButton(LS(TROPHY), &tabIndex_, 3);
 }
 
 inline void formatData(int type, const char *src, bool isHex, void *dst) {

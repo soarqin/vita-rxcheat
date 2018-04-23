@@ -220,17 +220,36 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
     int op = cmd >> 8;
     int type = cmd & 0xFF;
     switch(op) {
-    case 0:
-    case 1:
+    case 0x00:
+    case 0x01:
         mem_search_reset();
         /* fallthrough */
-    case 2:
-        mem_start_search(type, op == 1, buf, len, _kcp_search_cb, _kcp_search_start, _kcp_search_end);
+    case 0x02: {
+        char nbuf[8];
+        memset(nbuf, 0, 8);
+        memcpy(nbuf, buf, len);
+        mem_start_search(type, op == 0x01, nbuf, len, _kcp_search_cb, _kcp_search_start, _kcp_search_end);
         break;
-    case 8:
+    }
+    case 0x08:
         mem_set(*(uint32_t*)buf, buf + 4, len - 4);
         _kcp_send_cmd(cmd, buf, len);
         break;
+    case 0x0A: {
+        memory_range data[0x100];
+        mem_list(data, 0x100, 0);
+    }
+    case 0x0C: {
+        char data[0x104];
+        memcpy(data, buf, 4);
+        int r = mem_read(*(uint32_t*)buf, data + 4, 0x100);
+        if (r <= 0) {
+            _kcp_send_cmd(0x0C01, buf, 4);
+        } else {
+            _kcp_send_cmd(0x0C00, data, 4 + r);
+        }
+        break;
+    }
     case 0x80:
         trophy_list(_kcp_trophy_list, _kcp_trophy_list_end);
         break;

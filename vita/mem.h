@@ -10,6 +10,14 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
 void mem_search_reset();
 void mem_set(uint32_t addr, const void *data, int size);
 void mem_start_search(int type, int heap, const char *buf, int len, void (*cb)(const uint32_t *addr, int count, int datalen), void (*cb_start)(int type), void (*cb_end)(int err));
+int mem_read(uint32_t addr, void *data, int size);
+
+typedef struct memory_range {
+    uint32_t start;
+    uint32_t size;
+} memory_range;
+
+int mem_list(memory_range *range, int size, int heap);
 
 int mem_get_type_size(int type, const void *data);
 
