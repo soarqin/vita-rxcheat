@@ -29,9 +29,10 @@
 #include <GLFW/glfw3native.h>
 #endif
 #include <cstdio>
+#include <cstdlib>
+#include <cctype>
 #include <fstream>
 #include <stdexcept>
-#include <cctype>
 
 enum:int {
     WIN_WIDTH = 640,
@@ -89,6 +90,19 @@ Gui::Gui() {
         p = std::tolower(p);
     }
     if (lname[0] != 0) g_lang.setLanguageByCode(lname);
+#else
+    char *langname = getenv("LANG");
+    if (langname == NULL) langname = getenv("LC_ALL");
+    if (langname != NULL) {
+        char lname[256];
+        char *pname = lname;
+        size_t len = strlen(langname);
+        for (size_t i = 0; i < len; ++i) {
+            lname[i] = std::tolower(langname[i]);
+        }
+        lname[len] = 0;
+        g_lang.setLanguageByCode(lname);
+    }
 #endif
     UdpClient::init();
     client_ = new UdpClient;
