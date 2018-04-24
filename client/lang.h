@@ -72,10 +72,12 @@ public:
     }
     inline const std::string &id() const { return id_; }
     inline const std::string &name() const { return name_; }
+    inline const std::string &code() const { return code_; }
 
 private:
     std::string id_;
     std::string name_;
+    std::string code_;
     std::vector<std::string> fonts_;
     std::string langstr_[LANG_MAX];
 };
@@ -84,6 +86,7 @@ class LangManager {
 public:
     LangManager();
     bool setLanguage(const std::string& name);
+    bool setLanguageByCode(const std::string& code);
 
     inline Lang& currLang() { return *currLang_; }
     const std::map<std::string, Lang> &langs() { return languages_; }

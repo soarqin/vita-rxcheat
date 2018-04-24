@@ -18,6 +18,9 @@
 
 #include <windows.h>
 #include <Shlwapi.h>
+#include <ole2.h>
+#include <oleauto.h>
+#include <mlang.h>
 #endif
 #include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
@@ -28,6 +31,7 @@
 #include <cstdio>
 #include <fstream>
 #include <stdexcept>
+#include <cctype>
 
 enum:int {
     WIN_WIDTH = 640,
@@ -51,12 +55,40 @@ inline const char *getGradeName(int grade) {
 Gui::Gui() {
     std::vector<std::string> langs;
 #ifdef _WIN32
-    LANGID langid = GetUserDefaultUILanguage();
-    if ((langid & 0x3FF) == 4) {
-        try {
-            g_lang.setLanguage("chs");
-        } catch (...) {}
+    wchar_t localname[256];
+    char lname[256] = "";
+    LCID lcid = GetUserDefaultLCID();
+
+    typedef int (WINAPI *fnLCIDToLocaleName)(LCID Locale, LPWSTR  lpName, int cchName, DWORD dwFlags);
+    fnLCIDToLocaleName pfnLCIDToLocaleName = (fnLCIDToLocaleName)::GetProcAddress(GetModuleHandleA("Kernel32"), "LCIDToLocaleName");
+    if (pfnLCIDToLocaleName) {
+        pfnLCIDToLocaleName(lcid, localname, 256, 0);
+        WideCharToMultiByte(CP_ACP, 0, localname, 256, lname, 256, NULL, NULL);
+    } else {
+        HRESULT hr = CoInitialize(NULL);
+        if (SUCCEEDED(hr)) {
+            IMultiLanguage * pml;
+            hr = CoCreateInstance(CLSID_CMultiLanguage, NULL,
+                CLSCTX_ALL,
+                IID_IMultiLanguage, (void**)&pml);
+            if (SUCCEEDED(hr)) {
+                // Let's convert US-English to an RFC 1766 string
+                BSTR bs;
+                hr = pml->GetRfc1766FromLcid(lcid, &bs);
+                if (SUCCEEDED(hr)) {
+                    WideCharToMultiByte(CP_ACP, 0, bs, lstrlenW(bs) + 1, lname, 256, NULL, NULL);
+                    SysFreeString(bs);
+                }
+                pml->Release();
+            }
+            CoUninitialize();
+        }
     }
+    for (auto &p: lname) {
+        if (p == 0) break;
+        p = std::tolower(p);
+    }
+    if (lname[0] != 0) g_lang.setLanguageByCode(lname);
 #endif
     UdpClient::init();
     client_ = new UdpClient;

@@ -29,6 +29,7 @@ bool Lang::load(const std::string &name) {
 #endif
         }
         name_ = node["name"].as<std::string>();
+        code_ = node["code"].as<std::string>();
         for (auto n: node["fonts"]) {
             fonts_.push_back(n.as<std::string>());
         }
@@ -117,6 +118,17 @@ bool LangManager::setLanguage(const std::string& name) {
     if (ite == languages_.end()) return false;
     currLang_ = &ite->second;
     return true;
+}
+
+#include <algorithm>
+bool LangManager::setLanguageByCode(const std::string &code) {
+    for (auto &p: languages_) {
+        if (p.second.code() == code) {
+            currLang_ = &p.second;
+            return true;
+        }
+    }
+    return false;
 }
 
 void LangManager::loadLanguages() {
