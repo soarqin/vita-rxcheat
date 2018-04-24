@@ -1,5 +1,6 @@
 const char *defaultLang =
 R"(---
+name: English (Default)
 fonts:
 strings:
   WINDOW_TITLE: VITA Remote Cheat Client

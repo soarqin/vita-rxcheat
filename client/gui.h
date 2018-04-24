@@ -45,6 +45,7 @@ public:
 
 private:
     void connectPanel();
+    void langPanel();
     void tabPanel();
     void searchPanel();
     void searchPopup();
@@ -57,6 +58,8 @@ private:
     void saveData();
     void loadData();
 
+    void reloadFonts();
+
 private:
     UdpClient *client_;
     Command *cmd_;
@@ -64,6 +67,8 @@ private:
 
     GLFWwindow* window_ = NULL;
     int dispWidth_ = 0, dispHeight_ = 0;
+
+    bool reloadLang_ = false;
 
     char ip_[256] =
 #ifdef NDEBUG

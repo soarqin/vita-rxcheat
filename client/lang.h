@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <string>
+#include <map>
 
 class Lang {
 public:
@@ -63,19 +64,38 @@ public:
         LANG_CANCEL,
         LANG_MAX
     };
-    void listLanguages(std::vector<std::string> &names);
-    void loadDefault();
-    void load(const std::string &name);
-    inline const std::vector<std::string> &fonts() { return fonts_; }
-    inline const char *getString(int index) {
+    bool loadDefault();
+    bool load(const std::string &name);
+    inline const std::vector<std::string> &fonts() const { return fonts_; }
+    inline const char *getString(int index) const {
         return langstr_[index].c_str();
     }
+    inline const std::string &id() const { return id_; }
+    inline const std::string &name() const { return name_; }
 
 private:
+    std::string id_;
+    std::string name_;
     std::vector<std::string> fonts_;
     std::string langstr_[LANG_MAX];
 };
 
-extern Lang g_lang;
+class LangManager {
+public:
+    LangManager();
+    bool setLanguage(const std::string& name);
 
-#define LS(N) (g_lang.getString(Lang::LANG_##N))
+    inline Lang& currLang() { return *currLang_; }
+    const std::map<std::string, Lang> &langs() { return languages_; }
+
+private:
+    void loadLanguages();
+
+private:
+    std::map<std::string, Lang> languages_;
+    Lang *currLang_;
+};
+
+extern LangManager g_lang;
+
+#define LS(N) (g_lang.currLang().getString(Lang::LANG_##N))

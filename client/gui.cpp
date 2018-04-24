@@ -50,11 +50,14 @@ inline const char *getGradeName(int grade) {
 
 Gui::Gui() {
     std::vector<std::string> langs;
-    g_lang.listLanguages(langs);
-    g_lang.loadDefault();
-    try {
-        g_lang.load("chs");
-    } catch(...) {}
+#ifdef _WIN32
+    LANGID langid = GetUserDefaultUILanguage();
+    if ((langid & 0x3FF) == 4) {
+        try {
+            g_lang.setLanguage("chs");
+        } catch (...) {}
+    }
+#endif
     UdpClient::init();
     client_ = new UdpClient;
     client_->setOnConnected([&](const char *addr) {
@@ -77,9 +80,7 @@ Gui::Gui() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
     glfwWindowHint(GLFW_RESIZABLE, 0);
-    char title[256];
-    snprintf(title, 256, "%s v" VERSION_STR, LS(WINDOW_TITLE));
-    window_ = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, title, NULL, NULL);
+    window_ = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "", NULL, NULL);
 #ifdef _WIN32
     HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_MAINICON));
     SendMessage(glfwGetWin32Window(window_), WM_SETICON, ICON_BIG, (LPARAM)hIcon);
@@ -100,24 +101,7 @@ Gui::Gui() {
     style.ItemSpacing = ImVec2(5.f, 5.f);
 
     io.IniFilename = NULL;
-    ImFontAtlas *f = io.Fonts;
-    static const ImWchar ranges[] =
-    {
-        0x0020, 0x00FF, // Basic Latin + Latin Supplement
-        0x2000, 0x31FF, // Katakana Phonetic Extensions
-        0x4E00, 0x9FAF, // CJK Ideograms
-        0xFF00, 0xFFEF, // Half-width characters
-        0,
-    };
-    if (!f->AddFontFromFileTTF("font.ttc", 18.0f, NULL, ranges)) {
-        bool found = false;
-        for (auto &p: g_lang.fonts()) {
-            if (f->AddFontFromFileTTF(p.c_str(), 18.0f, NULL, ranges)) {
-                found = true;  break;
-            }
-        }
-        if (!found) f->AddFontDefault();
-    }
+    reloadFonts();
 }
 
 Gui::~Gui() {
@@ -136,6 +120,11 @@ Gui::~Gui() {
 
 int Gui::run() {
     while (!glfwWindowShouldClose(window_)) {
+        if (reloadLang_) {
+            reloadLang_ = false;
+            reloadFonts();
+        }
+
         client_->process();
         glfwPollEvents();
 
@@ -149,6 +138,8 @@ int Gui::run() {
 #endif
 
         if (ImGui::Begin("", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize)) {
+            ImGui::SetWindowPos(ImVec2(10.f, 10.f));
+            ImGui::SetWindowSize(ImVec2(dispWidth_ - 20.f, dispHeight_ - 20.f));
             connectPanel();
             if (client_->isConnected()) {
                 tabPanel();
@@ -275,10 +266,9 @@ void Gui::setMemViewData(uint32_t addr, const void *data, int len) {
 }
 
 inline void Gui::connectPanel() {
-    ImGui::SetWindowPos(ImVec2(10.f, 10.f));
-    ImGui::SetWindowSize(ImVec2(dispWidth_ - 20.f, dispHeight_ - 20.f));
     if (client_->isConnected()) {
         ImGui::Text("%s - %s", client_->titleId().c_str(), client_->title().c_str());
+        langPanel();
         if (ImGui::Button(LS(DISCONNECT), ImVec2(100.f, 0.f))) {
             searchResults_.clear();
             searchStatus_ = 0;
@@ -289,6 +279,7 @@ inline void Gui::connectPanel() {
     } else {
         if (client_->isConnecting()) {
             ImGui::Text(LS(CONNECTING));
+            langPanel();
             if (ImGui::Button(LS(DISCONNECT), ImVec2(100.f, 0.f))) {
                 client_->disconnect();
             }
@@ -296,6 +287,7 @@ inline void Gui::connectPanel() {
             ImGui::InvisibleButton(LS(AUTOCONNECT), ImVec2(100.f, 0.f));
         } else {
             ImGui::Text(LS(NOT_CONNECTED));
+            langPanel();
             if (ImGui::Button(LS(CONNECT), ImVec2(100.f, 0.f))) {
                 client_->connect(ip_, 9527);
             }
@@ -309,6 +301,25 @@ inline void Gui::connectPanel() {
     ImGui::Text(LS(IP_ADDR)); ImGui::SameLine();
     ImGui::PushItemWidth(200.f);
     ImGui::InputText("##IP", ip_, 256, client_->isConnected() ? ImGuiInputTextFlags_ReadOnly : 0);
+    ImGui::PopItemWidth();
+}
+
+void Gui::langPanel() {
+    ImGui::SameLine(400.f);
+    auto *currlang = &g_lang.currLang();
+    ImGui::PushItemWidth(200.f);
+    if (ImGui::BeginCombo("##Lang", currlang->name().c_str())) {
+        const auto &lmap = g_lang.langs();
+        for (auto &p: lmap) {
+            bool selected = &p.second == currlang;
+            if (ImGui::Selectable(p.second.name().c_str(), selected)) {
+                g_lang.setLanguage(p.first);
+                reloadLang_ = true;
+            }
+            if (selected) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
     ImGui::PopItemWidth();
 }
 
@@ -464,7 +475,7 @@ inline void Gui::searchPanel() {
     }
 }
 
-void Gui::searchPopup() {
+inline void Gui::searchPopup() {
     if (!searchEditing_) return;
     ImGui::OpenPopup(LS(POPUP_EDIT));
     if (ImGui::BeginPopupModal(LS(POPUP_EDIT), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -493,7 +504,7 @@ void Gui::searchPopup() {
     }
 }
 
-void Gui::memoryPanel() {
+inline void Gui::memoryPanel() {
     if (ImGui::Button("<##PageUp") && memAddr_ != 0) {
         memAddr_ -= 0x100;
         snprintf(memoryAddr_, 9, "%08X", memAddr_);
@@ -550,7 +561,7 @@ void Gui::memoryPanel() {
     }
 }
 
-void Gui::memoryPopup() {
+inline void Gui::memoryPopup() {
     if (!memoryEditing_) return;
     ImGui::OpenPopup(LS(POPUP_EDIT));
     if (ImGui::BeginPopupModal(LS(POPUP_EDIT), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -573,10 +584,10 @@ void Gui::memoryPopup() {
     }
 }
 
-void Gui::tablePanel() {
+inline void Gui::tablePanel() {
 }
 
-void Gui::tablePopup() {
+inline void Gui::tablePopup() {
 }
 
 inline void Gui::trophyPanel() {
@@ -656,11 +667,13 @@ inline void getConfigFilePath(char *path) {
 #endif
 }
 
-void Gui::saveData() {
+inline void Gui::saveData() {
     char path[256];
     getConfigFilePath(path);
     YAML::Emitter out;
     out << YAML::BeginMap;
+    const auto &name = g_lang.currLang().id();
+    if (!name.empty()) out << YAML::Key << "Lang" << YAML::Value << name;
     out << YAML::Key << "IPAddr" << YAML::Value << ip_;
     out << YAML::Key << "HEX" << YAML::Value << hexSearch_;
     out << YAML::Key << "HEAP" << YAML::Value << heapSearch_;
@@ -670,14 +683,43 @@ void Gui::saveData() {
     f.close();
 }
 
-void Gui::loadData() {
+inline void Gui::loadData() {
     char path[256];
     getConfigFilePath(path);
     YAML::Node node;
     try {
         node = YAML::LoadFile(path);
-        strncpy(ip_, node["IPAddr"].as<std::string>().c_str(), 256);
-        hexSearch_ = node["HEX"].as<bool>();
-        heapSearch_ = node["HEAP"].as<bool>();
+        if (node["Lang"].IsDefined()) g_lang.setLanguage(node["Lang"].as<std::string>());
+        if (node["IPAddr"].IsDefined()) strncpy(ip_, node["IPAddr"].as<std::string>().c_str(), 256);
+        if (node["HEX"].IsDefined()) hexSearch_ = node["HEX"].as<bool>();
+        if (node["HEAP"].IsDefined()) heapSearch_ = node["HEAP"].as<bool>();
     } catch (...) { return; }
+}
+
+void Gui::reloadFonts() {
+    ImGui_ImplGlfwGL3_InvalidateDeviceObjects();
+    char title[256];
+    snprintf(title, 256, "%s v" VERSION_STR, LS(WINDOW_TITLE));
+    glfwSetWindowTitle(window_, title);
+    ImFontAtlas *f = ImGui::GetIO().Fonts;
+    static const ImWchar ranges[] =
+    {
+        0x0020, 0x00FF, // Basic Latin + Latin Supplement
+        0x2000, 0x31FF, // Katakana Phonetic Extensions
+        0x4E00, 0x9FAF, // CJK Ideograms
+        0xFF00, 0xFFEF, // Half-width characters
+        0,
+    };
+    f->ClearInputData();
+    f->ClearTexData();
+    f->ClearFonts();
+    if (!f->AddFontFromFileTTF("font.ttc", 18.0f, NULL, ranges)) {
+        bool found = false;
+        for (auto &p: g_lang.currLang().fonts()) {
+            if (f->AddFontFromFileTTF(p.c_str(), 18.0f, NULL, ranges)) {
+                found = true;  break;
+            }
+        }
+        if (!found) f->AddFontDefault();
+    }
 }

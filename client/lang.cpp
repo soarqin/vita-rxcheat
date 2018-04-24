@@ -8,9 +8,118 @@
 #endif
 #include <unordered_map>
 
-Lang g_lang;
+LangManager g_lang;
 
-void Lang::listLanguages(std::vector<std::string> &names) {
+bool Lang::load(const std::string &name) {
+#include "lang_default.inl"
+    std::unordered_map<std::string, std::string> tempTable;
+    YAML::Node node;
+    try {
+        if (name.empty())
+            node = YAML::Load(defaultLang);
+        else {
+#ifdef _WIN32
+            CHAR path[256];
+            GetModuleFileNameA(NULL, path, 256);
+            PathRemoveFileSpecA(path);
+            PathAppendA(path, (name + ".lng").c_str());
+            node = YAML::LoadFile(path);
+#else
+            node = YAML::LoadFile(name + ".lng");
+#endif
+        }
+        name_ = node["name"].as<std::string>();
+        for (auto n: node["fonts"]) {
+            fonts_.push_back(n.as<std::string>());
+        }
+        for (auto n: node["strings"]) {
+            tempTable[n.first.as<std::string>()] = n.second.as<std::string>();
+        }
+        for (auto &p: tempTable) {
+#define C(N) else if(p.first == #N) { langstr_[LANG_##N] = p.second; }
+            if (0) {}
+            C(WINDOW_TITLE)
+            C(TROPHY_GRADE_PLATINUM)
+            C(TROPHY_GRADE_GOLD)
+            C(TROPHY_GRADE_SILVER)
+            C(TROPHY_GRADE_BRONZE)
+            C(TROPHY_GRADE_UNKNOWN)
+            C(CONNECT)
+            C(AUTOCONNECT)
+            C(DISCONNECT)
+            C(NOT_CONNECTED)
+            C(CONNECTING)
+            C(IP_ADDR)
+            C(MEM_SEARCHER)
+            C(MEM_VIEWER)
+            C(MEM_TABLE)
+            C(TROPHY)
+            C(AUTOINT)
+            C(AUTOUINT)
+            C(INT32)
+            C(UINT32)
+            C(INT16)
+            C(UINT16)
+            C(INT8)
+            C(UINT8)
+            C(INT64)
+            C(UINT64)
+            C(FLOAT)
+            C(DOUBLE)
+            C(NEW_SEARCH)
+            C(NEXT_SEARCH)
+            C(VALUE)
+            C(HEX)
+            C(HEAP)
+            C(SEARCHING)
+            C(SEARCH_RESULT)
+            C(TOO_MANY_RESULTS)
+            C(SEARCH_IN_PROGRESS)
+            C(EDIT_MEM)
+            C(VIEW_MEMORY)
+            C(REFRESH_TROPHY)
+            C(REFRESHING)
+            C(TROPHY_NAME)
+            C(TROPHY_GRADE)
+            C(TROPHY_HIDDEN)
+            C(TROPHY_UNLOCKED)
+            C(TROPHY_TITLE_HIDDEN)
+            C(YES)
+            C(NO)
+            C(TROPHY_UNLOCK)
+            C(TROPHY_UNLOCK_ALL)
+            C(POPUP_EDIT)
+            C(EDIT_ADDR)
+            C(OK)
+            C(CANCEL)
+#undef C
+        }
+        id_ = name;
+    } catch (...) {
+        return false;
+    }
+    return true;
+}
+
+bool Lang::loadDefault() {
+    return load(std::string());
+}
+
+LangManager::LangManager() {
+    auto &lang = languages_[""];
+    lang.loadDefault();
+    currLang_ = &lang;
+    loadLanguages();
+}
+
+bool LangManager::setLanguage(const std::string& name) {
+    auto ite = languages_.find(name);
+    if (ite == languages_.end()) return false;
+    currLang_ = &ite->second;
+    return true;
+}
+
+void LangManager::loadLanguages() {
     tinydir_dir dir;
     tinydir_file file;
 #ifdef _WIN32
@@ -25,98 +134,13 @@ void Lang::listLanguages(std::vector<std::string> &names) {
         char filename[256];
         WideCharToMultiByte(CP_ACP, 0, file.name, -1, filename, 256, NULL, NULL);
         PathRemoveExtensionA(filename);
-        names.push_back(filename);
+        auto &l = languages_[filename];
+        if (!l.load(filename)) {
+            languages_.erase(filename);
+        }
     } while (tinydir_next(&dir) >= 0);
 #else
     tinydir_open(&dir, ".");
 #endif
     tinydir_close(&dir);
-}
-
-void Lang::loadDefault() {
-    load(std::string());
-}
-
-void Lang::load(const std::string &name) {
-#include "lang_default.inl"
-    std::unordered_map<std::string, std::string> tempTable;
-    YAML::Node node;
-    if (name.empty())
-        node = YAML::Load(defaultLang);
-    else {
-#ifdef _WIN32
-        CHAR path[256];
-        GetModuleFileNameA(NULL, path, 256);
-        PathRemoveFileSpecA(path);
-        PathAppendA(path, (name + ".lng").c_str());
-        node = YAML::LoadFile(path);
-#else
-        node = YAML::LoadFile(name + ".lng");
-#endif
-    }
-    for (auto n: node["fonts"]) {
-        fonts_.push_back(n.as<std::string>());
-    }
-    for (auto n: node["strings"]) {
-        tempTable[n.first.as<std::string>()] = n.second.as<std::string>();
-    }
-    for (auto &p: tempTable) {
-#define C(N) else if(p.first == #N) { langstr_[LANG_##N] = p.second; }
-        if (0) {}
-        C(WINDOW_TITLE)
-        C(TROPHY_GRADE_PLATINUM)
-        C(TROPHY_GRADE_GOLD)
-        C(TROPHY_GRADE_SILVER)
-        C(TROPHY_GRADE_BRONZE)
-        C(TROPHY_GRADE_UNKNOWN)
-        C(CONNECT)
-        C(AUTOCONNECT)
-        C(DISCONNECT)
-        C(NOT_CONNECTED)
-        C(CONNECTING)
-        C(IP_ADDR)
-        C(MEM_SEARCHER)
-        C(MEM_VIEWER)
-        C(MEM_TABLE)
-        C(TROPHY)
-        C(AUTOINT)
-        C(AUTOUINT)
-        C(INT32)
-        C(UINT32)
-        C(INT16)
-        C(UINT16)
-        C(INT8)
-        C(UINT8)
-        C(INT64)
-        C(UINT64)
-        C(FLOAT)
-        C(DOUBLE)
-        C(NEW_SEARCH)
-        C(NEXT_SEARCH)
-        C(VALUE)
-        C(HEX)
-        C(HEAP)
-        C(SEARCHING)
-        C(SEARCH_RESULT)
-        C(TOO_MANY_RESULTS)
-        C(SEARCH_IN_PROGRESS)
-        C(EDIT_MEM)
-        C(VIEW_MEMORY)
-        C(REFRESH_TROPHY)
-        C(REFRESHING)
-        C(TROPHY_NAME)
-        C(TROPHY_GRADE)
-        C(TROPHY_HIDDEN)
-        C(TROPHY_UNLOCKED)
-        C(TROPHY_TITLE_HIDDEN)
-        C(YES)
-        C(NO)
-        C(TROPHY_UNLOCK)
-        C(TROPHY_UNLOCK_ALL)
-        C(POPUP_EDIT)
-        C(EDIT_ADDR)
-        C(OK)
-        C(CANCEL)
-#undef C
-    }
 }
