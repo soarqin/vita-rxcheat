@@ -72,16 +72,6 @@ int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
     return ret;
 }
 
-int sceNetInit_patched(SceNetInitParam *param) {
-    if (net_loaded()) return 0;
-    return TAI_CONTINUE(int, ref[3], param);
-}
-
-int sceNetCtlInit_patched() {
-    if (net_loaded()) return 0;
-    return TAI_CONTINUE(int, ref[4]);
-}
-
 int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam, int sync) {
     if (show_msg) {
         blit_set_frame_buf(pParam);
@@ -89,7 +79,17 @@ int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam, int sync) {
         if (show_msg2)
             blit_string_ctr(20, show_msg2);
     }
-    return TAI_CONTINUE(int, ref[5], pParam, sync);
+    return TAI_CONTINUE(int, ref[3], pParam, sync);
+}
+
+int sceNetInit_patched(SceNetInitParam *param) {
+    if (net_loaded()) return 0;
+    return TAI_CONTINUE(int, ref[4], param);
+}
+
+int sceNetCtlInit_patched() {
+    if (net_loaded()) return 0;
+    return TAI_CONTINUE(int, ref[5]);
 }
 
 int rcsvr_main_thread(SceSize args, void *argp) {
@@ -103,9 +103,8 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     blit_set_color(0xffffffff, 0xff000000);
     net_kcp_listen(9527);
 
-    hooks[2] = taiHookFunctionImport(&ref[2], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x79A0160A, sceSysmoduleLoadModule_patched);
-    hooks[3] = taiHookFunctionImport(&ref[3], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0xEB03E265, sceNetInit_patched);
-    hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x495CA1DB, sceNetCtlInit_patched);
+    hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0xEB03E265, sceNetInit_patched);
+    hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x495CA1DB, sceNetCtlInit_patched);
 
     set_show_msg(10000, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
     while(running) {
@@ -124,7 +123,8 @@ void _start() __attribute__((weak, alias ("module_start")));
 int module_start(SceSize argc, const void *args) {
     hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x4D695C1F, scePowerSetUsingWireless_patched);
     hooks[1] = taiHookFunctionImport(&ref[1], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x3CE187B6, scePowerSetConfigurationMode_patched);
-    hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x7A410B64, sceDisplaySetFrameBuf_patched);
+    hooks[2] = taiHookFunctionImport(&ref[2], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x79A0160A, sceSysmoduleLoadModule_patched);
+    hooks[3] = taiHookFunctionImport(&ref[3], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x7A410B64, sceDisplaySetFrameBuf_patched);
 
     running = 1;
     SceUID thid = sceKernelCreateThread("rcsvr_main_thread", (SceKernelThreadEntry)rcsvr_main_thread, 0x10000100, 0x10000, 0, 0, NULL);

@@ -21,6 +21,7 @@ void debug_printf(int level, const char *srcfile, int lineno, const char* format
 #else
 void debug_printf(int level, const char* format, ...) {
 #endif
+    if (debug_fd < 0) return;
     enum {
         buffer_size = 1460,
     };
@@ -59,7 +60,7 @@ void debug_printf(int level, const char* format, ...) {
 }
 
 void debug_set_loglevel(int level) {
-    loglevel=level;
+    loglevel = level;
 }
 
 void debug_init(int level) {
