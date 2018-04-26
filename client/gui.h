@@ -58,6 +58,9 @@ private:
     void saveData();
     void loadData();
 
+    void saveTable(const char *name);
+    bool loadTable(const char *name);
+
     void reloadFonts();
 
 private:
@@ -95,7 +98,6 @@ private:
         std::string desc;
     };
     std::vector<MemoryItem> searchResults_;
-    std::vector<MemoryItem> memTable_;
     int searchStatus_ = 0;
     int searchResultType_ = 0;
     char searchVal_[32] = "";
@@ -112,6 +114,7 @@ private:
     bool memoryEditing_ = false;
     uint32_t memoryEditingAddr_ = 0;
     char memoryEditVal_[32] = "";
+    std::vector<MemoryItem> memTable_;
     bool tableEditing_ = false;
     char tableEditVal_[32] = "";
     int trophyStatus_ = 0;

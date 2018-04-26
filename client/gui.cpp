@@ -742,6 +742,58 @@ inline void Gui::loadData() {
     } catch (...) { return; }
 }
 
+inline void getTableFilePath(char *path, const char *name) {
+#ifdef _WIN32
+    GetModuleFileNameA(NULL, path, 256);
+    PathRemoveFileSpecA(path);
+    PathAppendA(path, "tables");
+    CreateDirectoryA(path, NULL);
+    PathAppendA(path, name);
+    lstrcatA(path, ".yml");
+#else
+    mkdir("tables", 0755);
+    sprintf(path, "tables/%s.yml", name);
+#endif
+}
+
+void Gui::saveTable(const char *name) {
+    char path[256];
+    getTableFilePath(path, name);
+    YAML::Emitter out;
+    out << YAML::Key << "List" << YAML::Value << YAML::BeginSeq;
+    for (auto &p: memTable_) {
+        out << YAML::BeginMap;
+        out << YAML::Key << "Name" << YAML::Value << p.name;
+        out << YAML::Key << "Type" << YAML::Value << YAML::Dec << p.type;
+        out << YAML::Key << "Addr" << YAML::Value << YAML::Hex << p.addr;
+        out << YAML::EndMap;
+    }
+    out << YAML::EndSeq;
+    std::ofstream f(path);
+    f << out.c_str();
+    f.close();
+}
+
+bool Gui::loadTable(const char *name) {
+    char path[256];
+    getTableFilePath(path, name);
+    YAML::Node node;
+    try {
+        node = YAML::Load(path);
+        for (auto &p: node["List"]) {
+            MemoryItem mi;
+            mi.name = p["Name"].as<std::string>();
+            mi.type = p["Type"].as<int>();
+            mi.addr = p["Addr"].as<uint32_t>();
+            char hex[16];
+            snprintf(hex, 16, "%08X", mi.addr);
+            mi.hexaddr = hex;
+            memTable_.emplace_back(mi);
+        }
+    } catch (...) { return false; }
+    return true;
+}
+
 void Gui::reloadFonts() {
     ImGui_ImplGlfwGL3_InvalidateDeviceObjects();
     char title[256];
