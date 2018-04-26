@@ -117,6 +117,7 @@ int sceNetCtlInit_patched() {
 static void main_net_init() {
     if (net_init() == 0) {
         debug_init(DEBUG);
+        net_kcp_listen(9527);
         hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0xEB03E265, sceNetInit_patched);
         hooks[6] = taiHookFunctionImport(&ref[6], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x495CA1DB, sceNetCtlInit_patched);
     }
@@ -129,7 +130,6 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     font_pgf_init();
     mem_init();
     blit_set_color(0xffffffff, 0xff000000);
-    net_kcp_listen(9527);
 
     hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x7A410B64, sceDisplaySetFrameBuf_patched);
 

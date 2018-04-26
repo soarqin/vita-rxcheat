@@ -45,7 +45,6 @@ int net_init() {
     ret = sceNetCtlInit();
     if (ret < 0) {
         log_debug("sceNetCtlInit: %d\n", ret);
-        return -1;
     }
     isNetAvailable = 1;
     SceNetCtlInfo info;
