@@ -27,7 +27,7 @@ int net_loaded() {
 }
 
 int net_init() {
-    if (isNetAvailable) return 1;
+    if (isNetAvailable) return -1;
     if (sceSysmoduleIsLoaded(SCE_SYSMODULE_NET) != SCE_SYSMODULE_LOADED)
         sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
     int ret = sceNetShowNetstat();
@@ -37,13 +37,17 @@ int net_init() {
         initparam.size = NET_SIZE;
         initparam.flags = 0;
         ret = sceNetInit(&initparam);
-        if (ret < 0)
+        if (ret < 0) {
             log_debug("sceNetInit: %d\n", ret);
-        isNetAvailable = 1;
+            return -1;
+        }
     }
     ret = sceNetCtlInit();
-    if (ret < 0)
+    if (ret < 0) {
         log_debug("sceNetCtlInit: %d\n", ret);
+        return -1;
+    }
+    isNetAvailable = 1;
     SceNetCtlInfo info;
     sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_IP_ADDRESS, &info);
     sceClibSnprintf(vita_ip, 32, "%s", info.ip_address);

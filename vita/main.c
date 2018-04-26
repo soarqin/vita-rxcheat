@@ -25,6 +25,8 @@ static int running = 1;
 static const char *show_msg = NULL, *show_msg2 = NULL;
 static uint64_t msg_deadline = 0ULL;
 
+static void main_net_init();
+
 void set_show_msg(uint64_t millisec, const char *msg, const char *msg2) {
     msg_deadline = millisec + util_gettick();
     show_msg = msg;
@@ -63,10 +65,20 @@ int scePowerSetConfigurationMode_patched(int mode) {
 }
 
 int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
-    if (id == SCE_SYSMODULE_NET && net_loaded())
-        return 0;
-    if (id == SCE_SYSMODULE_PGF && font_pgf_loaded())
-        return 0;
+    if (id == SCE_SYSMODULE_NET) {
+        if (net_loaded()) {
+            return 0;
+        } else {
+            main_net_init();
+        }
+    }
+    if (id == SCE_SYSMODULE_PGF) {
+        if (font_pgf_loaded())
+            return 0;
+        else {
+            font_pgf_init();
+        }
+    }
     int ret = TAI_CONTINUE(int, ref[2], id);
     if (id == SCE_SYSMODULE_NP_TROPHY)
         trophy_hook();
@@ -102,19 +114,24 @@ int sceNetCtlInit_patched() {
     return TAI_CONTINUE(int, ref[6]);
 }
 
+static void main_net_init() {
+    if (net_init() == 0) {
+        debug_init(DEBUG);
+        hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0xEB03E265, sceNetInit_patched);
+        hooks[6] = taiHookFunctionImport(&ref[6], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x495CA1DB, sceNetCtlInit_patched);
+    }
+}
+
 int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(5000000);
     util_init();
-    net_init();
-    debug_init(DEBUG);
+    main_net_init();
     font_pgf_init();
     mem_init();
     blit_set_color(0xffffffff, 0xff000000);
     net_kcp_listen(9527);
 
     hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x7A410B64, sceDisplaySetFrameBuf_patched);
-    hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0xEB03E265, sceNetInit_patched);
-    hooks[6] = taiHookFunctionImport(&ref[6], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x495CA1DB, sceNetCtlInit_patched);
 
     set_show_msg(10000, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
     while(running) {

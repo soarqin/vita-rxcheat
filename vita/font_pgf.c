@@ -76,6 +76,7 @@ static void my_free(void *data, void *p) {
 }
 
 void font_pgf_init() {
+    if (font_lib != NULL) return;
     if (sceSysmoduleIsLoaded(SCE_SYSMODULE_PGF) != SCE_SYSMODULE_LOADED)
         sceSysmoduleLoadModule(SCE_SYSMODULE_PGF);
     SceFontNewLibParams params = {

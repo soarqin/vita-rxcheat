@@ -69,6 +69,7 @@ void debug_set_loglevel(int level) {
 }
 
 void debug_init(int level) {
+    if (debug_fd >= 0) return;
     if (level > 0) {
         struct SceNetSockaddrIn sockaddr;
         debug_set_loglevel(level);
