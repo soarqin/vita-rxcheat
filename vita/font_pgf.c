@@ -5,6 +5,7 @@
 #include <vitasdk.h>
 #include <stdlib.h>
 #include <sys/tree.h>
+#include <taipool.h>
 
 SceFontLibHandle font_lib = NULL;
 SceFontHandle font_handle = NULL;
@@ -67,11 +68,11 @@ inline void free_glyphs() {
 }
 
 static void *my_alloc(void *data, unsigned int size) {
-    return malloc(size);
+    return taipool_alloc(size);
 }
 
 static void my_free(void *data, void *p) {
-    return free(p);
+    return taipool_free(p);
 }
 
 void font_pgf_init() {

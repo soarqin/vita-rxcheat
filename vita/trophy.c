@@ -7,7 +7,7 @@
 #include <vitasdk.h>
 #include <taihen.h>
 
-#define HOOKS_NUM 2
+#define HOOKS_NUM 1
 
 static SceUID hooks[HOOKS_NUM] = {0};
 static tai_hook_ref_t ref[HOOKS_NUM];
@@ -19,29 +19,7 @@ int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, void *commID, void *
     int ret = TAI_CONTINUE(int, ref[0], c, commID, commSign, options);
     if (ret >= 0)
         context = *c;
-    log_debug("sceNpTrophyCreateContext %d %d\n", ret, *c);
     return ret;
-}
-
-int sceNpTrophyInit_patched(void *opt) {
-    int ret = TAI_CONTINUE(int, ref[1], opt);
-    return ret;
-}
-
-void trophy_hook() {
-    log_debug("trophy_init\n");
-    hooks[0] = taiHookFunctionImport(
-        &ref[0],
-        TAI_MAIN_MODULE,
-        TAI_ANY_LIBRARY,
-        0xC49FD33F,
-        sceNpTrophyCreateContext_patched);
-    hooks[1] = taiHookFunctionImport(
-        &ref[1],
-        TAI_MAIN_MODULE,
-        TAI_ANY_LIBRARY,
-        0x34516838,
-        sceNpTrophyInit_patched);
 }
 
 void trophy_init() {
@@ -58,10 +36,25 @@ void trophy_finish() {
         sceKernelDeleteMutex(trophyMutex);
         trophyMutex = -1;
     }
+    trophy_unhook();
+}
+
+void trophy_hook() {
+    hooks[0] = taiHookFunctionImport(
+        &ref[0],
+        TAI_MAIN_MODULE,
+        TAI_ANY_LIBRARY,
+        0xC49FD33F,
+        sceNpTrophyCreateContext_patched);
+}
+
+void trophy_unhook() {
     int i;
     for (i = 0; i < HOOKS_NUM; i++) {
-        if (hooks[i] > 0)
+        if (hooks[i] > 0) {
             taiHookRelease(hooks[i], ref[i]);
+            hooks[i] = 0;
+        }
     }
 }
 

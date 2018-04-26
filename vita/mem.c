@@ -176,7 +176,7 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
         SceUID f = -1;
         char outfile[256];
         sceClibSnprintf(outfile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
-        kIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT, &f);
+        kIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, &f);
         int i;
         for (i = 0; i < static_sz; ++i) {
             single_search(f, &staticmem[i], data, size, cb);
@@ -206,7 +206,7 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
         SceUID of = -1;
         char outfile[256];
         sceClibSnprintf(outfile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
-        kIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT, &of);
+        kIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, &of);
         next_search(f, of, data, size, cb);
         kIoClose(of);
         kIoClose(f);
