@@ -45,11 +45,29 @@ static void glfwErrorCallback(int error, const char* description) {
 
 inline const char *getGradeName(int grade) {
     switch (grade) {
-        case 1: return LS(TROPHY_GRADE_PLATINUM); break;
-        case 2: return LS(TROPHY_GRADE_GOLD); break;
-        case 3: return LS(TROPHY_GRADE_SILVER); break;
-        case 4: return LS(TROPHY_GRADE_BRONZE); break;
-        default: return LS(TROPHY_GRADE_UNKNOWN); break;
+        case 1: return LS(TROPHY_GRADE_PLATINUM);
+        case 2: return LS(TROPHY_GRADE_GOLD);
+        case 3: return LS(TROPHY_GRADE_SILVER);
+        case 4: return LS(TROPHY_GRADE_BRONZE);
+        default: return LS(TROPHY_GRADE_UNKNOWN);
+    }
+}
+
+inline const char *getTypeName(int type) {
+    switch (type) {
+        case Command::st_autoint: return LS(AUTOINT);
+        case Command::st_autouint: return LS(AUTOUINT);
+        case Command::st_i32: return LS(INT32);
+        case Command::st_u32: return LS(UINT32);
+        case Command::st_i16: return LS(INT16);
+        case Command::st_u16: return LS(UINT16);
+        case Command::st_i8: return LS(INT8);
+        case Command::st_u8: return LS(UINT8);
+        case Command::st_i64: return LS(INT64);
+        case Command::st_u64: return LS(UINT64);
+        case Command::st_float: return LS(FLOAT);
+        case Command::st_double: return LS(DOUBLE);
+        default: return "";
     }
 }
 
@@ -373,10 +391,8 @@ inline void Gui::tabPanel() {
     ImGui::RadioButton(LS(MEM_SEARCHER), &tabIndex_, 0);
     ImGui::SameLine();
     ImGui::RadioButton(LS(MEM_VIEWER), &tabIndex_, 1);
-    /* TODO: memory table
     ImGui::SameLine();
     ImGui::RadioButton(LS(MEM_TABLE), &tabIndex_, 2);
-    */
     ImGui::SameLine();
     ImGui::RadioButton(LS(TROPHY), &tabIndex_, 3);
 }
@@ -477,24 +493,25 @@ inline void Gui::searchPanel() {
         case 2:
         {
             ImGui::Text(LS(SEARCH_RESULT));
-            ImGui::ListBoxHeader("##Result");
-            ImGui::Columns(2, NULL, true);
-            int sz = searchResults_.size();
-            for (int i = 0; i < sz; ++i) {
-                bool selected = searchResultIdx_ == i;
-                if (ImGui::Selectable(searchResults_[i].hexaddr.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
-                    searchResultIdx_ = i;
-                    if (ImGui::IsMouseDoubleClicked(0)) {
-                        strcpy(searchEditVal_, searchResults_[i].value.c_str());
-                        searchEditing_ = true;
+            if (ImGui::ListBoxHeader("##Result")) {
+                ImGui::Columns(2, NULL, true);
+                int sz = searchResults_.size();
+                for (int i = 0; i < sz; ++i) {
+                    bool selected = searchResultIdx_ == i;
+                    if (ImGui::Selectable(searchResults_[i].hexaddr.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
+                        searchResultIdx_ = i;
+                        if (ImGui::IsMouseDoubleClicked(0)) {
+                            strcpy(searchEditVal_, searchResults_[i].value.c_str());
+                            searchEditing_ = true;
+                        }
                     }
+                    if (selected) ImGui::SetItemDefaultFocus();
+                    ImGui::NextColumn();
+                    ImGui::Text(searchResults_[i].value.c_str());
+                    ImGui::NextColumn();
                 }
-                if (selected) ImGui::SetItemDefaultFocus();
-                ImGui::NextColumn();
-                ImGui::Text(searchResults_[i].value.c_str());
-                ImGui::NextColumn();
+                ImGui::ListBoxFooter();
             }
-            ImGui::ListBoxFooter();
             if (searchResultIdx_ >= 0) {
                 if (ImGui::Button(LS(EDIT_MEM))) {
                     strcpy(searchEditVal_, searchResults_[searchResultIdx_].value.c_str());
@@ -631,9 +648,67 @@ inline void Gui::memoryPopup() {
 }
 
 inline void Gui::tablePanel() {
+    if (ImGui::ListBoxHeader("##MemTable")) {
+        ImGui::Columns(3, NULL, true);
+        int sz = memTable_.size();
+        for (int i = 0; i < sz; ++i) {
+            bool selected = memTableIdx_ == i;
+            if (ImGui::Selectable(memTable_[i].hexaddr.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
+                memTableIdx_ = i;
+                if (ImGui::IsMouseDoubleClicked(0)) {
+                    strcpy(tableEditVal_, memTable_[i].value.c_str());
+                    tableEditing_ = true;
+                }
+            }
+            if (selected) ImGui::SetItemDefaultFocus();
+            ImGui::NextColumn();
+            ImGui::Text(getTypeName(memTable_[i].type));
+            ImGui::NextColumn();
+            ImGui::Text(memTable_[i].comment.c_str());
+            ImGui::NextColumn();
+        }
+        ImGui::ListBoxFooter();
+    }
+    if (memTableIdx_ >= 0) {
+        if (ImGui::Button(LS(EDIT_MEM))) {
+            strcpy(tableEditVal_, memTable_[memTableIdx_].value.c_str());
+            tableEditing_ = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(LS(VIEW_MEMORY))) {
+            tabIndex_ = 1;
+            memAddr_ = memTable_[memTableIdx_].addr & ~0xFF;
+            snprintf(memoryAddr_, 9, "%08X", memAddr_);
+            memViewData_.clear();
+            memViewIndex_ = -1;
+            cmd_->readMem(memAddr_);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(LS(TABLE_DELETE))) {
+            memTable_.erase(memTable_.begin() + memTableIdx_);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(LS(TABLE_MODIFY))) {
+            snprintf(tableModAddr_, 1, "%08X", memTable_[memTableIdx_].addr);
+            strncpy(tableModComment_, memTable_[memTableIdx_].comment.c_str(), 64);
+            tableModding_ = true;
+            tableModAdding_ = false;
+        }
+        ImGui::SameLine();
+    }
+    if(ImGui::Button(LS(TABLE_ADD))) {
+        tableModAddr_[0] = 0;
+        tableModComment_[0] = 0;
+        tableModding_ = true;
+        tableModAdding_ = true;
+    }
 }
 
 inline void Gui::tablePopup() {
+    if (tableModding_) {
+    }
+    if (tableEditing_) {
+    }
 }
 
 inline void Gui::trophyPanel() {
@@ -763,9 +838,9 @@ void Gui::saveTable(const char *name) {
     out << YAML::Key << "List" << YAML::Value << YAML::BeginSeq;
     for (auto &p: memTable_) {
         out << YAML::BeginMap;
-        out << YAML::Key << "Name" << YAML::Value << p.name;
         out << YAML::Key << "Type" << YAML::Value << YAML::Dec << p.type;
         out << YAML::Key << "Addr" << YAML::Value << YAML::Hex << p.addr;
+        out << YAML::Key << "Comment" << YAML::Value << p.comment;
         out << YAML::EndMap;
     }
     out << YAML::EndSeq;
@@ -782,9 +857,9 @@ bool Gui::loadTable(const char *name) {
         node = YAML::Load(path);
         for (auto &p: node["List"]) {
             MemoryItem mi;
-            mi.name = p["Name"].as<std::string>();
             mi.type = p["Type"].as<int>();
             mi.addr = p["Addr"].as<uint32_t>();
+            mi.comment = p["Comment"].as<std::string>();
             char hex[16];
             snprintf(hex, 16, "%08X", mi.addr);
             mi.hexaddr = hex;

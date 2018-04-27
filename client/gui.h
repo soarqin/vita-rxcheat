@@ -87,7 +87,7 @@ private:
         int type;
         std::string hexaddr;
         std::string value;
-        std::string name;
+        std::string comment;
     };
     struct TrophyInfo {
         int id = -1;
@@ -115,7 +115,12 @@ private:
     uint32_t memoryEditingAddr_ = 0;
     char memoryEditVal_[32] = "";
     std::vector<MemoryItem> memTable_;
+    int memTableIdx_ = -1;
+    bool tableModding_ = false;
+    bool tableModAdding_ = false;
     bool tableEditing_ = false;
+    char tableModAddr_[16] = "";
+    char tableModComment_[64] = "";
     char tableEditVal_[32] = "";
     int trophyStatus_ = 0;
     int trophyIdx_ = -1;

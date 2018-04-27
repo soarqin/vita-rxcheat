@@ -41,8 +41,11 @@ strings:
   SEARCH_RESULT: Search result
   TOO_MANY_RESULTS: Too many results, do more search please
   SEARCH_IN_PROGRESS: Searching in progress, please do it later
-  EDIT_MEM: Edit
-  VIEW_MEMORY: View Memory
+  EDIT_MEM: Edit memory
+  VIEW_MEMORY: View memory
+  TABLE_ADD: Add
+  TABLE_DELETE: Delete
+  TABLE_MODIFY: Modify address/comment
   REFRESH_TROPHY: Refresh trophies
   REFRESHING: Refreshing
   TROPHY_NAME: Name
