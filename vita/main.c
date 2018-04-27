@@ -100,6 +100,7 @@ int sceSysmoduleUnloadModule_patched(SceSysmoduleModuleId id) {
     case SCE_SYSMODULE_NP_TROPHY:
         trophy_unhook();
         break;
+    default: break;
     }
     int ret = TAI_CONTINUE(int, ref[3], id);
     return ret;
