@@ -65,31 +65,42 @@ int scePowerSetConfigurationMode_patched(int mode) {
 }
 
 int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
-    if (id == SCE_SYSMODULE_NET) {
-        if (net_loaded()) {
+    switch(id) {
+    case SCE_SYSMODULE_NET:
+        if (net_loaded())
             return 0;
-        } else {
-            main_net_init();
-        }
-    }
-    if (id == SCE_SYSMODULE_PGF) {
+        break;
+    case SCE_SYSMODULE_PGF:
         if (font_pgf_loaded())
             return 0;
-        else {
-            font_pgf_init();
-        }
+        break;
+    default: break;
     }
     int ret = TAI_CONTINUE(int, ref[2], id);
-    if (id == SCE_SYSMODULE_NP_TROPHY)
+    switch (id) {
+    case SCE_SYSMODULE_NP_TROPHY:
         trophy_hook();
+        break;
+    case SCE_SYSMODULE_NET:
+        main_net_init();
+        break;
+    case SCE_SYSMODULE_PGF:
+        font_pgf_init();
+        break;
+    default: break;
+    }
     return ret;
 }
 
 int sceSysmoduleUnloadModule_patched(SceSysmoduleModuleId id) {
-    if (id == SCE_SYSMODULE_NET || id == SCE_SYSMODULE_PGF)
+    switch(id) {
+    case SCE_SYSMODULE_NET:
+    case SCE_SYSMODULE_PGF:
         return 0;
-    if (id == SCE_SYSMODULE_NP_TROPHY)
+    case SCE_SYSMODULE_NP_TROPHY:
         trophy_unhook();
+        break;
+    }
     int ret = TAI_CONTINUE(int, ref[3], id);
     return ret;
 }
