@@ -4,15 +4,15 @@
 #include "mem.h"
 #include "trophy.h"
 #include "debug.h"
+#include "util.h"
 
 #include <vitasdk.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <taipool.h>
 
 #define NET_SIZE       0x80000 // Size of net module buffer
 
-static char net_buffer[NET_SIZE];
+static void *net_buffer;
 
 static char vita_ip[32];
 static uint64_t vita_addr;
@@ -33,6 +33,7 @@ int net_init() {
     int ret = sceNetShowNetstat();
     if (ret == SCE_NET_ERROR_ENOTINIT) {
         SceNetInitParam initparam;
+        net_buffer = my_alloc(NET_SIZE);
         initparam.memory = (void*)net_buffer;
         initparam.size = NET_SIZE;
         initparam.flags = 0;
@@ -93,7 +94,7 @@ static void _kcp_disconnect() {
 }
 
 static void _kcp_send(const char *buf, int len, SceNetSockaddrIn *addr, int is_kcp) {
-    send_buf *b = (send_buf*)taipool_alloc(sizeof(send_buf) + (is_kcp ? (len + 4) : len));
+    send_buf *b = (send_buf*)my_alloc(sizeof(send_buf) + (is_kcp ? (len + 4) : len));
     memcpy(&b->addr, addr, sizeof(SceNetSockaddrIn));
     b->len = is_kcp ? (len + 4) : len;
     if (is_kcp) {
@@ -142,7 +143,7 @@ static void _kcp_clear() {
     while (shead != NULL) {
         send_buf *rem = shead;
         shead = shead->next;
-        taipool_free(rem);
+        my_free(rem);
     }
     stail = NULL;
 }
@@ -440,7 +441,7 @@ void net_kcp_process(uint32_t tick) {
             }
             send_buf *rem = shead;
             shead = shead->next;
-            taipool_free(rem);
+            my_free(rem);
         }
         stail = NULL;
         events[0].events = SCE_NET_EPOLLIN;

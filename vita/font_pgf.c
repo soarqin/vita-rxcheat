@@ -1,11 +1,11 @@
 #include "font_pgf.h"
 
 #include "debug.h"
+#include "util.h"
 
 #include <vitasdk.h>
 #include <stdlib.h>
 #include <sys/tree.h>
-#include <taipool.h>
 
 SceFontLibHandle font_lib = NULL;
 SceFontHandle font_handle = NULL;
@@ -67,12 +67,12 @@ inline void free_glyphs() {
     entry_used = 0;
 }
 
-static void *my_alloc(void *data, unsigned int size) {
-    return taipool_alloc(size);
+static void *my_pgf_alloc(void *data, unsigned int size) {
+    return my_alloc(size);
 }
 
-static void my_free(void *data, void *p) {
-    return taipool_free(p);
+static void my_pgf_free(void *data, void *p) {
+    my_free(p);
 }
 
 void font_pgf_init() {
@@ -80,7 +80,7 @@ void font_pgf_init() {
     if (sceSysmoduleIsLoaded(SCE_SYSMODULE_PGF) != SCE_SYSMODULE_LOADED)
         sceSysmoduleLoadModule(SCE_SYSMODULE_PGF);
     SceFontNewLibParams params = {
-        NULL, 4, NULL, my_alloc, my_free, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, 4, NULL, my_pgf_alloc, my_pgf_free, NULL, NULL, NULL, NULL, NULL, NULL,
     };
     unsigned int err;
     font_lib = sceFontNewLib(&params, &err);

@@ -81,12 +81,6 @@ int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
     case SCE_SYSMODULE_NP_TROPHY:
         trophy_hook();
         break;
-    case SCE_SYSMODULE_NET:
-        main_net_init();
-        break;
-    case SCE_SYSMODULE_PGF:
-        font_pgf_init();
-        break;
     default: break;
     }
     return ret;
@@ -136,7 +130,10 @@ static void main_net_init() {
 }
 
 int rcsvr_main_thread(SceSize args, void *argp) {
-    sceKernelDelayThread(5000000);
+    sceKernelDelayThread(8000000);
+    int res = taipool_init(4 * 1024 * 1024);
+    if (res < 0) util_set_alloc(malloc, realloc, calloc, free);
+    else util_set_alloc(taipool_alloc, taipool_realloc, taipool_calloc, taipool_free);
     util_init();
     main_net_init();
     font_pgf_init();
@@ -160,7 +157,6 @@ int rcsvr_main_thread(SceSize args, void *argp) {
 
 void _start() __attribute__((weak, alias ("module_start")));
 int module_start(SceSize argc, const void *args) {
-    taipool_init(4 * 1024 * 1024);
     trophy_init();
 
     hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x4D695C1F, scePowerSetUsingWireless_patched);
@@ -169,7 +165,7 @@ int module_start(SceSize argc, const void *args) {
     hooks[3] = taiHookFunctionImport(&ref[3], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x31D87805, sceSysmoduleUnloadModule_patched);
 
     running = 1;
-    SceUID thid = sceKernelCreateThread("rcsvr_main_thread", (SceKernelThreadEntry)rcsvr_main_thread, 0x10000100, 0x8000, 0, 0, NULL);
+    SceUID thid = sceKernelCreateThread("rcsvr_main_thread", (SceKernelThreadEntry)rcsvr_main_thread, 0x10000100, 0x10000, 0, 0, NULL);
     if (thid >= 0)
         sceKernelStartThread(thid, 0, NULL);
 
