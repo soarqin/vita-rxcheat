@@ -46,6 +46,11 @@ strings:
   TABLE_ADD: Add
   TABLE_DELETE: Delete
   TABLE_MODIFY: Modify address/comment
+  TABLE_SAVE: Save
+  TABLE_LOAD: Load
+  TABLE_ADDR: "Address:"
+  TABLE_COMMENT: "Comment:"
+  TABLE_TYPE: "Value Type:"
   REFRESH_TROPHY: Refresh trophies
   REFRESHING: Refreshing
   TROPHY_NAME: Name

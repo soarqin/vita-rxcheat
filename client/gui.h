@@ -107,6 +107,7 @@ private:
     int searchResultIdx_ = -1;
     bool searchEditing_ = false;
     char searchEditVal_[32] = "";
+    bool searchEditHex_ = false;
     char memoryAddr_[9] = "";
     uint32_t memAddr_ = 0U;
     int memViewIndex_ = -1;
@@ -122,6 +123,8 @@ private:
     char tableModAddr_[16] = "";
     char tableModComment_[64] = "";
     char tableEditVal_[32] = "";
+    int tableTypeComboIdx_ = -1;
+    bool tableHex_ = false;
     int trophyStatus_ = 0;
     int trophyIdx_ = -1;
     int trophyPlat_ = -1;

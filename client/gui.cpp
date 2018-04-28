@@ -438,12 +438,13 @@ inline void formatData(int type, const char *src, bool isHex, void *dst) {
     }
 }
 
-inline void Gui::searchPanel() {
-    const int comboItemType[] = {Command::st_autoint, Command::st_autouint, Command::st_i32, Command::st_u32,
-        Command::st_i16, Command::st_u16, Command::st_i8, Command::st_u8,
-        Command::st_i64, Command::st_u64, Command::st_float, Command::st_double,
-    };
+const int comboItemType[] = {
+    Command::st_autoint, Command::st_autouint, Command::st_i32, Command::st_u32,
+    Command::st_i16, Command::st_u16, Command::st_i8, Command::st_u8,
+    Command::st_i64, Command::st_u64, Command::st_float, Command::st_double,
+};
 
+inline void Gui::searchPanel() {
     if (searchStatus_ == 1) {
         ImGui::Button(LS(SEARCHING), ImVec2(100.f, 0.f));
     } else {
@@ -503,6 +504,7 @@ inline void Gui::searchPanel() {
                         if (ImGui::IsMouseDoubleClicked(0)) {
                             strcpy(searchEditVal_, searchResults_[i].value.c_str());
                             searchEditing_ = true;
+                            searchEditHex_ = hexSearch_;
                         }
                     }
                     if (selected) ImGui::SetItemDefaultFocus();
@@ -546,8 +548,7 @@ inline void Gui::searchPopup() {
         ImGui::Text("%s: %s", LS(EDIT_ADDR), mi.hexaddr.c_str());
         ImGui::InputText("##EditValue", searchEditVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
         ImGui::SameLine();
-        if (ImGui::Checkbox(LS(HEX), &hexSearch_)) {
-            searchVal_[0] = 0;
+        if (ImGui::Checkbox(LS(HEX), &searchEditHex_)) {
             searchEditVal_[0] = 0;
         }
         if (ImGui::Button(LS(OK))) {
@@ -642,14 +643,18 @@ inline void Gui::memoryPopup() {
         if (ImGui::Button(LS(CANCEL))) {
             memoryEditing_ = false;
             ImGui::CloseCurrentPopup();
+            memoryEditVal_[0] = 0;
         }
         ImGui::EndPopup();
     }
 }
 
 inline void Gui::tablePanel() {
-    if (ImGui::ListBoxHeader("##MemTable")) {
+    if (ImGui::ListBoxHeader("##MemTable", ImVec2(dispWidth_ - 30.f, 420.f))) {
         ImGui::Columns(3, NULL, true);
+        ImGui::SetColumnWidth(0, 90.f);
+        ImGui::SetColumnWidth(1, 70.f);
+        ImGui::SetColumnWidth(2, dispWidth_ - 30.f - 180.f);
         int sz = memTable_.size();
         for (int i = 0; i < sz; ++i) {
             bool selected = memTableIdx_ == i;
@@ -673,6 +678,13 @@ inline void Gui::tablePanel() {
         if (ImGui::Button(LS(EDIT_MEM))) {
             strcpy(tableEditVal_, memTable_[memTableIdx_].value.c_str());
             tableEditing_ = true;
+            tableTypeComboIdx_ = 0;
+            for (int i = 0; i < sizeof(comboItemType) / sizeof(int); ++i) {
+                if (comboItemType[i] == memTable_[memTableIdx_].type) {
+                    tableTypeComboIdx_ = i;
+                    break;
+                }
+            }
         }
         ImGui::SameLine();
         if (ImGui::Button(LS(VIEW_MEMORY))) {
@@ -689,7 +701,7 @@ inline void Gui::tablePanel() {
         }
         ImGui::SameLine();
         if (ImGui::Button(LS(TABLE_MODIFY))) {
-            snprintf(tableModAddr_, 1, "%08X", memTable_[memTableIdx_].addr);
+            snprintf(tableModAddr_, 9, "%08X", memTable_[memTableIdx_].addr);
             strncpy(tableModComment_, memTable_[memTableIdx_].comment.c_str(), 64);
             tableModding_ = true;
             tableModAdding_ = false;
@@ -702,12 +714,102 @@ inline void Gui::tablePanel() {
         tableModding_ = true;
         tableModAdding_ = true;
     }
+    if (ImGui::Button(LS(TABLE_SAVE))) {
+        saveTable(client_->titleId().c_str());
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(LS(TABLE_LOAD))) {
+        loadTable(client_->titleId().c_str());
+    }
 }
 
 inline void Gui::tablePopup() {
     if (tableModding_) {
+        ImGui::OpenPopup(LS(TABLE_MODIFY));
+        if (ImGui::BeginPopupModal(LS(TABLE_MODIFY), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text(LS(TABLE_ADDR)); ImGui::SameLine(60.f);
+            ImGui::InputText("##TableAddr", tableModAddr_, 16, ImGuiInputTextFlags_CharsHexadecimal);
+            ImGui::Text(LS(TABLE_COMMENT)); ImGui::SameLine(60.f);
+            ImGui::InputText("##TableComment", tableModComment_, 64, 0);
+            if (ImGui::Button(LS(OK))) {
+                tableModding_ = false;
+                ImGui::CloseCurrentPopup();
+                uint32_t addr;
+                addr = strtoul(tableModAddr_, NULL, 16);
+                char hexaddr[9];
+                snprintf(hexaddr, 9, "%08X", addr);
+                if (tableModAdding_) {
+                    MemoryItem mi;
+                    mi.addr = addr;
+                    mi.hexaddr = hexaddr;
+                    mi.comment = tableModComment_;
+                    mi.type = Command::st_autoint;
+                    memTable_.push_back(mi);
+                    if (memTableIdx_ < 0) memTableIdx_ = (int)memTable_.size() - 1;
+                } else if (memTableIdx_ >= 0 && memTableIdx_ < (int)memTable_.size()) {
+                    auto &mi = memTable_[memTableIdx_];
+                    mi.addr = addr;
+                    mi.hexaddr = hexaddr;
+                    mi.comment = tableModComment_;
+                }
+                tableModAdding_ = false;
+                tableModAddr_[0] = 0;
+                tableModComment_[0] = 0;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(LS(CANCEL))) {
+                tableModding_ = false;
+                tableModAdding_ = false;
+                tableModAddr_[0] = 0;
+                tableModComment_[0] = 0;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
     }
     if (tableEditing_) {
+        ImGui::OpenPopup(LS(EDIT_MEM));
+        if (ImGui::BeginPopupModal(LS(EDIT_MEM), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("%s: %08X", LS(EDIT_ADDR), memTable_[memTableIdx_].addr);
+            ImGui::PushItemWidth(120.f);
+            ImGui::InputText("##TableMemEdit", tableEditVal_, 31, ImGuiInputTextFlags_CharsHexadecimal);
+            ImGui::PopItemWidth();
+            ImGui::SameLine();
+            ImGui::PushItemWidth(100.f);
+            if (ImGui::BeginCombo("##Type", LS(DATATYPE_FIRST + tableTypeComboIdx_), 0)) {
+                for (int i = 0; i < 10; ++i) {
+                    bool selected = tableTypeComboIdx_ == i;
+                    if (ImGui::Selectable(LS(DATATYPE_FIRST + i), selected)) {
+                        if (tableTypeComboIdx_ != i)
+                            tableTypeComboIdx_ = i;
+                    }
+                    if (selected) ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::PopItemWidth();
+            ImGui::SameLine();
+            if (ImGui::Checkbox(LS(HEX), &tableHex_)) {
+                tableEditVal_[0] = 0;
+            }
+            if (ImGui::Button(LS(OK))) {
+                tableEditing_ = false;
+                ImGui::CloseCurrentPopup();
+                char output[8];
+                int type = comboItemType[tableTypeComboIdx_];
+                if (type != memTable_[memTableIdx_].type) memTable_[memTableIdx_].type = type;
+                formatData(type, tableEditVal_, true, output);
+                cmd_->modifyMemory(type, memTable_[memTableIdx_].addr, output);
+                tableEditVal_[0] = 0;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(LS(CANCEL))) {
+                tableEditing_ = false;
+                ImGui::CloseCurrentPopup();
+                tableEditVal_[0] = 0;
+            }
+            ImGui::EndPopup();
+        }
     }
 }
 
@@ -729,38 +831,39 @@ inline void Gui::trophyPanel() {
     }
     int sz = trophies_.size();
     if (sz == 0) return;
-    ImGui::ListBoxHeader("##Trophies", ImVec2(dispWidth_ - 30.f, 420.f));
-    ImGui::Columns(4, NULL, true);
-    ImGui::SetColumnWidth(0, dispWidth_ - 30.f - 230.f);
-    ImGui::SetColumnWidth(1, 70.f);
-    ImGui::SetColumnWidth(2, 70.f);
-    ImGui::SetColumnWidth(3, 70.f);
-    ImGui::Text(LS(TROPHY_NAME));
-    ImGui::NextColumn();
-    ImGui::Text(LS(TROPHY_GRADE));
-    ImGui::NextColumn();
-    ImGui::Text(LS(TROPHY_HIDDEN));
-    ImGui::NextColumn();
-    ImGui::Text(LS(TROPHY_UNLOCKED));
-    ImGui::NextColumn();
-    for (int i = 0; i < sz; ++i) {
-        auto &t = trophies_[i];
-        char hiddenname[32];
-        if (ImGui::Selectable(t.name.empty() ? (snprintf(hiddenname, 32, LS(TROPHY_TITLE_HIDDEN), i), hiddenname) : t.name.c_str(), trophyIdx_ == i, ImGuiSelectableFlags_SpanAllColumns))
-            trophyIdx_ = i;
-        if (ImGui::IsItemHovered() && !t.desc.empty())
-            ImGui::SetTooltip("%s", t.desc.c_str());
+    if (ImGui::ListBoxHeader("##Trophies", ImVec2(dispWidth_ - 30.f, 420.f))) {
+        ImGui::Columns(4, NULL, true);
+        ImGui::SetColumnWidth(0, dispWidth_ - 30.f - 230.f);
+        ImGui::SetColumnWidth(1, 70.f);
+        ImGui::SetColumnWidth(2, 70.f);
+        ImGui::SetColumnWidth(3, 70.f);
+        ImGui::Text(LS(TROPHY_NAME));
         ImGui::NextColumn();
-        ImGui::Text(getGradeName(t.grade));
+        ImGui::Text(LS(TROPHY_GRADE));
         ImGui::NextColumn();
-        if (t.hidden)
-            ImGui::Text(LS(YES));
+        ImGui::Text(LS(TROPHY_HIDDEN));
         ImGui::NextColumn();
-        if (t.unlocked)
-            ImGui::Text(LS(YES));
+        ImGui::Text(LS(TROPHY_UNLOCKED));
         ImGui::NextColumn();
+        for (int i = 0; i < sz; ++i) {
+            auto &t = trophies_[i];
+            char hiddenname[32];
+            if (ImGui::Selectable(t.name.empty() ? (snprintf(hiddenname, 32, LS(TROPHY_TITLE_HIDDEN), i), hiddenname) : t.name.c_str(), trophyIdx_ == i, ImGuiSelectableFlags_SpanAllColumns))
+                trophyIdx_ = i;
+            if (ImGui::IsItemHovered() && !t.desc.empty())
+                ImGui::SetTooltip("%s", t.desc.c_str());
+            ImGui::NextColumn();
+            ImGui::Text(getGradeName(t.grade));
+            ImGui::NextColumn();
+            if (t.hidden)
+                ImGui::Text(LS(YES));
+            ImGui::NextColumn();
+            if (t.unlocked)
+                ImGui::Text(LS(YES));
+            ImGui::NextColumn();
+        }
+        ImGui::ListBoxFooter();
     }
-    ImGui::ListBoxFooter();
     if (trophyIdx_ >= 0 && trophyIdx_ < sz && trophies_[trophyIdx_].grade != 1 && !trophies_[trophyIdx_].unlocked) {
         if (ImGui::Button(LS(TROPHY_UNLOCK))) {
             cmd_->unlockTrophy(trophies_[trophyIdx_].id, trophies_[trophyIdx_].hidden);
@@ -835,7 +938,8 @@ void Gui::saveTable(const char *name) {
     char path[256];
     getTableFilePath(path, name);
     YAML::Emitter out;
-    out << YAML::Key << "List" << YAML::Value << YAML::BeginSeq;
+    out << YAML::BeginMap;
+    out << YAML::Key << "List" << YAML::BeginSeq;
     for (auto &p: memTable_) {
         out << YAML::BeginMap;
         out << YAML::Key << "Type" << YAML::Value << YAML::Dec << p.type;
@@ -844,6 +948,7 @@ void Gui::saveTable(const char *name) {
         out << YAML::EndMap;
     }
     out << YAML::EndSeq;
+    out << YAML::EndMap;
     std::ofstream f(path);
     f << out.c_str();
     f.close();
@@ -854,7 +959,7 @@ bool Gui::loadTable(const char *name) {
     getTableFilePath(path, name);
     YAML::Node node;
     try {
-        node = YAML::Load(path);
+        node = YAML::LoadFile(path);
         for (auto &p: node["List"]) {
             MemoryItem mi;
             mi.type = p["Type"].as<int>();
