@@ -53,7 +53,7 @@ inline const char *getGradeName(int grade) {
     }
 }
 
-inline const char *getTypeName(int type) {
+inline const char *getTypeName(uint8_t type) {
     switch (type) {
         case Command::st_autoint: return LS(AUTOINT);
         case Command::st_autouint: return LS(AUTOUINT);
@@ -239,7 +239,7 @@ int Gui::run() {
     return 0;
 }
 
-void Gui::searchResultStart(int type) {
+void Gui::searchResultStart(uint8_t type) {
     searchResults_.clear();
     searchStatus_ = 1;
     searchResultType_ = type;
@@ -294,7 +294,7 @@ void Gui::trophyUnlocked(int idx, int platidx) {
 void Gui::trophyUnlockErr() {
 }
 
-void Gui::updateMemory(uint32_t addr, int type, const void *data) {
+void Gui::updateMemory(uint32_t addr, uint8_t type, const void *data) {
     for (auto &p: searchResults_) {
         if (p.addr == addr) {
             char value[64];
@@ -397,7 +397,7 @@ inline void Gui::tabPanel() {
     ImGui::RadioButton(LS(TROPHY), &tabIndex_, 3);
 }
 
-inline void formatData(int type, const char *src, bool isHex, void *dst) {
+inline void formatData(uint8_t type, const char *src, bool isHex, void *dst) {
     switch (type) {
         case Command::st_autouint: case Command::st_u64:
         {
@@ -438,7 +438,7 @@ inline void formatData(int type, const char *src, bool isHex, void *dst) {
     }
 }
 
-const int comboItemType[] = {
+const uint8_t comboItemType[] = {
     Command::st_autoint, Command::st_autouint, Command::st_i32, Command::st_u32,
     Command::st_i16, Command::st_u16, Command::st_i8, Command::st_u8,
     Command::st_i64, Command::st_u64, Command::st_float, Command::st_double,
@@ -657,10 +657,12 @@ inline void Gui::memoryPopup() {
 
 inline void Gui::tablePanel() {
     if (ImGui::ListBoxHeader("##MemTable", ImVec2(dispWidth_ - 30.f, 420.f))) {
-        ImGui::Columns(3, NULL, true);
+        ImGui::Columns(5, NULL, true);
         ImGui::SetColumnWidth(0, 90.f);
         ImGui::SetColumnWidth(1, 70.f);
-        ImGui::SetColumnWidth(2, dispWidth_ - 30.f - 180.f);
+        ImGui::SetColumnWidth(2, 70.f);
+        ImGui::SetColumnWidth(3, 20.f);
+        ImGui::SetColumnWidth(4, dispWidth_ - 30.f - 270.f);
         int sz = memTable_.size();
         for (int i = 0; i < sz; ++i) {
             bool selected = memTableIdx_ == i;
@@ -674,6 +676,12 @@ inline void Gui::tablePanel() {
             if (selected) ImGui::SetItemDefaultFocus();
             ImGui::NextColumn();
             ImGui::Text(getTypeName(memTable_[i].type));
+            ImGui::NextColumn();
+            ImGui::Text(memTable_[i].value.c_str());
+            ImGui::NextColumn();
+            char llable[16];
+            snprintf(llable, 16, "##lk%d", i);
+            ImGui::Checkbox(llable, &memTable_[i].locked);
             ImGui::NextColumn();
             ImGui::Text(memTable_[i].comment.c_str());
             ImGui::NextColumn();

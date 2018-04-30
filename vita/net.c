@@ -264,6 +264,20 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
         }
         break;
     }
+    case 0x0D: {
+        uint32_t data[0x1E0], *ptr = data;
+        int i, count = len / 4;
+        uint32_t *addrs = (uint32_t*)buf;
+        if (count > 0xA0) count = 0xA0;
+        for (i = 0; i < count; ++i) {
+            int r = mem_read(addrs[i], ptr + 1, 8);
+            if (r <= 0) continue;
+            *ptr = addrs[i];
+            ptr += 3;
+        }
+        _kcp_send_cmd(0x0D00, data, (ptr - data) * 4);
+        break;
+    }
     case 0x80:
         trophy_list(_kcp_trophy_list, _kcp_trophy_list_end);
         break;

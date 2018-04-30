@@ -30,7 +30,7 @@ public:
 
 
     inline bool inSearching() { return searchStatus_ == 1; }
-    void searchResultStart(int type);
+    void searchResultStart(uint8_t type);
     void searchResult(const SearchVal *vals, int count);
     void searchEnd(int ret);
 
@@ -40,7 +40,7 @@ public:
     void trophyUnlocked(int idx, int platidx);
     void trophyUnlockErr();
 
-    void updateMemory(uint32_t addr, int type, const void *data);
+    void updateMemory(uint32_t addr, uint8_t type, const void *data);
     void setMemViewData(uint32_t addr, const void *data, int len);
 
 private:
@@ -84,7 +84,8 @@ private:
 
     struct MemoryItem {
         uint32_t addr;
-        int type;
+        uint8_t type;
+        bool locked;
         std::string hexaddr;
         std::string value;
         std::string comment;
@@ -99,7 +100,7 @@ private:
     };
     std::vector<MemoryItem> searchResults_;
     int searchStatus_ = 0;
-    int searchResultType_ = 0;
+    uint8_t searchResultType_ = 0;
     char searchVal_[32] = "";
     int typeComboIndex_ = 0;
     bool hexSearch_ = false;

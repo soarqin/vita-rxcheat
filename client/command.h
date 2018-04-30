@@ -8,7 +8,7 @@ class UdpClient;
 
 class Command {
 public:
-    enum :int {
+    enum :uint8_t {
         st_none = 0,
         st_u32 = 1,
         st_u16 = 2,
@@ -26,13 +26,13 @@ public:
 
 public:
     inline Command(UdpClient &cl): client_(cl) {}
-    void startSearch(int st, bool heap, void *data);
+    void startSearch(uint32_t st, bool heap, void *data);
     void nextSearch(void *data);
-    void startFuzzySearch(int st);
+    void startFuzzySearch(uint32_t st);
     void nextFuzzySearch(int direction);
-    void modifyMemory(int st, uint32_t offset, const void *data);
-    int getTypeSize(int type, const void* data);
-    void formatTypeData(char *output, int type, const void *data);
+    void modifyMemory(uint8_t st, uint32_t offset, const void *data);
+    int getTypeSize(uint8_t type, const void* data);
+    void formatTypeData(char *output, uint8_t type, const void *data);
 
     void readMem(uint32_t addr);
 
@@ -45,6 +45,6 @@ private:
 
 private:
     UdpClient &client_;
-    int searchType_ = st_none;
+    uint8_t searchType_ = st_none;
     std::function<void(int id, int grade, bool hidden, const std::string &name, const std::string &desc)> trophyCb_;
 };

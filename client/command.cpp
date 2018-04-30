@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <cinttypes>
 
-void Command::startSearch(int st, bool heap, void *data) {
+void Command::startSearch(uint32_t st, bool heap, void *data) {
     searchType_ = st & 0xFF;
     int size = getTypeSize(searchType_, data);
     if (size == 0) return;
@@ -21,7 +21,7 @@ void Command::nextSearch(void *data) {
     startSearch(searchType_ | 0x200, false, data);
 }
 
-void Command::startFuzzySearch(int st) {
+void Command::startFuzzySearch(uint32_t st) {
     searchType_ = st & 0xFF;
     sendCommand(0x1000 | st, NULL, 0);
 }
@@ -30,7 +30,7 @@ void Command::nextFuzzySearch(int direction) {
     startFuzzySearch(((direction + 3) << 8) | searchType_);
 }
 
-void Command::modifyMemory(int st, uint32_t offset, const void *data) {
+void Command::modifyMemory(uint8_t st, uint32_t offset, const void *data) {
     int size = getTypeSize(st, data);
     char cont[12];
     *(uint32_t*)cont = offset;
@@ -38,7 +38,7 @@ void Command::modifyMemory(int st, uint32_t offset, const void *data) {
     sendCommand(0x800 | st, cont, 4 + size);
 }
 
-int Command::getTypeSize(int type, const void* data) {
+int Command::getTypeSize(uint8_t type, const void* data) {
     switch (type) {
         case st_autoint:
         {
@@ -74,7 +74,7 @@ int Command::getTypeSize(int type, const void* data) {
     return 0;
 }
 
-void Command::formatTypeData(char *output, int type, const void *data) {
+void Command::formatTypeData(char *output, uint8_t type, const void *data) {
     switch (searchType_) {
         case st_i8:
             sprintf(output, "%d", *(int8_t*)data);
