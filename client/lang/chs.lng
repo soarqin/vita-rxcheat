@@ -44,6 +44,7 @@ strings:
   SEARCH_IN_PROGRESS: 正在搜索，请稍后重试
   EDIT_MEM: 修改
   VIEW_MEMORY: 查看内存
+  ADD_TO_TABLE: 添加到内存表格
   TABLE_ADD: 添加
   TABLE_DELETE: 删除
   TABLE_MODIFY: 修改地址/注释

@@ -78,6 +78,7 @@ bool Lang::load(const std::string &name) {
             C(SEARCH_IN_PROGRESS)
             C(EDIT_MEM)
             C(VIEW_MEMORY)
+            C(ADD_TO_TABLE)
             C(TABLE_ADD)
             C(TABLE_DELETE)
             C(TABLE_MODIFY)
@@ -142,6 +143,7 @@ bool LangManager::setLanguageByCode(const std::string &code) {
 void LangManager::loadLanguages() {
     tinydir_dir dir;
     tinydir_file file;
+    auto &deflang = languages_[""];
 #ifdef _WIN32
     TCHAR path[256];
     GetModuleFileName(NULL, path, 256);
@@ -155,6 +157,7 @@ void LangManager::loadLanguages() {
         WideCharToMultiByte(CP_ACP, 0, file.name, -1, filename, 256, NULL, NULL);
         PathRemoveExtensionA(filename);
         auto &l = languages_[filename];
+        l = deflang;
         if (!l.load(filename)) {
             languages_.erase(filename);
         }

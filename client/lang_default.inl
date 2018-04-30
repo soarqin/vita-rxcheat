@@ -43,6 +43,7 @@ strings:
   SEARCH_IN_PROGRESS: Searching in progress, please do it later
   EDIT_MEM: Edit memory
   VIEW_MEMORY: View memory
+  ADD_TO_TABLE: Add to table
   TABLE_ADD: Add
   TABLE_DELETE: Delete
   TABLE_MODIFY: Modify address/comment

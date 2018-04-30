@@ -114,7 +114,7 @@ private:
     std::vector<uint8_t> memViewData_;
     bool memoryEditing_ = false;
     uint32_t memoryEditingAddr_ = 0;
-    char memoryEditVal_[32] = "";
+    char memoryEditVal_[3] = "";
     std::vector<MemoryItem> memTable_;
     int memTableIdx_ = -1;
     bool tableModding_ = false;

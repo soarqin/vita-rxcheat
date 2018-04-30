@@ -47,6 +47,7 @@ public:
         LANG_SEARCH_IN_PROGRESS,
         LANG_EDIT_MEM,
         LANG_VIEW_MEMORY,
+        LANG_ADD_TO_TABLE,
         LANG_TABLE_ADD,
         LANG_TABLE_DELETE,
         LANG_TABLE_MODIFY,

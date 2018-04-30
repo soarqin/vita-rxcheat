@@ -528,6 +528,12 @@ inline void Gui::searchPanel() {
                     memViewIndex_ = -1;
                     cmd_->readMem(memAddr_);
                 }
+                ImGui::SameLine();
+                if (ImGui::Button(LS(ADD_TO_TABLE))) {
+                    tabIndex_ = 2;
+                    memTable_.push_back(searchResults_[searchResultIdx_]);
+                    memTableIdx_ = (int)memTable_.size() - 1;
+                }
             }
             break;
         }
@@ -630,7 +636,7 @@ inline void Gui::memoryPopup() {
     ImGui::OpenPopup(LS(POPUP_EDIT));
     if (ImGui::BeginPopupModal(LS(POPUP_EDIT), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("%s: %08X", LS(EDIT_ADDR), memoryEditingAddr_);
-        ImGui::InputText("##MemEditValue", memoryEditVal_, 31, ImGuiInputTextFlags_CharsHexadecimal);
+        ImGui::InputText("##MemEditValue", memoryEditVal_, 3, ImGuiInputTextFlags_CharsHexadecimal);
         if (ImGui::Button(LS(OK))) {
             memoryEditing_ = false;
             ImGui::CloseCurrentPopup();
