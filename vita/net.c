@@ -82,7 +82,8 @@ static ikcpcb *kcp = NULL;
 static send_buf *shead = NULL, *stail = NULL;
 
 static int total_count = 0, recv_size = 0;
-static char recv_buf[0x1200];
+#define RECV_BUF_SIZE 0x1200
+static char *recv_buf = NULL;
 
 static void _kcp_disconnect() {
     if (kcp != NULL) {
@@ -307,6 +308,9 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
 void net_kcp_listen(uint16_t port) {
     _kcp_clear();
 
+    if (recv_buf == NULL)
+        recv_buf = (char*)my_alloc(RECV_BUF_SIZE);
+
     int ret;
     SceNetSockaddrIn sockaddr;
 
@@ -347,7 +351,7 @@ void net_kcp_process(uint32_t tick) {
     if (kcp != NULL) {
         ikcp_update(kcp, tick);
         while(1) {
-            int hr = ikcp_recv(kcp, recv_buf + recv_size, 0x1200 - recv_size);
+            int hr = ikcp_recv(kcp, recv_buf + recv_size, RECV_BUF_SIZE - recv_size);
             if (hr < 0) break;
             recv_size += hr;
             while(recv_size >= 8) {

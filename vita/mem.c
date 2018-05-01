@@ -22,11 +22,15 @@ typedef enum {
     st_autoint = 22,
 } search_type;
 
+#define LOCK_COUNT_MAX 0x80
+
 static memory_range staticmem[64], stackmem[32], blockmem[1024];
 static int static_sz = 0, stack_sz = 0, block_sz = 0;
 static int mem_loaded = 0;
 static int stype = 0, last_sidx = 0;
 static SceUID searchMutex = -1, searchSema = -1;
+static memlock_data lockdata[LOCK_COUNT_MAX];
+static int lock_count = 0;
 
 void mem_init() {
     searchMutex = sceKernelCreateMutex("rcsvr_search_mutex", 0, 0, 0);
@@ -330,6 +334,33 @@ int mem_list(memory_range *range, int size, int heap) {
         range[res++] = blockmem[i];
     }
     return res;
+}
+
+void mem_lockdata_clear() {
+    lock_count = 0;
+}
+
+void mem_lockdata_begin() {
+    mem_lockdata_clear();
+}
+
+void mem_lockdata_add(uint32_t addr, uint8_t size, char *data) {
+    if (lock_count >= LOCK_COUNT_MAX) return;
+    memlock_data *ld = &lockdata[lock_count++];
+    ld->address = addr;
+    memcpy(ld->data, data, 8);
+    ld->size = size;
+}
+
+void mem_lockdata_end() {
+}
+
+const memlock_data *mem_lockdata_query(int *count) {
+    *count = lock_count;
+    return lockdata;
+}
+
+void mem_process_lock() {
 }
 
 int mem_get_type_size(int type, const void *data) {
