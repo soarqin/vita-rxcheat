@@ -81,7 +81,7 @@ static void mem_load() {
     for(; thid <= 0x40010FFF && stack_sz < 32; ++thid) {
         if (thid == curr) continue;
         ret = sceKernelGetThreadInfo(thid, &status);
-        if (ret < 0 || strncmp(status.name, "rcsvr_", 6) == 0) continue;
+        if (ret < 0 || strncmp(status.name, "rcsvr_", 6) == 0 || strcmp(status.name, "mempool_thread") == 0) continue;
         log_debug("0x%08X %s 0x%08X 0x%08X\n", thid, status.name, status.stack, status.stackSize);
         memory_range *mr = &stackmem[stack_sz++];
         mr->start = (uint32_t)status.stack;
