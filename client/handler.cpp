@@ -10,8 +10,12 @@ void Handler::process(int op, const char *buf, int len) {
             gui_.searchResultStart(sub);
             break;
         case 0x8:
-            gui_.updateMemory(*(uint32_t*)buf, sub, buf+4);
+        {
+            char nbuf[8] = {};
+            memcpy(nbuf, buf + 4, len - 4);
+            gui_.updateMemory(*(uint32_t*)buf, sub, nbuf);
             break;
+        }
         case 0x0C:
             if (sub == 0)
                 gui_.setMemViewData(*(uint32_t*)buf, buf + 4, len - 4);

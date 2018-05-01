@@ -47,7 +47,7 @@ strings:
   ADD_TO_TABLE: 添加到内存表格
   TABLE_ADD: 添加
   TABLE_DELETE: 删除
-  TABLE_MODIFY: 修改地址/注释
+  TABLE_EDIT: 修改
   TABLE_SAVE: 保存
   TABLE_LOAD: 加载
   TABLE_ADDR: "地址:"

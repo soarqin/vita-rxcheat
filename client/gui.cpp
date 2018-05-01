@@ -21,6 +21,8 @@
 #include <ole2.h>
 #include <oleauto.h>
 #include <mlang.h>
+#else
+#include <unistd.h>
 #endif
 #include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
@@ -31,6 +33,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cctype>
+#include <cinttypes>
 #include <fstream>
 #include <stdexcept>
 
@@ -247,10 +250,11 @@ void Gui::searchResultStart(uint8_t type) {
 
 void Gui::searchResult(const SearchVal *vals, int count) {
     for (int i = 0; i < count; ++i) {
-        char hex[16], value[64];
+        char hex[16];
         snprintf(hex, 16, "%08X", vals[i].addr);
-        cmd_->formatTypeData(value, searchResultType_, &vals[i].val);
-        MemoryItem sr = {vals[i].addr, searchResultType_, hex, value};
+        MemoryItem sr = {vals[i].addr, searchResultType_, false, hex};
+        memcpy(sr.memval, &vals[i].val, 8);
+        sr.formatValue(searchHex_);
         searchResults_.push_back(sr);
     }
 }
@@ -297,19 +301,17 @@ void Gui::trophyUnlockErr() {
 void Gui::updateMemory(uint32_t addr, uint8_t type, const void *data) {
     for (auto &p: searchResults_) {
         if (p.addr == addr) {
-            char value[64];
-            cmd_->formatTypeData(value, type, data);
             p.type = type;
-            p.value = value;
+            memcpy(p.memval, data, 8);
+            p.formatValue(tableHex_);
             break;
         }
     }
     for (auto &p: memTable_) {
         if (p.addr == addr) {
-            char value[64];
-            cmd_->formatTypeData(value, type, data);
             p.type = type;
-            p.value = value;
+            memcpy(p.memval, data, 8);
+            p.formatValue(tableHex_);
             break;
         }
     }
@@ -397,47 +399,6 @@ inline void Gui::tabPanel() {
     ImGui::RadioButton(LS(TROPHY), &tabIndex_, 3);
 }
 
-inline void formatData(uint8_t type, const char *src, bool isHex, void *dst) {
-    switch (type) {
-        case Command::st_autouint: case Command::st_u64:
-        {
-            uint64_t val = strtoull(src, NULL, isHex ? 16 : 10);
-            memcpy(dst, &val, 8);
-            break;
-        }
-        case Command::st_autoint: case Command::st_i64:
-        {
-            int64_t val = strtoll(src, NULL, isHex ? 16 : 10);
-            memcpy(dst, &val, 8);
-            break;
-        }
-        case Command::st_u32: case Command::st_u16: case Command::st_u8:
-        {
-            uint32_t val = strtoul(src, NULL, isHex ? 16 : 10);
-            memcpy(dst, &val, 4);
-            break;
-        }
-        case Command::st_i32: case Command::st_i16: case Command::st_i8:
-        {
-            int32_t val = strtol(src, NULL, isHex ? 16 : 10);
-            memcpy(dst, &val, 4);
-            break;
-        }
-        case Command::st_float:
-        {
-            float val = strtof(src, NULL);
-            memcpy(dst, &val, 4);
-            break;
-        }
-        case Command::st_double:
-        {
-            double val = strtod(src, NULL);
-            memcpy(dst, &val, 8);
-            break;
-        }
-    }
-}
-
 const uint8_t comboItemType[] = {
     Command::st_autoint, Command::st_autouint, Command::st_i32, Command::st_u32,
     Command::st_i16, Command::st_u16, Command::st_i8, Command::st_u8,
@@ -450,23 +411,23 @@ inline void Gui::searchPanel() {
     } else {
         if (ImGui::Button(LS(NEW_SEARCH), ImVec2(100.f, 0.f)) && typeComboIndex_ >= 0) {
             char output[8];
-            formatData(comboItemType[typeComboIndex_], searchVal_, hexSearch_, output);
+            Command::getRawData(output, comboItemType[typeComboIndex_], searchVal_, searchHex_);
             cmd_->startSearch(comboItemType[typeComboIndex_], heapSearch_, output);
         }
         if ((searchStatus_ == 2 || searchStatus_ == 3) && (ImGui::SameLine(), ImGui::Button(LS(NEXT_SEARCH), ImVec2(70.f, 0.f)) && typeComboIndex_ >= 0)) {
             char output[8];
-            formatData(searchResultType_, searchVal_, hexSearch_, output);
+            Command::getRawData(output, searchResultType_, searchVal_, searchHex_);
             cmd_->nextSearch(output);
         }
     }
     ImGui::SameLine(); ImGui::Text(LS(VALUE)); ImGui::SameLine();
     ImGui::PushItemWidth(120.f);
-    ImGui::InputText("##Value", searchVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
+    ImGui::InputText("##Value", searchVal_, 31, searchHex_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
     ImGui::PopItemWidth();
     ImGui::SameLine();
     ImGui::PushItemWidth(100.f);
-    if (ImGui::BeginCombo("##Type", LS(DATATYPE_FIRST + typeComboIndex_), 0)) {
-        for (int i = 0; i < 10; ++i) {
+    if (ImGui::BeginCombo("##Type", LS(DATATYPE_FIRST + typeComboIndex_))) {
+        for (int i = 0; i < sizeof(comboItemType) / sizeof(uint8_t); ++i) {
             bool selected = typeComboIndex_ == i;
             if (ImGui::Selectable(LS(DATATYPE_FIRST + i), selected)) {
                 if (typeComboIndex_ != i) {
@@ -483,9 +444,13 @@ inline void Gui::searchPanel() {
         ImGui::EndCombo();
     }
     ImGui::PopItemWidth();
-    ImGui::SameLine();
-    if (ImGui::Checkbox(LS(HEX), &hexSearch_)) {
-        searchVal_[0] = 0;
+    auto tt = comboItemType[typeComboIndex_];
+    if (tt != Command::st_float && tt != Command::st_double && (ImGui::SameLine(), ImGui::Checkbox(LS(HEX), &searchHex_))) {
+        char dst[8];
+        Command::getRawData(dst, tt, searchVal_, !searchHex_);
+        Command::formatTypeData(searchVal_, tt, dst, searchHex_);
+        for (auto &p: searchResults_)
+            p.formatValue(searchHex_);
     }
     ImGui::SameLine();
     ImGui::Checkbox(LS(HEAP), &heapSearch_);
@@ -493,6 +458,7 @@ inline void Gui::searchPanel() {
     switch (searchStatus_) {
         case 2:
         {
+            bool openPopup = false;
             ImGui::Text(LS(SEARCH_RESULT));
             if (ImGui::ListBoxHeader("##Result")) {
                 ImGui::Columns(2, NULL, true);
@@ -503,8 +469,8 @@ inline void Gui::searchPanel() {
                         searchResultIdx_ = i;
                         if (ImGui::IsMouseDoubleClicked(0)) {
                             strcpy(searchEditVal_, searchResults_[i].value.c_str());
-                            searchEditing_ = true;
-                            searchEditHex_ = hexSearch_;
+                            openPopup = true;
+                            searchEditHex_ = searchHex_;
                         }
                     }
                     if (selected) ImGui::SetItemDefaultFocus();
@@ -517,7 +483,8 @@ inline void Gui::searchPanel() {
             if (searchResultIdx_ >= 0) {
                 if (ImGui::Button(LS(EDIT_MEM))) {
                     strcpy(searchEditVal_, searchResults_[searchResultIdx_].value.c_str());
-                    searchEditing_ = true;
+                    openPopup = true;
+                    searchEditHex_ = searchHex_;
                 }
                 ImGui::SameLine();
                 if (ImGui::Button(LS(VIEW_MEMORY))) {
@@ -535,6 +502,9 @@ inline void Gui::searchPanel() {
                     memTableIdx_ = (int)memTable_.size() - 1;
                 }
             }
+            if (openPopup) {
+                ImGui::OpenPopup(LS(POPUP_EDIT));
+            }
             break;
         }
         case 3:
@@ -547,27 +517,25 @@ inline void Gui::searchPanel() {
 }
 
 inline void Gui::searchPopup() {
-    if (!searchEditing_) return;
-    ImGui::OpenPopup(LS(POPUP_EDIT));
     if (ImGui::BeginPopupModal(LS(POPUP_EDIT), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
         auto &mi = searchResults_[searchResultIdx_];
         ImGui::Text("%s: %s", LS(EDIT_ADDR), mi.hexaddr.c_str());
-        ImGui::InputText("##EditValue", searchEditVal_, 31, hexSearch_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
+        ImGui::InputText("##EditValue", searchEditVal_, 31, searchHex_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
         ImGui::SameLine();
         if (ImGui::Checkbox(LS(HEX), &searchEditHex_)) {
-            searchEditVal_[0] = 0;
+            char dst[8];
+            Command::getRawData(dst, mi.type, searchEditVal_, !searchEditHex_);
+            Command::formatTypeData(searchEditVal_, mi.type, dst, searchEditHex_);
         }
         if (ImGui::Button(LS(OK))) {
-            searchEditing_ = false;
             ImGui::CloseCurrentPopup();
             char output[8];
-            formatData(mi.type, searchEditVal_, hexSearch_, output);
+            Command::getRawData(output, mi.type, searchEditVal_, searchHex_);
             cmd_->modifyMemory(mi.type, mi.addr, output);
             searchEditVal_[0] = 0;
         }
         ImGui::SameLine();
         if (ImGui::Button(LS(CANCEL))) {
-            searchEditing_ = false;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -641,7 +609,7 @@ inline void Gui::memoryPopup() {
             memoryEditing_ = false;
             ImGui::CloseCurrentPopup();
             char output[8];
-            formatData(Command::st_u8, memoryEditVal_, true, output);
+            Command::getRawData(output, Command::st_u8, memoryEditVal_, true);
             cmd_->modifyMemory(Command::st_u8, memoryEditingAddr_, output);
             memoryEditVal_[0] = 0;
         }
@@ -655,50 +623,61 @@ inline void Gui::memoryPopup() {
     }
 }
 
+void Gui::enterTableEdit() {
+    auto &mi = memTable_[memTableIdx_];
+    Command::formatTypeData(tableEditVal_, mi.type, mi.memval, tableHex_);
+    snprintf(tableEditAddr_, 9, "%08X", mi.addr);
+    strncpy(tableEditComment_, mi.comment.c_str(), 64);
+    tableEditAdding_ = false;
+    tableTypeComboIdx_ = 0;
+    for (int j = 0; j < sizeof(comboItemType) / sizeof(uint8_t); ++j) {
+        if (comboItemType[j] == mi.type) {
+            tableTypeComboIdx_ = j;
+            break;
+        }
+    }
+}
+
 inline void Gui::tablePanel() {
+    bool openPopup = false;
     if (ImGui::ListBoxHeader("##MemTable", ImVec2(dispWidth_ - 30.f, 420.f))) {
         ImGui::Columns(5, NULL, true);
-        ImGui::SetColumnWidth(0, 90.f);
-        ImGui::SetColumnWidth(1, 70.f);
+        ImGui::SetColumnWidth(0, 30.f);
+        ImGui::SetColumnWidth(1, 80.f);
         ImGui::SetColumnWidth(2, 70.f);
-        ImGui::SetColumnWidth(3, 20.f);
-        ImGui::SetColumnWidth(4, dispWidth_ - 30.f - 270.f);
+        ImGui::SetColumnWidth(3, 120.f);
+        ImGui::SetColumnWidth(4, dispWidth_ - 30.f - 320.f);
         int sz = memTable_.size();
         for (int i = 0; i < sz; ++i) {
+            auto &mi = memTable_[i];
+            char llable[16];
+            snprintf(llable, 16, "##lk%d", i);
+            if (ImGui::Checkbox(llable, &mi.locked)) {
+            }
+            ImGui::NextColumn();
             bool selected = memTableIdx_ == i;
             if (ImGui::Selectable(memTable_[i].hexaddr.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
                 memTableIdx_ = i;
                 if (ImGui::IsMouseDoubleClicked(0)) {
-                    strcpy(tableEditVal_, memTable_[i].value.c_str());
-                    tableEditing_ = true;
+                    enterTableEdit();
+                    openPopup = true;
                 }
             }
             if (selected) ImGui::SetItemDefaultFocus();
             ImGui::NextColumn();
-            ImGui::Text(getTypeName(memTable_[i].type));
+            ImGui::Text(getTypeName(mi.type));
             ImGui::NextColumn();
-            ImGui::Text(memTable_[i].value.c_str());
+            ImGui::Text(mi.value.c_str());
             ImGui::NextColumn();
-            char llable[16];
-            snprintf(llable, 16, "##lk%d", i);
-            ImGui::Checkbox(llable, &memTable_[i].locked);
-            ImGui::NextColumn();
-            ImGui::Text(memTable_[i].comment.c_str());
+            ImGui::Text(mi.comment.c_str());
             ImGui::NextColumn();
         }
         ImGui::ListBoxFooter();
     }
     if (memTableIdx_ >= 0) {
-        if (ImGui::Button(LS(EDIT_MEM))) {
-            strcpy(tableEditVal_, memTable_[memTableIdx_].value.c_str());
-            tableEditing_ = true;
-            tableTypeComboIdx_ = 0;
-            for (int i = 0; i < sizeof(comboItemType) / sizeof(int); ++i) {
-                if (comboItemType[i] == memTable_[memTableIdx_].type) {
-                    tableTypeComboIdx_ = i;
-                    break;
-                }
-            }
+        if (ImGui::Button(LS(TABLE_EDIT))) {
+            enterTableEdit();
+            openPopup = true;
         }
         ImGui::SameLine();
         if (ImGui::Button(LS(VIEW_MEMORY))) {
@@ -714,19 +693,14 @@ inline void Gui::tablePanel() {
             memTable_.erase(memTable_.begin() + memTableIdx_);
         }
         ImGui::SameLine();
-        if (ImGui::Button(LS(TABLE_MODIFY))) {
-            snprintf(tableModAddr_, 9, "%08X", memTable_[memTableIdx_].addr);
-            strncpy(tableModComment_, memTable_[memTableIdx_].comment.c_str(), 64);
-            tableModding_ = true;
-            tableModAdding_ = false;
-        }
-        ImGui::SameLine();
     }
     if(ImGui::Button(LS(TABLE_ADD))) {
-        tableModAddr_[0] = 0;
-        tableModComment_[0] = 0;
-        tableModding_ = true;
-        tableModAdding_ = true;
+        tableTypeComboIdx_ = 0;
+        tableEditAddr_[0] = 0;
+        tableEditComment_[0] = 0;
+        strcpy(tableEditVal_, "0");
+        tableEditAdding_ = true;
+        openPopup = true;
     }
     if (ImGui::Button(LS(TABLE_SAVE))) {
         saveTable(client_->titleId().c_str());
@@ -735,95 +709,95 @@ inline void Gui::tablePanel() {
     if (ImGui::Button(LS(TABLE_LOAD))) {
         loadTable(client_->titleId().c_str());
     }
+    if (openPopup) {
+        ImGui::OpenPopup(LS(TABLE_EDIT));
+    }
 }
 
 inline void Gui::tablePopup() {
-    if (tableModding_) {
-        ImGui::OpenPopup(LS(TABLE_MODIFY));
-        if (ImGui::BeginPopupModal(LS(TABLE_MODIFY), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::Text(LS(TABLE_ADDR)); ImGui::SameLine(60.f);
-            ImGui::InputText("##TableAddr", tableModAddr_, 16, ImGuiInputTextFlags_CharsHexadecimal);
-            ImGui::Text(LS(TABLE_COMMENT)); ImGui::SameLine(60.f);
-            ImGui::InputText("##TableComment", tableModComment_, 64, 0);
-            if (ImGui::Button(LS(OK))) {
-                tableModding_ = false;
-                ImGui::CloseCurrentPopup();
-                uint32_t addr;
-                addr = strtoul(tableModAddr_, NULL, 16);
+    if (ImGui::BeginPopupModal(LS(TABLE_EDIT), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text(LS(TABLE_ADDR)); ImGui::SameLine(60.f);
+        ImGui::InputText("##TableAddr", tableEditAddr_, 16, ImGuiInputTextFlags_CharsHexadecimal);
+        ImGui::PushItemWidth(120.f);
+        ImGui::InputText("##TableMemEdit", tableEditVal_, 31, ImGuiInputTextFlags_CharsHexadecimal);
+        ImGui::PopItemWidth();
+        ImGui::SameLine();
+        ImGui::PushItemWidth(100.f);
+        if (ImGui::BeginCombo("##TablePopupType", LS(DATATYPE_FIRST + tableTypeComboIdx_))) {
+            for (int i = 0; i < sizeof(comboItemType) / sizeof(uint8_t); ++i) {
+                ImGui::PushID((void*)(intptr_t)i);
+                bool selected = tableTypeComboIdx_ == i;
+                if (ImGui::Selectable(LS(DATATYPE_FIRST + i), selected)) {
+                    if (tableTypeComboIdx_ != i)
+                        tableTypeComboIdx_ = i;
+                }
+                if (selected) ImGui::SetItemDefaultFocus();
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopItemWidth();
+        ImGui::SameLine();
+        if (ImGui::Checkbox(LS(HEX), &tableHex_)) {
+            uint8_t type = comboItemType[tableTypeComboIdx_];
+            char dst[8];
+            Command::getRawData(dst, type, tableEditVal_, !tableHex_);
+            Command::formatTypeData(tableEditVal_, type, dst, tableHex_);
+            for (auto &p: memTable_)
+                p.formatValue(searchHex_);
+        }
+        ImGui::Text(LS(TABLE_COMMENT)); ImGui::SameLine(60.f);
+        ImGui::InputText("##TableComment", tableEditComment_, 64, 0);
+        if (ImGui::Button(LS(OK))) {
+            ImGui::CloseCurrentPopup();
+            uint32_t addr;
+            addr = strtoul(tableEditAddr_, NULL, 16);
+            if (tableEditAdding_) {
+                MemoryItem mi;
+                mi.locked = false;
+                mi.addr = addr;
                 char hexaddr[9];
                 snprintf(hexaddr, 9, "%08X", addr);
-                if (tableModAdding_) {
-                    MemoryItem mi;
-                    mi.addr = addr;
-                    mi.hexaddr = hexaddr;
-                    mi.comment = tableModComment_;
-                    mi.type = Command::st_autoint;
-                    memTable_.push_back(mi);
-                    if (memTableIdx_ < 0) memTableIdx_ = (int)memTable_.size() - 1;
-                } else if (memTableIdx_ >= 0 && memTableIdx_ < (int)memTable_.size()) {
-                    auto &mi = memTable_[memTableIdx_];
-                    mi.addr = addr;
-                    mi.hexaddr = hexaddr;
-                    mi.comment = tableModComment_;
-                }
-                tableModAdding_ = false;
-                tableModAddr_[0] = 0;
-                tableModComment_[0] = 0;
-            }
-            ImGui::SameLine();
-            if (ImGui::Button(LS(CANCEL))) {
-                tableModding_ = false;
-                tableModAdding_ = false;
-                tableModAddr_[0] = 0;
-                tableModComment_[0] = 0;
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
-    }
-    if (tableEditing_) {
-        ImGui::OpenPopup(LS(EDIT_MEM));
-        if (ImGui::BeginPopupModal(LS(EDIT_MEM), NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::Text("%s: %08X", LS(EDIT_ADDR), memTable_[memTableIdx_].addr);
-            ImGui::PushItemWidth(120.f);
-            ImGui::InputText("##TableMemEdit", tableEditVal_, 31, ImGuiInputTextFlags_CharsHexadecimal);
-            ImGui::PopItemWidth();
-            ImGui::SameLine();
-            ImGui::PushItemWidth(100.f);
-            if (ImGui::BeginCombo("##Type", LS(DATATYPE_FIRST + tableTypeComboIdx_), 0)) {
-                for (int i = 0; i < 10; ++i) {
-                    bool selected = tableTypeComboIdx_ == i;
-                    if (ImGui::Selectable(LS(DATATYPE_FIRST + i), selected)) {
-                        if (tableTypeComboIdx_ != i)
-                            tableTypeComboIdx_ = i;
-                    }
-                    if (selected) ImGui::SetItemDefaultFocus();
-                }
-                ImGui::EndCombo();
-            }
-            ImGui::PopItemWidth();
-            ImGui::SameLine();
-            if (ImGui::Checkbox(LS(HEX), &tableHex_)) {
-                tableEditVal_[0] = 0;
-            }
-            if (ImGui::Button(LS(OK))) {
-                tableEditing_ = false;
-                ImGui::CloseCurrentPopup();
+                mi.hexaddr = hexaddr;
+                mi.comment = tableEditComment_;
+                mi.type = comboItemType[tableTypeComboIdx_];
                 char output[8];
-                int type = comboItemType[tableTypeComboIdx_];
-                if (type != memTable_[memTableIdx_].type) memTable_[memTableIdx_].type = type;
-                formatData(type, tableEditVal_, true, output);
+                Command::getRawData(output, mi.type, tableEditVal_, tableHex_);
+                memcpy(mi.memval, output, 8);
+                mi.formatValue(tableHex_);
+                memTable_.push_back(mi);
+                if (memTableIdx_ < 0) memTableIdx_ = (int)memTable_.size() - 1;
+            } else if (memTableIdx_ >= 0 && memTableIdx_ < (int)memTable_.size()) {
+                auto &mi = memTable_[memTableIdx_];
+                if (addr != mi.addr) {
+                    mi.addr = addr;
+                    char hexaddr[9];
+                    snprintf(hexaddr, 9, "%08X", addr);
+                    mi.hexaddr = hexaddr;
+                }
+                mi.comment = tableEditComment_;
+                uint8_t type = comboItemType[tableTypeComboIdx_];
+                if (type != mi.type) mi.type = type;
+                char output[8];
+                Command::getRawData(output, type, tableEditVal_, tableHex_);
+                memcpy(memTable_[memTableIdx_].memval, output, 8);
+                mi.formatValue(tableHex_);
                 cmd_->modifyMemory(type, memTable_[memTableIdx_].addr, output);
-                tableEditVal_[0] = 0;
             }
-            ImGui::SameLine();
-            if (ImGui::Button(LS(CANCEL))) {
-                tableEditing_ = false;
-                ImGui::CloseCurrentPopup();
-                tableEditVal_[0] = 0;
-            }
-            ImGui::EndPopup();
+            tableEditAdding_ = false;
+            tableEditAddr_[0] = 0;
+            tableEditComment_[0] = 0;
+            tableEditVal_[0] = 0;
         }
+        ImGui::SameLine();
+        if (ImGui::Button(LS(CANCEL))) {
+            ImGui::CloseCurrentPopup();
+            tableEditAdding_ = false;
+            tableEditAddr_[0] = 0;
+            tableEditComment_[0] = 0;
+            tableEditVal_[0] = 0;
+        }
+        ImGui::EndPopup();
     }
 }
 
@@ -895,26 +869,38 @@ inline void Gui::trophyPanel() {
     }
 }
 
-inline void getConfigFilePath(char *path) {
+inline void getConfigFilePath(char *path, const char *filename) {
 #ifdef _WIN32
     GetModuleFileNameA(NULL, path, 256);
     PathRemoveFileSpecA(path);
-    PathAppendA(path, "rcsvr.yml");
+    PathAppendA(path, filename);
 #else
-    strcpy(path, "rcsvr.yml");
+    strcpy(path, filename);
+#endif
+}
+
+inline void moveOldConfig(const char *oldPath, const char *path) {
+#ifdef _WIN32
+    if (!PathFileExistsA(oldPath) || PathFileExistsA(path)) return;
+    MoveFileA(oldPath, path);
+#else
+    if (access(oldPath, F_OK) < 0) return;
+    if (access(path, F_OK) >= 0) return;
+    rename(oldPath, path);
 #endif
 }
 
 inline void Gui::saveData() {
     char path[256];
-    getConfigFilePath(path);
+    getConfigFilePath(path, "rcclient.yml");
     YAML::Emitter out;
     out << YAML::BeginMap;
     const auto &name = g_lang.currLang().id();
     if (!name.empty()) out << YAML::Key << "Lang" << YAML::Value << name;
     out << YAML::Key << "IPAddr" << YAML::Value << ip_;
-    out << YAML::Key << "HEX" << YAML::Value << hexSearch_;
+    out << YAML::Key << "HEX" << YAML::Value << searchHex_;
     out << YAML::Key << "HEAP" << YAML::Value << heapSearch_;
+    out << YAML::Key << "TABLEHEX" << YAML::Value << tableHex_;
     out << YAML::EndMap;
     std::ofstream f(path);
     f << out.c_str();
@@ -922,15 +908,18 @@ inline void Gui::saveData() {
 }
 
 inline void Gui::loadData() {
-    char path[256];
-    getConfigFilePath(path);
+    char path[256], oldPath[256];
+    getConfigFilePath(path, "rcclient.yml");
+    getConfigFilePath(oldPath, "rcsvr.yml");
+    moveOldConfig(oldPath, path);
     YAML::Node node;
     try {
         node = YAML::LoadFile(path);
         if (node["Lang"].IsDefined()) g_lang.setLanguage(node["Lang"].as<std::string>());
         if (node["IPAddr"].IsDefined()) strncpy(ip_, node["IPAddr"].as<std::string>().c_str(), 256);
-        if (node["HEX"].IsDefined()) hexSearch_ = node["HEX"].as<bool>();
+        if (node["HEX"].IsDefined()) searchHex_ = node["HEX"].as<bool>();
         if (node["HEAP"].IsDefined()) heapSearch_ = node["HEAP"].as<bool>();
+        if (node["TABLEHEX"].IsDefined()) tableHex_ = node["TABLEHEX"].as<bool>();
     } catch (...) { return; }
 }
 
@@ -943,7 +932,7 @@ inline void getTableFilePath(char *path, const char *name) {
     PathAppendA(path, name);
     lstrcatA(path, ".yml");
 #else
-    mkdir("tables", 0755);
+    mkdir("tables", 0775);
     sprintf(path, "tables/%s.yml", name);
 #endif
 }
@@ -956,8 +945,12 @@ void Gui::saveTable(const char *name) {
     out << YAML::Key << "List" << YAML::BeginSeq;
     for (auto &p: memTable_) {
         out << YAML::BeginMap;
-        out << YAML::Key << "Type" << YAML::Value << YAML::Dec << p.type;
         out << YAML::Key << "Addr" << YAML::Value << YAML::Hex << p.addr;
+        out << YAML::Key << "Type" << YAML::Value << YAML::Dec << (uint32_t)p.type;
+        out << YAML::Key << "Locked" << YAML::Value << p.locked;
+        char output[32];
+        sprintf(output, "%" PRIX64, *(uint64_t*)p.memval);
+        out << YAML::Key << "Value" << YAML::Value << output;
         out << YAML::Key << "Comment" << YAML::Value << p.comment;
         out << YAML::EndMap;
     }
@@ -975,9 +968,13 @@ bool Gui::loadTable(const char *name) {
     try {
         node = YAML::LoadFile(path);
         for (auto &p: node["List"]) {
-            MemoryItem mi;
-            mi.type = p["Type"].as<int>();
+            MemoryItem mi = {};
             mi.addr = p["Addr"].as<uint32_t>();
+            mi.type = (uint8_t)p["Type"].as<uint32_t>();
+            if (p["Locked"].IsDefined()) mi.locked = p["Locked"].as<bool>();
+            std::string tmp = p["Value"].as<std::string>();
+            *(uint64_t*)mi.memval = (uint64_t)strtoull(tmp.c_str(), nullptr, 16);
+            mi.formatValue(tableHex_);
             mi.comment = p["Comment"].as<std::string>();
             char hex[16];
             snprintf(hex, 16, "%08X", mi.addr);
@@ -1014,4 +1011,10 @@ void Gui::reloadFonts() {
         }
         if (!found) f->AddFontDefault();
     }
+}
+
+void Gui::MemoryItem::formatValue(bool hex) {
+    char val[64];
+    Command::formatTypeData(val, type, memval, hex);
+    value = val;
 }

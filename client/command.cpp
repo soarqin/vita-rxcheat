@@ -74,42 +74,83 @@ int Command::getTypeSize(uint8_t type, const void* data) {
     return 0;
 }
 
-void Command::formatTypeData(char *output, uint8_t type, const void *data) {
-    switch (searchType_) {
+void Command::formatTypeData(char *output, uint8_t type, const void *data, bool hex) {
+    switch (type) {
         case st_i8:
-            sprintf(output, "%d", *(int8_t*)data);
+            sprintf(output, hex ? "%X": "%d", *(int8_t*)data);
             break;
         case st_i16:
-            sprintf(output, "%d", *(int16_t*)data);
+            sprintf(output, hex ? "%X": "%d", *(int16_t*)data);
             break;
         case st_i32:
-            sprintf(output, "%d", *(int32_t*)data);
+            sprintf(output, hex ? "%X": "%d", *(int32_t*)data);
             break;
         case st_autoint:
         case st_i64:
-            sprintf(output, "%" PRId64, *(int64_t*)data);
+            sprintf(output, hex ? "%" PRIX64 : "%" PRId64, *(int64_t*)data);
             break;
         case st_u8:
-            sprintf(output, "%u", *(uint8_t*)data);
+            sprintf(output, hex ? "%X": "%u", *(uint8_t*)data);
             break;
         case st_u16:
-            sprintf(output, "%u", *(uint16_t*)data);
+            sprintf(output, hex ? "%X": "%u", *(uint16_t*)data);
             break;
         case st_u32:
-            sprintf(output, "%u", *(uint32_t*)data);
+            sprintf(output, hex ? "%X": "%u", *(uint32_t*)data);
             break;
         case st_autouint:
         case st_u64:
-            sprintf(output, "%" PRIu64, *(uint64_t*)data);
+            sprintf(output, hex ? "%" PRIX64 : "%" PRIu64, *(uint64_t*)data);
             break;
         case st_float:
-            sprintf(output, "%.10f", *(float*)data);
+            sprintf(output, "%.10g", *(float*)data);
             break;
         case st_double:
-            sprintf(output, "%.10f", *(double*)data);
+            sprintf(output, "%.10g", *(double*)data);
             break;
         default:
             output[0] = 0;
+    }
+}
+
+void Command::getRawData(void *dst, uint8_t type, const char *src, bool isHex) {
+    switch (type) {
+        case Command::st_autouint: case Command::st_u64:
+        {
+            uint64_t val = strtoull(src, NULL, isHex ? 16 : 10);
+            memcpy(dst, &val, 8);
+            break;
+        }
+        case Command::st_autoint: case Command::st_i64:
+        {
+            int64_t val = strtoll(src, NULL, isHex ? 16 : 10);
+            memcpy(dst, &val, 8);
+            break;
+        }
+        case Command::st_u32: case Command::st_u16: case Command::st_u8:
+        {
+            uint32_t val = strtoul(src, NULL, isHex ? 16 : 10);
+            memcpy(dst, &val, 4);
+            break;
+        }
+        case Command::st_i32: case Command::st_i16: case Command::st_i8:
+        {
+            int32_t val = strtol(src, NULL, isHex ? 16 : 10);
+            memcpy(dst, &val, 4);
+            break;
+        }
+        case Command::st_float:
+        {
+            float val = strtof(src, NULL);
+            memcpy(dst, &val, 4);
+            break;
+        }
+        case Command::st_double:
+        {
+            double val = strtod(src, NULL);
+            memcpy(dst, &val, 8);
+            break;
+        }
     }
 }
 

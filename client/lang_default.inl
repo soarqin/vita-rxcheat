@@ -46,7 +46,7 @@ strings:
   ADD_TO_TABLE: Add to table
   TABLE_ADD: Add
   TABLE_DELETE: Delete
-  TABLE_MODIFY: Modify address/comment
+  TABLE_EDIT: Edit
   TABLE_SAVE: Save
   TABLE_LOAD: Load
   TABLE_ADDR: "Address:"

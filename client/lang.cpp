@@ -81,7 +81,7 @@ bool Lang::load(const std::string &name) {
             C(ADD_TO_TABLE)
             C(TABLE_ADD)
             C(TABLE_DELETE)
-            C(TABLE_MODIFY)
+            C(TABLE_EDIT)
             C(TABLE_SAVE)
             C(TABLE_LOAD)
             C(TABLE_ADDR)

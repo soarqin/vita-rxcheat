@@ -51,6 +51,7 @@ private:
     void searchPopup();
     void memoryPanel();
     void memoryPopup();
+    void enterTableEdit();
     void tablePanel();
     void tablePopup();
     void trophyPanel();
@@ -89,6 +90,8 @@ private:
         std::string hexaddr;
         std::string value;
         std::string comment;
+        char memval[8];
+        void formatValue(bool hex);
     };
     struct TrophyInfo {
         int id = -1;
@@ -103,10 +106,9 @@ private:
     uint8_t searchResultType_ = 0;
     char searchVal_[32] = "";
     int typeComboIndex_ = 0;
-    bool hexSearch_ = false;
+    bool searchHex_ = false;
     bool heapSearch_ = false;
     int searchResultIdx_ = -1;
-    bool searchEditing_ = false;
     char searchEditVal_[32] = "";
     bool searchEditHex_ = false;
     char memoryAddr_[9] = "";
@@ -118,11 +120,9 @@ private:
     char memoryEditVal_[3] = "";
     std::vector<MemoryItem> memTable_;
     int memTableIdx_ = -1;
-    bool tableModding_ = false;
-    bool tableModAdding_ = false;
-    bool tableEditing_ = false;
-    char tableModAddr_[16] = "";
-    char tableModComment_[64] = "";
+    bool tableEditAdding_ = false;
+    char tableEditAddr_[16] = "";
+    char tableEditComment_[64] = "";
     char tableEditVal_[32] = "";
     int tableTypeComboIdx_ = -1;
     bool tableHex_ = false;

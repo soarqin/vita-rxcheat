@@ -50,7 +50,7 @@ public:
         LANG_ADD_TO_TABLE,
         LANG_TABLE_ADD,
         LANG_TABLE_DELETE,
-        LANG_TABLE_MODIFY,
+        LANG_TABLE_EDIT,
         LANG_TABLE_SAVE,
         LANG_TABLE_LOAD,
         LANG_TABLE_ADDR,

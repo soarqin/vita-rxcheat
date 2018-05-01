@@ -32,7 +32,8 @@ public:
     void nextFuzzySearch(int direction);
     void modifyMemory(uint8_t st, uint32_t offset, const void *data);
     int getTypeSize(uint8_t type, const void* data);
-    void formatTypeData(char *output, uint8_t type, const void *data);
+    static void formatTypeData(char *output, uint8_t type, const void *data, bool hex);
+    static void getRawData(void *dst, uint8_t type, const char *src, bool isHex);
 
     void readMem(uint32_t addr);
 
