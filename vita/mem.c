@@ -30,7 +30,7 @@ static int mem_loaded = 0;
 static int stype = 0, last_sidx = 0;
 static SceUID searchMutex = -1, searchSema = -1;
 static memlock_data lockdata[LOCK_COUNT_MAX];
-static int lock_count = 0;
+static int lock_count = 0, mem_lock_ready = 0;
 
 void mem_init() {
     searchMutex = sceKernelCreateMutex("rcsvr_search_mutex", 0, 0, 0);
@@ -342,17 +342,19 @@ void mem_lockdata_clear() {
 
 void mem_lockdata_begin() {
     mem_lockdata_clear();
+    mem_lock_ready = 0;
 }
 
-void mem_lockdata_add(uint32_t addr, uint8_t size, char *data) {
+void mem_lockdata_add(uint32_t addr, uint8_t size, const char *data) {
     if (lock_count >= LOCK_COUNT_MAX) return;
     memlock_data *ld = &lockdata[lock_count++];
     ld->address = addr;
-    memcpy(ld->data, data, 8);
     ld->size = size;
+    memcpy(ld->data, data, 8);
 }
 
 void mem_lockdata_end() {
+    mem_lock_ready = 1;
 }
 
 const memlock_data *mem_lockdata_query(int *count) {
@@ -360,7 +362,13 @@ const memlock_data *mem_lockdata_query(int *count) {
     return lockdata;
 }
 
-void mem_process_lock() {
+void mem_lockdata_process() {
+    if (!mem_lock_ready) return;
+    int i;
+    for (i = 0; i < lock_count; ++i) {
+        memlock_data *ld = &lockdata[i];
+        memcpy((void*)ld->address, ld->data, ld->size);
+    }
 }
 
 int mem_get_type_size(int type, const void *data) {

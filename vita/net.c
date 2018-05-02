@@ -279,6 +279,18 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
         _kcp_send_cmd(0x0D00, data, (ptr - data) * 4);
         break;
     }
+    case 0x20: {
+        mem_lockdata_begin();
+        break;
+    }
+    case 0x21: {
+        if (len < 12) break;
+        mem_lockdata_add(*(uint32_t*)buf, mem_get_type_size(type, buf + 4), buf + 4);
+        break;
+    }
+    case 0x22: {
+        mem_lockdata_end();
+    }
     case 0x80:
         trophy_list(_kcp_trophy_list, _kcp_trophy_list_end);
         break;

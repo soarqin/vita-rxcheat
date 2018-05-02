@@ -144,13 +144,15 @@ int rcsvr_main_thread(SceSize args, void *argp) {
 
     set_show_msg(10000, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
     while(running) {
-        // checkInput();
-        // static uint64_t last_tick = 0ULL;
+        checkInput();
+        static uint64_t last_tick = 0ULL;
         uint64_t curr_tick = util_gettick();
         check_msg_timeout(curr_tick);
         net_kcp_process(curr_tick);
-        // sceKernelDelayThread(100000);
-        // last_tick = curr_tick;
+        if (curr_tick >= last_tick + 200) {
+            mem_lockdata_process();
+        }
+        last_tick = curr_tick;
     }
     return sceKernelExitDeleteThread(0);
 }

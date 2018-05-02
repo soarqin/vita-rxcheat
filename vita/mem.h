@@ -26,10 +26,10 @@ int mem_list(memory_range *range, int size, int heap);
 
 void mem_lockdata_clear();
 void mem_lockdata_begin();
-void mem_lockdata_add(uint32_t addr, uint8_t size, char *data);
+void mem_lockdata_add(uint32_t addr, uint8_t size, const char *data);
 void mem_lockdata_end();
 const memlock_data *mem_lockdata_query(int *count);
-void mem_process_lock();
+void mem_lockdata_process();
 
 int mem_get_type_size(int type, const void *data);
 
