@@ -158,6 +158,21 @@ void Command::readMem(uint32_t addr) {
     sendCommand(0x0C00, &addr, 4);
 }
 
+void Command::lockBegin() {
+    sendCommand(0x2000, NULL, 0);
+}
+
+void Command::lock(uint32_t addr, uint8_t type, const char *data) {
+    char buf[12];
+    *(uint32_t*)buf = addr;
+    memcpy(buf + 4, data, 8);
+    sendCommand(0x2100 | type, buf, 12);
+}
+
+void Command::lockEnd() {
+    sendCommand(0x2200, NULL, 0);
+}
+
 void Command::refreshTrophy() {
     sendCommand(0x8000, NULL, 0);
 }
@@ -171,7 +186,7 @@ void Command::unlockAllTrophy(uint32_t hidden[4]) {
     sendCommand(0x8101, hidden, 16);
 }
 
-void Command::sendCommand(int cmd, void *buf, int len) {
+void Command::sendCommand(int cmd, const void *buf, int len) {
     if (len < 0) return;
     std::string n;
     n.resize(len + 8);

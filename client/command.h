@@ -36,13 +36,16 @@ public:
     static void getRawData(void *dst, uint8_t type, const char *src, bool isHex);
 
     void readMem(uint32_t addr);
+    void lockBegin();
+    void lock(uint32_t addr, uint8_t type, const char *data);
+    void lockEnd();
 
     void refreshTrophy();
     void unlockTrophy(int id, bool hidden);
     void unlockAllTrophy(uint32_t hidden[4]);
 
 private:
-    void sendCommand(int cmd, void *buf, int len);
+    void sendCommand(int cmd, const void *buf, int len);
 
 private:
     UdpClient &client_;

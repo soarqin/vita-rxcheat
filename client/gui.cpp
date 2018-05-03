@@ -307,14 +307,6 @@ void Gui::updateMemory(uint32_t addr, uint8_t type, const void *data) {
             break;
         }
     }
-    for (auto &p: memTable_) {
-        if (p.addr == addr) {
-            p.type = type;
-            memcpy(p.memval, data, 8);
-            p.formatValue(tableHex_);
-            break;
-        }
-    }
     uint32_t e = memAddr_ + (uint32_t)memViewData_.size();
     if (addr >= memAddr_ && addr < e) {
         int sz = cmd_->getTypeSize(type, data);
@@ -674,6 +666,16 @@ inline void Gui::tablePanel() {
         }
         ImGui::ListBoxFooter();
     }
+    if (ImGui::Button(LS(TABLE_SEND_LOCK))) {
+        cmd_->lockBegin();
+        for (auto &p: memTable_) {
+            if (p.locked) {
+                cmd_->lock(p.addr, p.type, p.memval);
+            }
+        }
+        cmd_->lockEnd();
+    }
+    ImGui::SameLine();
     if (memTableIdx_ >= 0) {
         if (ImGui::Button(LS(TABLE_EDIT))) {
             enterTableEdit();
@@ -691,6 +693,8 @@ inline void Gui::tablePanel() {
         ImGui::SameLine();
         if (ImGui::Button(LS(TABLE_DELETE))) {
             memTable_.erase(memTable_.begin() + memTableIdx_);
+            if (memTableIdx_ >= (int)memTable_.size())
+                memTableIdx_ = (int)memTable_.size() - 1;
         }
         ImGui::SameLine();
     }

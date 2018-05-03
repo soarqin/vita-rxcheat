@@ -24,6 +24,7 @@ static int running = 1;
 
 static const char *show_msg = NULL, *show_msg2 = NULL;
 static uint64_t msg_deadline = 0ULL;
+static uint64_t last_tick = 0ULL;
 
 static void main_net_init();
 
@@ -138,20 +139,20 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     main_net_init();
     font_pgf_init();
     mem_init();
+    blit_set_color(0xffffffff);
 
     hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x7A410B64, sceDisplaySetFrameBuf_patched);
 
     set_show_msg(10000, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
     while(running) {
-        checkInput();
-        static uint64_t last_tick = 0ULL;
+        // checkInput();
         uint64_t curr_tick = util_gettick();
         check_msg_timeout(curr_tick);
         net_kcp_process(curr_tick);
         if (curr_tick >= last_tick + 200) {
             mem_lockdata_process();
+            last_tick = curr_tick;
         }
-        last_tick = curr_tick;
     }
     return sceKernelExitDeleteThread(0);
 }

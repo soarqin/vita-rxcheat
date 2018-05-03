@@ -79,6 +79,7 @@ bool Lang::load(const std::string &name) {
             C(EDIT_MEM)
             C(VIEW_MEMORY)
             C(ADD_TO_TABLE)
+            C(TABLE_SEND_LOCK)
             C(TABLE_ADD)
             C(TABLE_DELETE)
             C(TABLE_EDIT)

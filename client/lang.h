@@ -48,6 +48,7 @@ public:
         LANG_EDIT_MEM,
         LANG_VIEW_MEMORY,
         LANG_ADD_TO_TABLE,
+        LANG_TABLE_SEND_LOCK,
         LANG_TABLE_ADD,
         LANG_TABLE_DELETE,
         LANG_TABLE_EDIT,

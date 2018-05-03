@@ -1,6 +1,8 @@
 v0.6:
   1. rename filename of executable client to rcclient
   2. "add to table" button in search result list
+  3. added memory lock
+  4. better character blending
 
 v0.5.1:
   fixed loading for DEEMO and Akiba's Trip 2

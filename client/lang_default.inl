@@ -44,6 +44,7 @@ strings:
   EDIT_MEM: Edit memory
   VIEW_MEMORY: View memory
   ADD_TO_TABLE: Add to table
+  TABLE_SEND_LOCK: Send locks to game
   TABLE_ADD: Add
   TABLE_DELETE: Delete
   TABLE_EDIT: Edit

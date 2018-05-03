@@ -336,17 +336,35 @@ int mem_list(memory_range *range, int size, int heap) {
     return res;
 }
 
+static inline int mem_is_valid(uint32_t addr) {
+    int i;
+    for (i = 0; i < static_sz; ++i) {
+        if (addr >= staticmem[i].start && addr < staticmem[i].start + staticmem[i].size)
+            return 1;
+    }
+    for (i = 0; i < stack_sz; ++i) {
+        if (addr >= stackmem[i].start && addr < stackmem[i].start + stackmem[i].size)
+            return 1;
+    }
+    if (sceKernelFindMemBlockByAddr((const void*)addr, 0) < 0)
+        return 0;
+    return 1;
+}
+
 void mem_lockdata_clear() {
     lock_count = 0;
 }
 
 void mem_lockdata_begin() {
+    log_debug("lock begin\n");
     mem_lockdata_clear();
     mem_lock_ready = 0;
 }
 
 void mem_lockdata_add(uint32_t addr, uint8_t size, const char *data) {
     if (lock_count >= LOCK_COUNT_MAX) return;
+    if (!mem_is_valid(addr)) return;
+    log_debug("lock add %08X %d\n", addr, size);
     memlock_data *ld = &lockdata[lock_count++];
     ld->address = addr;
     ld->size = size;
@@ -354,6 +372,7 @@ void mem_lockdata_add(uint32_t addr, uint8_t size, const char *data) {
 }
 
 void mem_lockdata_end() {
+    log_debug("lock end\n");
     mem_lock_ready = 1;
 }
 

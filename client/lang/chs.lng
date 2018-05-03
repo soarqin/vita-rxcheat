@@ -45,6 +45,7 @@ strings:
   EDIT_MEM: 修改
   VIEW_MEMORY: 查看内存
   ADD_TO_TABLE: 添加到内存表格
+  TABLE_SEND_LOCK: 发送锁定列表给游戏
   TABLE_ADD: 添加
   TABLE_DELETE: 删除
   TABLE_EDIT: 修改
