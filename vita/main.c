@@ -138,7 +138,6 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     main_net_init();
     font_pgf_init();
     mem_init();
-    blit_set_color(0xffffffff, 0xff000000);
 
     hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x7A410B64, sceDisplaySetFrameBuf_patched);
 

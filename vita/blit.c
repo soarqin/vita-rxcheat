@@ -17,7 +17,13 @@
 int pwidth, pheight, bufferwidth, pixelformat;
 uint32_t* vram32;
 
-uint32_t colors[16];
+uint32_t alphas[16] = {
+    0, 0x10, 0x20, 0x30,
+    0x40, 0x50, 0x60, 0x70,
+    0x80, 0x90, 0xA0, 0xB0,
+    0xC0, 0xD0, 0xE0, 0x100,
+};
+uint32_t fgcolor;
 typedef struct wchar_info {
     const uint8_t *lines;
     int pitch;
@@ -41,7 +47,7 @@ int blit_setup(void) {
     pixelformat = param.pixelformat;
 
     if (bufferwidth == 0 || pixelformat != 0) return -1;
-    blit_set_color(0x00ffffff, 0xff000000);
+    blit_set_color(0xffffffff);
 
     return 0;
 }
@@ -49,19 +55,8 @@ int blit_setup(void) {
 /////////////////////////////////////////////////////////////////////////////
 // blit text
 /////////////////////////////////////////////////////////////////////////////
-void blit_set_color(uint32_t fg_col, uint32_t bg_col) {
-    int i;
-    for (i = 1; i < 15; ++i) {
-#define TCOLOR(c1, c2, a, b) (((c1) * (a) + (c2) * ((b) - (a))) / (b))
-        uint32_t a = TCOLOR(fg_col>>24, bg_col>>24, i, 15);
-        uint32_t b = TCOLOR((fg_col>>16)&0xFF, (bg_col>>16)&0xFF, i, 15);
-        uint32_t g = TCOLOR((fg_col>>8)&0xFF, (bg_col>>8)&0xFF, i, 15);
-        uint32_t r = TCOLOR(fg_col&0xFF, bg_col&0xFF, i, 15);
-#undef TCOLOR
-        colors[i] = (a<<24) | (b<<16) | (g<<8) | r;
-    }
-    colors[15] = fg_col;
-    colors[0] = bg_col;
+void blit_set_color(uint32_t fg_col) {
+    fgcolor = fg_col;
 }
 
 inline int utf8_to_ucs2(const char *utf8, uint16_t *character) {
@@ -77,6 +72,12 @@ inline int utf8_to_ucs2(const char *utf8, uint16_t *character) {
     }
 }
 
+inline uint32_t alpha_blend(uint32_t c1, uint32_t c2, uint32_t alpha) {
+    uint32_t crb = (((c1 & 0xFF00FF) * alpha + (c2 & 0xFF00FF) * (256 - alpha)) >> 8) & 0xFF00FF;
+    uint32_t cg = (((c1 & 0xFF00) * alpha + (c2 & 0xFF00) * (256 - alpha)) >> 8) & 0xFF00;
+    return 0xFF000000U | cg | crb;
+}
+
 inline void blit_stringw(int sx, int sy, const wchar_info *wci) {
     uint32_t *offset = vram32 + sy * bufferwidth + sx;
     const wchar_info *pwci = wci;
@@ -90,8 +91,8 @@ inline void blit_stringw(int sx, int sy, const wchar_info *wci) {
             const uint8_t *ll = lines;
             for (i = 0; i < hw; ++i) {
                 uint8_t c = *ll++;
-                soffset[0] = colors[c & 0x0F];
-                soffset[1] = colors[c >> 4];
+                soffset[0] = alpha_blend(fgcolor, soffset[0], alphas[c & 0x0F]);
+                soffset[1] = alpha_blend(fgcolor, soffset[1], alphas[c >> 4]);
                 soffset += 2;
             }
             loffset += bufferwidth;
