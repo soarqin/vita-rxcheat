@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 void util_init();
+uint32_t util_crc32(const unsigned char *buf, int len, uint32_t init);
 uint64_t util_gettick();
 
 extern void*(*my_alloc)(size_t);
