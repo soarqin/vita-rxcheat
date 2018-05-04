@@ -193,6 +193,10 @@ void UdpClient::process() {
         char buf[2048];
         struct sockaddr_in addr;
         while ((r = _recv(buf, 2048, &addr)) > 0) {
+            if (buf[0] == 'D') {
+                disconnect();
+                break;
+            }
             switch (buf[0]) {
                 case 'B':
                     _startConnect(&addr);
@@ -203,7 +207,7 @@ void UdpClient::process() {
                     titleid_.assign(buf + 5, buf + 14);
                     title_ = buf + 14;
                     kcp_ = ikcp_create(conv_, this);
-                    ikcp_nodelay(kcp_, 0, 50, 0, 0);
+                    ikcp_nodelay(kcp_, 0, 100, 0, 0);
                     ikcp_setmtu(kcp_, 1440);
                     kcp_->output = [](const char *buf, int len, ikcpcb *kcp, void *user) {
                         fprintf(stdout, "Sending K packets: %d\n", len);
@@ -220,9 +224,6 @@ void UdpClient::process() {
                     break;
                 case 'K':
                     ikcp_input(kcp_, buf + 4, r - 4);
-                    break;
-                case 'D':
-                    disconnect();
                     break;
             }
         }

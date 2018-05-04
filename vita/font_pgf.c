@@ -112,7 +112,16 @@ void font_pgf_init() {
 }
 
 int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, uint8_t *realw, uint8_t *w, uint8_t *h, uint8_t *l, uint8_t *t) {
+    if (font_handle == NULL) return -1;
     SceFontCharInfo char_info;
+    uint16_t glyph_index = find_glyph(code, realw, w, h, l, t);
+    if (glyph_index != 0xFFFF) {
+        int sx = (glyph_index % 51) * 10;
+        int sy = (glyph_index / 51) * 20;
+        *lines = &font_data[512 * sy + sx];
+        *pitch = 512;
+        return 0;
+    }
     int ret = sceFontGetCharInfo(font_handle, code, &char_info);
     if (ret < 0) {
         sceFontClose(font_handle);
@@ -121,14 +130,6 @@ int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, uint8_
         font_lib = NULL;
         log_debug("sceFontGetCharInfo: %d\n", ret);
         return -1;
-    }
-    uint16_t glyph_index = find_glyph(code, realw, w, h, l, t);
-    if (glyph_index != 0xFFFF) {
-        int sx = (glyph_index % 51) * 10;
-        int sy = (glyph_index / 51) * 20;
-        *lines = &font_data[512 * sy + sx];
-        *pitch = 512;
-        return 0;
     }
     *realw = (uint8_t)((char_info.sfp26AdvanceH + 32) / 64);
     *w = (uint8_t)char_info.bitmapWidth;

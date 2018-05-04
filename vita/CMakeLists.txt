@@ -54,6 +54,7 @@ add_executable(${TARGET_NAME}
     blit.c blit.h font_pgf.c
     # util
     util.c util.h
+    taipool.c taipool.h
     # debug
     debug.c debug.h
     # kcp
@@ -63,7 +64,6 @@ add_executable(${TARGET_NAME}
 target_include_directories(${TARGET_NAME} PRIVATE ../kcp PRIVATE kernel)
 
 target_link_libraries(${TARGET_NAME}
-    taipool
     taihen_stub
     SceLibc_stub_weak
     SceLibKernel_stub_weak

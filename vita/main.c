@@ -5,12 +5,12 @@
 #include "debug.h"
 #include "blit.h"
 #include "font_pgf.h"
+#include "taipool.h"
 
 #include "../version.h"
 
 #include <vitasdk.h>
 #include <taihen.h>
-#include <taipool.h>
 
 #define HOOKS_NUM      7
 
@@ -132,9 +132,24 @@ static void main_net_init() {
 
 int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(8000000);
-    int res = taipool_init(4 * 1024 * 1024);
-    if (res < 0) util_set_alloc(malloc, realloc, calloc, free);
-    else util_set_alloc(taipool_alloc, taipool_realloc, taipool_calloc, taipool_free);
+    int type = 1;
+    int res = taipool_init(4 * 1024 * 1024, type);
+    if (res < 0) {
+        type = 2;
+        res = taipool_init(4 * 1024 * 1024, type);
+    }
+    if (res < 0) {
+        util_set_alloc(malloc, realloc, calloc, free);
+        log_debug("using malloc\n");
+    } else {
+        util_set_alloc(taipool_alloc, taipool_realloc, taipool_calloc, taipool_free);
+        log_debug("using taipool %d\n", type);
+    }
+    SceKernelFreeMemorySizeInfo fmsi;
+    fmsi.size = sizeof(fmsi);
+    sceKernelGetFreeMemorySize(&fmsi);
+    log_debug("Free memory: %X %X %X\n", fmsi.size_user, fmsi.size_phycont, fmsi.size_cdram);
+
     util_init();
     main_net_init();
     font_pgf_init();
@@ -167,7 +182,7 @@ int module_start(SceSize argc, const void *args) {
     hooks[3] = taiHookFunctionImport(&ref[3], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x31D87805, sceSysmoduleUnloadModule_patched);
 
     running = 1;
-    SceUID thid = sceKernelCreateThread("rcsvr_main_thread", (SceKernelThreadEntry)rcsvr_main_thread, 0x10000100, 0x10000, 0, 0, NULL);
+    SceUID thid = sceKernelCreateThread("rcsvr_main_thread", (SceKernelThreadEntry)rcsvr_main_thread, 0x10000100, 0xF000, 0, 0, NULL);
     if (thid >= 0)
         sceKernelStartThread(thid, 0, NULL);
 
