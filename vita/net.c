@@ -291,6 +291,7 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
     }
     case 0x22: {
         mem_lockdata_end();
+        break;
     }
     case 0x80:
         trophy_list(_kcp_trophy_list, _kcp_trophy_list_end);

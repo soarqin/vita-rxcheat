@@ -73,6 +73,8 @@ inline int utf8_to_ucs2(const char *utf8, uint16_t *character) {
 }
 
 inline uint32_t alpha_blend(uint32_t c1, uint32_t c2, uint32_t alpha) {
+    if (alpha == 0) return c2;
+    if (alpha == 256) return c1;
     uint32_t crb = (((c1 & 0xFF00FF) * alpha + (c2 & 0xFF00FF) * (256 - alpha)) >> 8) & 0xFF00FF;
     uint32_t cg = (((c1 & 0xFF00) * alpha + (c2 & 0xFF00) * (256 - alpha)) >> 8) & 0xFF00;
     return 0xFF000000U | cg | crb;

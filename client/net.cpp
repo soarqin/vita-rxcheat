@@ -193,6 +193,7 @@ void UdpClient::process() {
         char buf[2048];
         struct sockaddr_in addr;
         while ((r = _recv(buf, 2048, &addr)) > 0) {
+            fprintf(stdout, "Recv %c packets: %d\n", buf[0], r);
             if (buf[0] == 'D') {
                 disconnect();
                 break;

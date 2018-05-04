@@ -132,10 +132,11 @@ static void main_net_init() {
 
 int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(8000000);
-    int type = 1;
-    int res = taipool_init(4 * 1024 * 1024, type);
+    int type = 2;
+    int res = taipool_init(8 * 1024 * 1024, type);
+    if (res < 0) res = taipool_init(4 * 1024 * 1024, type);
     if (res < 0) {
-        type = 2;
+        type = 1;
         res = taipool_init(4 * 1024 * 1024, type);
     }
     if (res < 0) {
@@ -145,13 +146,15 @@ int rcsvr_main_thread(SceSize args, void *argp) {
         util_set_alloc(taipool_alloc, taipool_realloc, taipool_calloc, taipool_free);
         log_debug("using taipool %d\n", type);
     }
+
+    util_init();
+    main_net_init();
+#ifdef RCSVR_DEBUG
     SceKernelFreeMemorySizeInfo fmsi;
     fmsi.size = sizeof(fmsi);
     sceKernelGetFreeMemorySize(&fmsi);
     log_debug("Free memory: %X %X %X\n", fmsi.size_user, fmsi.size_phycont, fmsi.size_cdram);
-
-    util_init();
-    main_net_init();
+#endif
     font_pgf_init();
     mem_init();
     blit_set_color(0xffffffff);

@@ -7,10 +7,10 @@
 #include <stdlib.h>
 #include <sys/tree.h>
 
-SceFontLibHandle font_lib = NULL;
-SceFontHandle font_handle = NULL;
-uint8_t font_data[512 * 1024];
-uint16_t glyph_index_next = 0;
+static SceFontLibHandle font_lib = NULL;
+static SceFontHandle font_handle = NULL;
+static uint8_t *font_data = NULL;
+static uint16_t glyph_index_next = 0;
 
 typedef struct glyph_entry {
     RB_ENTRY(glyph_entry) entry;
@@ -18,8 +18,8 @@ typedef struct glyph_entry {
     uint16_t index;
     uint8_t realw, w, h, l, t;
 } glyph_entry;
-glyph_entry entries[51 * 51];
-int entry_used = 0;
+static glyph_entry *entries = NULL;
+static int entry_used = 0;
 
 inline int glyph_entry_compare(glyph_entry *a, glyph_entry *b) {
     return (int)(a->code - b->code);
@@ -35,7 +35,7 @@ struct glyph_map glyph_charmap = RB_INITIALIZER(&glyph_charmap);
 
 RB_GENERATE(glyph_map, glyph_entry, entry, glyph_entry_compare);
 
-inline uint16_t find_glyph(uint16_t code, uint8_t *realw, uint8_t *w, uint8_t *h, uint8_t *l, uint8_t *t) {
+static inline uint16_t find_glyph(uint16_t code, uint8_t *realw, uint8_t *w, uint8_t *h, uint8_t *l, uint8_t *t) {
     glyph_entry ge;
     ge.code = code;
     glyph_entry *res = RB_FIND(glyph_map, &glyph_charmap, &ge);
@@ -48,7 +48,8 @@ inline uint16_t find_glyph(uint16_t code, uint8_t *realw, uint8_t *w, uint8_t *h
     return res->index;
 }
 
-inline uint16_t insert_glyph(uint16_t code, uint8_t realw, uint8_t w, uint8_t h, uint8_t l, uint8_t t) {
+static inline uint16_t insert_glyph(uint16_t code, uint8_t realw, uint8_t w, uint8_t h, uint8_t l, uint8_t t) {
+    if (entry_used >= 51 * 51 * 2) return 0;
     glyph_entry *ge = &entries[entry_used++];
     ge->code = code;
     ge->index = glyph_index_next++;
@@ -61,9 +62,9 @@ inline uint16_t insert_glyph(uint16_t code, uint8_t realw, uint8_t w, uint8_t h,
     return ge->index;
 }
 
-inline void free_glyphs() {
+static inline void free_glyphs() {
     RB_INIT(&glyph_charmap);
-    memset(entries, 0, sizeof(entries));
+    memset(entries, 0, sizeof(glyph_entry) * 51 * 51 * 2);
     entry_used = 0;
 }
 
@@ -109,6 +110,8 @@ void font_pgf_init() {
         log_debug("sceFontOpen: %08X\n", err);
         return;
     }
+    font_data = (uint8_t*)my_alloc(512 * 2048);
+    entries = (glyph_entry*)my_alloc(sizeof(glyph_entry) * 51 * 51 * 2);
 }
 
 int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, uint8_t *realw, uint8_t *w, uint8_t *h, uint8_t *l, uint8_t *t) {
@@ -166,6 +169,14 @@ void font_pgf_finish() {
         font_handle = NULL;
         sceFontDoneLib(font_lib);
         font_lib = NULL;
+    }
+    if (font_data != NULL) {
+        my_free(font_data);
+        font_data = NULL;
+    }
+    if (entries != NULL) {
+        my_free(entries);
+        entries = NULL;
     }
 }
 
