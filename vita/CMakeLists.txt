@@ -54,7 +54,7 @@ add_executable(${TARGET_NAME}
     blit.c blit.h font_pgf.c
     # util
     util.c util.h
-    taipool.c taipool.h
+    liballoc.c liballoc.h
     # debug
     debug.c debug.h
     # kcp

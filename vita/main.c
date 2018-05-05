@@ -5,7 +5,6 @@
 #include "debug.h"
 #include "blit.h"
 #include "font_pgf.h"
-#include "taipool.h"
 
 #include "../version.h"
 
@@ -132,20 +131,6 @@ static void main_net_init() {
 
 int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(8000000);
-    int type = 2;
-    int res = taipool_init(8 * 1024 * 1024, type);
-    if (res < 0) res = taipool_init(4 * 1024 * 1024, type);
-    if (res < 0) {
-        type = 1;
-        res = taipool_init(4 * 1024 * 1024, type);
-    }
-    if (res < 0) {
-        util_set_alloc(malloc, realloc, calloc, free);
-        log_debug("using malloc\n");
-    } else {
-        util_set_alloc(taipool_alloc, taipool_realloc, taipool_calloc, taipool_free);
-        log_debug("using taipool %d\n", type);
-    }
 
     util_init();
     main_net_init();

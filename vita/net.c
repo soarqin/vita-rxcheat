@@ -28,6 +28,7 @@ int net_loaded() {
 
 int net_init() {
     if (isNetAvailable) return -1;
+    ikcp_allocator(my_alloc, my_free);
     if (sceSysmoduleIsLoaded(SCE_SYSMODULE_NET) != SCE_SYSMODULE_LOADED)
         sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
     int ret = sceNetShowNetstat();
