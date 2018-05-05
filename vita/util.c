@@ -30,17 +30,30 @@ void* liballoc_alloc(size_t sz) {
     if (mempool_count >= 16) return NULL;
     sceClibSnprintf(name, 16, "rcsvr_mem_%d", seq);
     pool_id = sceKernelAllocMemBlock(name, SCE_KERNEL_MEMBLOCK_TYPE_USER_MAIN_PHYCONT_RW, sz * 1024 * 1024, NULL);
-    log_trace("sceKernelAllocMemBlock: %s %d %d\n", name, sz, pool_id);
-    if (pool_id < 0) return NULL;
-    if (sceKernelGetMemBlockBase(pool_id, &pool_addr) < 0) {
+    log_trace("sceKernelAllocMemBlock(PHYCONT): %s %d %d\n", name, sz, pool_id);
+    if (pool_id >= 0) {
+        if (sceKernelGetMemBlockBase(pool_id, &pool_addr) == SCE_OK) {
+            log_trace("sceKernelGetMemBlockBase: %08X\n", pool_addr);
+            seq = (seq + 1) & 0xFFFF;
+            mempool_id[mempool_count] = pool_id;
+            mempool_start[mempool_count++] = pool_addr;
+            return pool_addr;
+        }
         sceKernelFreeMemBlock(pool_id);
-        return NULL;
     }
-    log_trace("sceKernelGetMemBlockBase: %08X\n", pool_addr);
-    seq = (seq + 1) & 0xFFFF;
-    mempool_id[mempool_count] = pool_id;
-    mempool_start[mempool_count++] = pool_addr;
-    return pool_addr;
+    pool_id = sceKernelAllocMemBlock(name, SCE_KERNEL_MEMBLOCK_TYPE_USER_RW, sz * 1024 * 1024, NULL);
+    log_trace("sceKernelAllocMemBlock(USER): %s %d %d\n", name, sz, pool_id);
+    if (pool_id >= 0) {
+        if (sceKernelGetMemBlockBase(pool_id, &pool_addr) == SCE_OK) {
+            log_trace("sceKernelGetMemBlockBase: %08X\n", pool_addr);
+            seq = (seq + 1) & 0xFFFF;
+            mempool_id[mempool_count] = pool_id;
+            mempool_start[mempool_count++] = pool_addr;
+            return pool_addr;
+        }
+        sceKernelFreeMemBlock(pool_id);
+    }
+    return NULL;
 }
 
 int liballoc_free(void *ptr, size_t sz) {
