@@ -88,7 +88,7 @@ static int _trophy_thread(SceSize args, void *argp) {
     SceNpTrophyHandle handle;
     int ret = sceNpTrophyCreateHandle(&handle);
     if (ret < 0) {
-        log_debug("sceNpTrophyCreateHandle: %d\n", ret);
+        log_error("sceNpTrophyCreateHandle: %d\n", ret);
         cb_end(-1);
         sceKernelUnlockMutex(trophyMutex, 1);
         return sceKernelExitDeleteThread(0);
@@ -201,7 +201,7 @@ void trophy_test() {
     SceNpTrophyHandle handle;
     int ret = sceNpTrophyCreateHandle(&handle);
     if (ret < 0) {
-        log_debug("sceNpTrophyCreateHandle: %d\n", ret);
+        log_error("sceNpTrophyCreateHandle: %d\n", ret);
         return;
     }
     SceNpTrophyGameDetails detail0;
@@ -210,14 +210,14 @@ void trophy_test() {
     data0.size = sizeof(SceNpTrophyGameData);
     ret = sceNpTrophyGetGameInfo(context, handle, &detail0, &data0);
     if (ret < 0)
-        log_debug("sceNpTrophyGetGameInfo: %d\n", ret);
+        log_error("sceNpTrophyGetGameInfo: %d\n", ret);
     SceNpTrophyFlagArray a;
     int count;
     ret = sceNpTrophyGetTrophyUnlockState(context, handle, &a, &count);
     if (ret < 0)
-        log_debug("sceNpTrophyGetTrophyUnlockState: %d\n", ret);
+        log_error("sceNpTrophyGetTrophyUnlockState: %d\n", ret);
     else {
-        log_debug("sceNpTrophyGetTrophyUnlockState: %d %08X %08X\n", count, a.flag_bits[0], a.flag_bits[1]);
+        log_trace("sceNpTrophyGetTrophyUnlockState: %d %08X %08X\n", count, a.flag_bits[0], a.flag_bits[1]);
     }
     SceNpTrophyDetails detail;
     SceNpTrophyData data;
@@ -227,7 +227,7 @@ void trophy_test() {
     for (id = 0; id < detail0.numTrophies; ++id) {
         int ret = sceNpTrophyGetTrophyInfo(context, handle, id, &detail, &data);
         if (ret < 0 && ret != 0x8055160f) break;
-        log_debug("sceNpTrophyGetTrophyInfo: %08X %d %d %d %s %s\n", ret, detail.trophyId, detail.trophyGrade, detail.hidden, detail.name, detail.description);
+        log_trace("sceNpTrophyGetTrophyInfo: %08X %d %d %d %s %s\n", ret, detail.trophyId, detail.trophyGrade, detail.hidden, detail.name, detail.description);
     }
     sceNpTrophyDestroyHandle(handle);
 }

@@ -30,13 +30,13 @@ void* liballoc_alloc(size_t sz) {
     if (mempool_count >= 16) return NULL;
     sceClibSnprintf(name, 16, "rcsvr_mem_%d", seq);
     pool_id = sceKernelAllocMemBlock(name, SCE_KERNEL_MEMBLOCK_TYPE_USER_MAIN_PHYCONT_RW, sz * 1024 * 1024, NULL);
-    log_debug("sceKernelAllocMemBlock: %s %d %d\n", name, sz, pool_id);
+    log_trace("sceKernelAllocMemBlock: %s %d %d\n", name, sz, pool_id);
     if (pool_id < 0) return NULL;
     if (sceKernelGetMemBlockBase(pool_id, &pool_addr) < 0) {
         sceKernelFreeMemBlock(pool_id);
         return NULL;
     }
-    log_debug("sceKernelGetMemBlockBase: %08X\n", pool_addr);
+    log_trace("sceKernelGetMemBlockBase: %08X\n", pool_addr);
     seq = (seq + 1) & 0xFFFF;
     mempool_id[mempool_count] = pool_id;
     mempool_start[mempool_count++] = pool_addr;

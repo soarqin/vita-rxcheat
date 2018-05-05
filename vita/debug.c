@@ -23,7 +23,7 @@ void debug_printf(int level, const char *srcfile, int lineno, const char* format
 #else
 void debug_printf(int level, const char* format, ...) {
 #endif
-    if (debug_fd < 0) return;
+    if (debug_fd < 0 || level > loglevel) return;
     enum {
         buffer_size = 1460,
     };
@@ -32,8 +32,6 @@ void debug_printf(int level, const char* format, ...) {
     int len;
     size_t left = buffer_size;
     va_list args;
-
-    if (level > loglevel) return;
 
     switch(level) {
         case INFO:

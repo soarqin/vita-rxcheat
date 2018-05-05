@@ -42,7 +42,7 @@ int net_init() {
             sz >>= 1;
         }
         if (net_buffer == NULL) {
-            log_debug("sceNetInit: Unable to allocate buffer\n");
+            log_error("sceNetInit: Unable to allocate buffer\n");
             return -1;
         }
         initparam.memory = (void*)net_buffer;
@@ -50,13 +50,13 @@ int net_init() {
         initparam.flags = 0;
         ret = sceNetInit(&initparam);
         if (ret < 0) {
-            log_debug("sceNetInit: %X(buffer size) %08X\n", sz, ret);
+            log_error("sceNetInit: %X(buffer size) %08X\n", sz, ret);
             return -1;
         }
     }
     ret = sceNetCtlInit();
     if (ret < 0) {
-        log_debug("sceNetCtlInit: %08X\n", ret);
+        log_error("sceNetCtlInit: %08X\n", ret);
     }
     isNetAvailable = 1;
     SceNetCtlInfo info;
@@ -131,11 +131,10 @@ static int _kcp_output(const char *buf, int len, ikcpcb *kcp, void *user) {
     _kcp_send(buf, len, &saddr_remote, 1);
     return 0;
 }
-/*
+
 static void _kcp_writelog(const char *log, struct IKCPCB *kcp, void *user) {
     log_debug("%s\n", log);
 }
-*/
 
 static void _kcp_clear() {
     _kcp_disconnect();
@@ -209,7 +208,7 @@ static void _kcp_trophy_list(int id, int grade, int hidden, int unlocked, const 
 }
 
 static void _kcp_trophy_unlock(int ret, int id, int platid) {
-    log_debug("Unlock result: %d %d %d\n", ret, id, platid);
+    log_trace("Unlock result: %d %d %d\n", ret, id, platid);
     if (ret < 0) {
         _kcp_send_cmd(0x8110, NULL, 0);
     } else {
@@ -369,7 +368,7 @@ static inline void process_udp_packets() {
             log_error("sceNetRecvfrom() error: 0x%08X\n", ret);
             break;
         }
-        log_debug("SceNetRecvfrom(): %d\n", ret);
+        log_trace("SceNetRecvfrom(): %d\n", ret);
         switch(buf[0]) {
             case 'B': {
                 _kcp_send("B", 1, &saddr, 0);
@@ -383,10 +382,8 @@ static inline void process_udp_packets() {
                 ikcp_nodelay(kcp, 0, 100, 0, 0);
                 ikcp_setmtu(kcp, 1440);
                 kcp->output = _kcp_output;
-                /*
                 kcp->writelog = _kcp_writelog;
                 kcp->logmask = 4095;
-                */
                 char n[256];
                 n[0] = 'C';
                 *(uint32_t*)&n[1] = conv;
@@ -403,7 +400,7 @@ static inline void process_udp_packets() {
                 buf[ret] = 0;
                 uint32_t n;
                 n = strtoul(buf + 1, NULL, 10);
-                log_debug("Searching %u\n", n);
+                log_trace("Searching %u\n", n);
                 mem_search(1, 1, &n, 4, _kcp_search_cb);
                 break;
             }

@@ -132,15 +132,15 @@ static void* liballoc_memcpy(void* s1, const void* s2, size_t n)
 }
  
 
-// static void liballoc_dump()
-// {
-// 	log_debug( "liballoc: ------ Memory data ---------------\n");
-// 	log_debug( "liballoc: System memory allocated: %i bytes\n", l_allocated );
-// 	log_debug( "liballoc: Memory in used (malloc'ed): %i bytes\n", l_inuse );
-// 	log_debug( "liballoc: Warning count: %i\n", l_warningCount );
-// 	log_debug( "liballoc: Error count: %i\n", l_errorCount );
-// 	log_debug( "liballoc: Possible overruns: %i\n", l_possibleOverruns );
-// }
+static void liballoc_dump()
+{
+	log_debug( "liballoc: ------ Memory data ---------------\n");
+	log_debug( "liballoc: System memory allocated: %i bytes\n", l_allocated );
+	log_debug( "liballoc: Memory in used (malloc'ed): %i bytes\n", l_inuse );
+	log_debug( "liballoc: Warning count: %i\n", l_warningCount );
+	log_debug( "liballoc: Error count: %i\n", l_errorCount );
+	log_debug( "liballoc: Possible overruns: %i\n", l_possibleOverruns );
+}
 
 
 
@@ -164,7 +164,7 @@ static struct liballoc_major *allocate_new_page( unsigned int size )
 		if ( maj == NULL ) 
 		{
 			l_warningCount += 1;
-			// log_debug( "liballoc: WARNING: liballoc_alloc( %i ) return NULL\n", st );
+			log_debug( "liballoc: WARNING: liballoc_alloc( %i ) return NULL\n", st );
 			return NULL;	// uh oh, we ran out of memory.
 		}
 		
@@ -177,9 +177,9 @@ static struct liballoc_major *allocate_new_page( unsigned int size )
 
 		l_allocated += maj->size;
 
-		// log_debug( "liballoc: Resource allocated %x of %i pages (%i bytes) for %i size.\n", maj, st, maj->size, size );
+		log_debug( "liballoc: Resource allocated %x of %i pages (%i bytes) for %i size.\n", maj, st, maj->size, size );
 
-		// log_debug( "liballoc: Total memory usage = %i KB\n",  (int)((l_allocated / (1024))) );
+		log_debug( "liballoc: Total memory usage = %i KB\n",  (int)((l_allocated / (1024))) );
 	
 		
       return maj;
@@ -214,8 +214,8 @@ void *PREFIX(malloc)(size_t req_size)
 	if ( size == 0 )
 	{
 		l_warningCount += 1;
-		// log_debug( "liballoc: WARNING: alloc( 0 ) called from %x\n",
-		// 					__builtin_return_address(0) );
+		log_debug( "liballoc: WARNING: alloc( 0 ) called from %x\n",
+							__builtin_return_address(0) );
 		liballoc_unlock();
 		return PREFIX(malloc)(1);
 	}
@@ -223,24 +223,24 @@ void *PREFIX(malloc)(size_t req_size)
 
 	if ( l_memRoot == NULL )
 	{
-		// log_debug( "liballoc: initialization of liballoc " VERSION "\n" );
+		log_debug( "liballoc: initialization of liballoc " VERSION "\n" );
 			
 		// This is the first time we are being used.
 		l_memRoot = allocate_new_page( size );
 		if ( l_memRoot == NULL )
 		{
 		  liballoc_unlock();
-		  // log_debug( "liballoc: initial l_memRoot initialization failed\n", p); 
+		  log_debug( "liballoc: initial l_memRoot initialization failed\n", p); 
 		  return NULL;
 		}
 
-		// log_debug( "liballoc: set up first memory major %x\n", l_memRoot );
+		log_debug( "liballoc: set up first memory major %x\n", l_memRoot );
 	}
 
 
-	// log_debug( "liballoc: %x PREFIX(malloc)( %i ): \n", 
-	// 				__builtin_return_address(0),
-	// 				size );
+	log_debug( "liballoc: %x PREFIX(malloc)( %i ): \n", 
+					__builtin_return_address(0),
+					size );
 
 	// Now we need to bounce through every major and find enough space....
 
@@ -277,7 +277,7 @@ void *PREFIX(malloc)(size_t req_size)
 		// CASE 1:  There is not enough space in this major block.
 		if ( diff < (size + sizeof( struct liballoc_minor )) )
 		{
-			// log_debug( "CASE 1: Insufficient space in block %x\n", maj);
+			log_debug( "CASE 1: Insufficient space in block %x\n", maj);
 				
 				// Another major block next to this one?
 			if ( maj->next != NULL ) 
@@ -328,7 +328,7 @@ void *PREFIX(malloc)(size_t req_size)
 
 			ALIGN( p );
 			
-			// log_debug( "CASE 2: returning %x\n", p); 
+			log_debug( "CASE 2: returning %x\n", p); 
 			liballoc_unlock();		// release the lock
 			return p;
 		}
@@ -361,7 +361,7 @@ void *PREFIX(malloc)(size_t req_size)
 			p = (void*)((uintptr_t)(maj->first) + sizeof( struct liballoc_minor ));
 			ALIGN( p );
 
-			// log_debug( "CASE 3: returning %x\n", p); 
+			log_debug( "CASE 3: returning %x\n", p); 
 			liballoc_unlock();		// release the lock
 			return p;
 		}
@@ -405,7 +405,7 @@ void *PREFIX(malloc)(size_t req_size)
 						p = (void*)((uintptr_t)min + sizeof( struct liballoc_minor ));
 						ALIGN( p );
 
-						// log_debug( "CASE 4.1: returning %x\n", p); 
+						log_debug( "CASE 4.1: returning %x\n", p); 
 						liballoc_unlock();		// release the lock
 						return p;
 					}
@@ -444,7 +444,7 @@ void *PREFIX(malloc)(size_t req_size)
 						ALIGN( p );
 
 
-						// log_debug( "CASE 4.2: returning %x\n", p); 
+						log_debug( "CASE 4.2: returning %x\n", p); 
 						
 						liballoc_unlock();		// release the lock
 						return p;
@@ -462,7 +462,7 @@ void *PREFIX(malloc)(size_t req_size)
 		// CASE 5: Block full! Ensure next block and loop.
 		if ( maj->next == NULL ) 
 		{
-			// log_debug( "CASE 5: block full\n");
+			log_debug( "CASE 5: block full\n");
 
 			if ( startedBet == 1 )
 			{
@@ -487,9 +487,9 @@ void *PREFIX(malloc)(size_t req_size)
 	
 	liballoc_unlock();		// release the lock
 
-	// log_debug( "All cases exhausted. No memory available.\n");
-	// log_debug( "liballoc: WARNING: PREFIX(malloc)( %i ) returning NULL.\n", size);
-	// liballoc_dump();
+	log_debug( "All cases exhausted. No memory available.\n");
+	log_debug( "liballoc: WARNING: PREFIX(malloc)( %i ) returning NULL.\n", size);
+	liballoc_dump();
 	return NULL;
 }
 
@@ -509,8 +509,8 @@ void PREFIX(free)(void *ptr)
 	if ( ptr == NULL ) 
 	{
 		l_warningCount += 1;
-		// log_debug( "liballoc: WARNING: PREFIX(free)( NULL ) called from %x\n",
-		// 					__builtin_return_address(0) );
+		log_debug( "liballoc: WARNING: PREFIX(free)( NULL ) called from %x\n",
+							__builtin_return_address(0) );
 		return;
 	}
 
@@ -534,23 +534,23 @@ void PREFIX(free)(void *ptr)
 		   )
 		{
 			l_possibleOverruns += 1;
-			// log_debug( "liballoc: ERROR: Possible 1-3 byte overrun for magic %x != %x\n",
-			// 					min->magic,
-			// 					LIBALLOC_MAGIC );
+			log_debug( "liballoc: ERROR: Possible 1-3 byte overrun for magic %x != %x\n",
+								min->magic,
+								LIBALLOC_MAGIC );
 		}
 						
 						
 		if ( min->magic == LIBALLOC_DEAD )
 		{
-			// log_debug( "liballoc: ERROR: multiple PREFIX(free)() attempt on %x from %x.\n", 
-			// 						ptr,
-			// 						__builtin_return_address(0) );
+			log_debug( "liballoc: ERROR: multiple PREFIX(free)() attempt on %x from %x.\n", 
+									ptr,
+									__builtin_return_address(0) );
 		}
 		else
 		{
-			// log_debug( "liballoc: ERROR: Bad PREFIX(free)( %x ) called from %x\n",
-			// 					ptr,
-			// 					__builtin_return_address(0) );
+			log_debug( "liballoc: ERROR: Bad PREFIX(free)( %x ) called from %x\n",
+								ptr,
+								__builtin_return_address(0) );
 		}
 			
 		// being lied to...
@@ -558,9 +558,9 @@ void PREFIX(free)(void *ptr)
 		return;
 	}
 
-	// log_debug( "liballoc: %x PREFIX(free)( %x ): ", 
-	// 			__builtin_return_address( 0 ),
-	// 			ptr );
+	log_debug( "liballoc: %x PREFIX(free)( %x ): ", 
+				__builtin_return_address( 0 ),
+				ptr );
 	
 
 		maj = min->block;
@@ -603,7 +603,7 @@ void PREFIX(free)(void *ptr)
 	}
 	
 
-	// log_debug( "OK\n");
+	log_debug( "OK\n");
 	
 	liballoc_unlock();		// release the lock
 }
@@ -666,23 +666,23 @@ void*   PREFIX(realloc)(void *p, size_t size)
 			   )
 			{
 				l_possibleOverruns += 1;
-				// log_debug( "liballoc: ERROR: Possible 1-3 byte overrun for magic %x != %x\n",
-				// 					min->magic,
-				// 					LIBALLOC_MAGIC );
+				log_debug( "liballoc: ERROR: Possible 1-3 byte overrun for magic %x != %x\n",
+									min->magic,
+									LIBALLOC_MAGIC );
 			}
 							
 							
 			if ( min->magic == LIBALLOC_DEAD )
 			{
-				// log_debug( "liballoc: ERROR: multiple PREFIX(free)() attempt on %x from %x.\n", 
-				// 						ptr,
-				// 						__builtin_return_address(0) );
+				log_debug( "liballoc: ERROR: multiple PREFIX(free)() attempt on %x from %x.\n", 
+										ptr,
+										__builtin_return_address(0) );
 			}
 			else
 			{
-				// log_debug( "liballoc: ERROR: Bad PREFIX(free)( %x ) called from %x\n",
-				// 					ptr,
-				// 					__builtin_return_address(0) );
+				log_debug( "liballoc: ERROR: Bad PREFIX(free)( %x ) called from %x\n",
+									ptr,
+									__builtin_return_address(0) );
 			}
 			
 			// being lied to...

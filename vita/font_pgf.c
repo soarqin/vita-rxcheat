@@ -87,7 +87,7 @@ void font_pgf_init() {
     font_lib = sceFontNewLib(&params, &err);
     if (err != SCE_OK) {
         font_lib = NULL;
-        log_debug("sceFontNewLib: %08X\n", err);
+        log_error("sceFontNewLib: %08X\n", err);
         return;
     }
     SceFontStyle style = {0};
@@ -98,16 +98,16 @@ void font_pgf_init() {
     if (err != SCE_OK) {
         sceFontDoneLib(font_lib);
         font_lib = NULL;
-        log_debug("sceFontFindOptimumFont: %08X\n", err);
+        log_error("sceFontFindOptimumFont: %08X\n", err);
         return;
     }
-    log_debug("Found PGF font index: %d\n", index);
+    log_trace("Found PGF font index: %d\n", index);
     font_handle = sceFontOpen(font_lib, index, 0, &err);
     if (err != SCE_OK) {
         font_handle = NULL;
         sceFontDoneLib(font_lib);
         font_lib = NULL;
-        log_debug("sceFontOpen: %08X\n", err);
+        log_error("sceFontOpen: %08X\n", err);
         return;
     }
     font_data = (uint8_t*)my_alloc(512 * 2048);
@@ -131,7 +131,7 @@ int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, uint8_
         font_handle = NULL;
         sceFontDoneLib(font_lib);
         font_lib = NULL;
-        log_debug("sceFontGetCharInfo: %d\n", ret);
+        log_error("sceFontGetCharInfo: %d\n", ret);
         return -1;
     }
     *realw = (uint8_t)((char_info.sfp26AdvanceH + 32) / 64);
@@ -155,7 +155,7 @@ int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, uint8_
 
     ret = sceFontGetCharGlyphImage(font_handle, code, &glyph_image);
     if (ret < 0) {
-        log_debug("sceFontGetCharGlyphImage: %d\n", ret);
+        log_error("sceFontGetCharGlyphImage: %d\n", ret);
         return -1;
     }
     *lines = &font_data[512 * sy + sx];

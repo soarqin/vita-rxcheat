@@ -122,7 +122,7 @@ int sceNetCtlInit_patched() {
 
 static void main_net_init() {
     if (net_init() == 0) {
-        debug_init(DEBUG);
+        debug_init(TRACE); // DEBUG
         net_kcp_listen(9527);
         hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0xEB03E265, sceNetInit_patched);
         hooks[6] = taiHookFunctionImport(&ref[6], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x495CA1DB, sceNetCtlInit_patched);
@@ -138,7 +138,7 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     SceKernelFreeMemorySizeInfo fmsi;
     fmsi.size = sizeof(fmsi);
     sceKernelGetFreeMemorySize(&fmsi);
-    log_debug("Free memory: %X %X %X\n", fmsi.size_user, fmsi.size_phycont, fmsi.size_cdram);
+    log_trace("Free memory: %X %X %X\n", fmsi.size_user, fmsi.size_phycont, fmsi.size_cdram);
 #endif
     font_pgf_init();
     mem_init();
