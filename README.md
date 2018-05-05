@@ -27,6 +27,7 @@ Credits
 5. Memory modification idea from [rinCheat](https://github.com/Rinnegatamante/rinCheat)
 6. Trophy unlocking idea from [TropHAX](https://github.com/SilicaAndPina/TropHAX)
 7. Way to prevent games from disabling net [InfiniteNet](https://github.com/Rinnegatamante/InfiniteNet)
-8. [kcp](https://github.com/skywind3000/kcp) for reliable UDP commnication
-9. [GLFW](http://www.glfw.org) [gl3w](https://github.com/skaslev/gl3w) [Dear ImGui](https://github.com/ocornut/imgui) for client UI
-10. [yaml-cpp](https://github.com/jbeder/yaml-cpp) for client configurations and multi-language support
+8. Memory pool codes modified from [taipool](https://github.com/Rinnegatamante/taipool)
+9. [kcp](https://github.com/skywind3000/kcp) for reliable UDP commnication
+10. [GLFW](http://www.glfw.org) [gl3w](https://github.com/skaslev/gl3w) [Dear ImGui](https://github.com/ocornut/imgui) for client UI
+11. [yaml-cpp](https://github.com/jbeder/yaml-cpp) for client configurations and multi-language support
