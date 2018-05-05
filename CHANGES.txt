@@ -1,8 +1,7 @@
 v0.6.1:
-  1. fixed support for games eating up user memory
-  2. fixed memlock packets
-  3. reduced static memory used by plugin to improve compatiblity
-  4. minor fixes to client memlock functions
+  1. fixed memlock packets
+  2. better memory handling to improve game compatiblity
+  3. minor fixes to client memlock functions
 
 v0.6:
   1. rename filename of executable client to rcclient
