@@ -471,7 +471,7 @@ static inline void process_kcp_packets(uint32_t tick) {
 }
 
 void net_kcp_process(uint32_t tick) {
-    sceKernelDelayThread(16666);
+    sceKernelDelayThread(50000);
     process_udp_packets();
     process_kcp_packets(tick);
 }

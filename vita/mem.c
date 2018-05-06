@@ -1,9 +1,9 @@
 #include "mem.h"
 
 #include "debug.h"
+#include "util.h"
 
 #include <vitasdk.h>
-#include "kio.h"
 #include <stdlib.h>
 
 typedef enum {
@@ -23,9 +23,12 @@ typedef enum {
 } search_type;
 
 #define LOCK_COUNT_MAX 0x80
+#define STATIC_MEM_MAX 32
+#define STACK_MEM_MAX 32
+#define HEAP_MEM_MAX 1024 - 64
 
-static memory_range staticmem[64], stackmem[32], blockmem[1024];
-static int static_sz = 0, stack_sz = 0, block_sz = 0;
+static memory_range staticmem[STATIC_MEM_MAX], stackmem[STACK_MEM_MAX], heapmem[HEAP_MEM_MAX];
+static int static_cnt = 0, stack_cnt = 0, heap_cnt = 0;
 static int mem_loaded = 0;
 static int stype = 0, last_sidx = 0;
 static SceUID searchMutex = -1, searchSema = -1;
@@ -33,6 +36,8 @@ static memlock_data lockdata[LOCK_COUNT_MAX];
 static int lock_count = 0, mem_lock_ready = 0;
 
 void mem_init() {
+    sceIoMkdir("ux0:data", 0777);
+    sceIoMkdir("ux0:data/rcsvr", 0777);
     searchMutex = sceKernelCreateMutex("rcsvr_search_mutex", 0, 0, 0);
     searchSema = sceKernelCreateSema("rcsvr_search_sema", 0, 0, 1, NULL);
 }
@@ -48,27 +53,36 @@ void mem_finish() {
     }
 }
 
-static void mem_load() {
+static void mem_reload() {
     mem_loaded = 1;
-    static_sz = stack_sz = 0;
+    static_cnt = stack_cnt = 0;
     SceUID modlist[256];
     int num_loaded = 256;
     int ret;
     ret = sceKernelGetModuleList(0xFF, modlist, &num_loaded);
     if (ret == 0) {
         int i;
-        for (i = 0; i < num_loaded && static_sz < 64; ++i) {
+        for (i = 0; i < num_loaded && static_cnt < STATIC_MEM_MAX; ++i) {
             SceKernelModuleInfo info;
             if (sceKernelGetModuleInfo(modlist[i], &info) < 0) continue;
-            if (strncmp(info.path, "ux0:", 4) != 0 && strncmp(info.path, "app0:", 5) != 0 && strncmp(info.path, "gro0:", 5) != 0) continue;
+            if (sceClibStrncmp(info.path, "ux0:", 4) != 0
+                && sceClibStrncmp(info.path, "app0:", 5) != 0
+                && sceClibStrncmp(info.path, "gro0:", 5) != 0) continue;
             const char *rslash = strrchr(info.path, '/');
-            if (rslash != NULL && strcmp(rslash, "/rcsvr.suprx") == 0) continue;
+            if (rslash != NULL) {
+                if (sceClibStrncmp(rslash, "/rcsvr.suprx", 12) == 0) continue;
+                if (rslash > info.path + 10) {
+                    if (sceClibStrncmp(rslash - 10, "sce_module/libfios2.suprx", 25) == 0) continue;
+                    if (sceClibStrncmp(rslash - 10, "sce_module/libc.suprx", 21) == 0) continue;
+                    if (sceClibStrncmp(rslash - 10, "sce_module/libult.suprx", 23) == 0) continue;
+                }
+            }
             log_trace("Module %s\n", info.path);
             int j;
             for (j = 0; j < 4; ++j) {
                 if (info.segments[j].vaddr == 0 || (info.segments[j].perms & 6) != 6) continue;
                 log_trace("    0x%08X 0x%08X 0x%08X 0x%08X\n", info.segments[j].vaddr, info.segments[j].memsz, info.segments[j].perms, info.segments[j].flags);
-                memory_range *mr = &staticmem[static_sz++];
+                memory_range *mr = &staticmem[static_cnt++];
                 mr->start = (uint32_t)info.segments[j].vaddr;
                 mr->size = info.segments[j].memsz;
             }
@@ -78,40 +92,48 @@ static void mem_load() {
     status.size = sizeof(SceKernelThreadInfo);
     SceUID thid = 0x40010001;
     SceUID curr = sceKernelGetThreadId();
-    for(; thid <= 0x40010FFF && stack_sz < 32; ++thid) {
+    for(; thid <= 0x40010FFF && stack_cnt < STACK_MEM_MAX; ++thid) {
         if (thid == curr) continue;
         ret = sceKernelGetThreadInfo(thid, &status);
-        if (ret < 0 || strncmp(status.name, "rcsvr_", 6) == 0 || strcmp(status.name, "mempool_thread") == 0) continue;
+        if (ret < 0) continue;
+        if (sceClibStrncmp(status.name, "rcsvr_", 6) == 0) continue;
+        if (sceClibStrncmp(status.name, "SceFios", 7) == 0) continue;
+        if (sceClibStrncmp(status.name, "SceGxm", 6) == 0) continue;
+        if (sceClibStrncmp(status.name, "SceNp", 5) == 0) continue;
+        if (sceClibStrncmp(status.name, "mempool_thread", 14) == 0) continue;
+        if (sceClibStrncmp(status.name, "kuio_thread", 11) == 0) continue;
         log_trace("0x%08X %s 0x%08X 0x%08X\n", thid, status.name, status.stack, status.stackSize);
-        memory_range *mr = &stackmem[stack_sz++];
+        memory_range *mr = &stackmem[stack_cnt++];
         mr->start = (uint32_t)status.stack;
         mr->size = status.stackSize;
     }
 }
 
-static void reload_blocks() {
-    block_sz = 0;
+static void reload_heaps() {
+    heap_cnt = 0;
     uint32_t addr = 0x80000000U;
-    while(addr < 0xA0000000U && block_sz < 1024) {
+    while (addr < 0xA0000000U && heap_cnt < HEAP_MEM_MAX) {
         SceUID heap_memblock = sceKernelFindMemBlockByAddr((const void*)addr, 0);
-        if (heap_memblock >= 0) {
+        if (heap_memblock >= 0 && !util_is_allocated(heap_memblock)) {
             void* heap_addr;
             int ret = sceKernelGetMemBlockBase(heap_memblock, &heap_addr);
-            if (ret >= 0){
+            if (ret >= 0) {
                 SceKernelMemBlockInfo heap_info;
                 heap_info.size = sizeof(SceKernelMemBlockInfo);
                 ret = sceKernelGetMemBlockInfoByAddr(heap_addr, &heap_info);
-                if (ret == 0 && (heap_info.access & 6) == 6) {
-                    log_trace("HEAP: %08X %08X %08X %08X %08X\n", heap_info.mappedBase, heap_info.mappedSize, heap_info.access, heap_info.memoryType, heap_info.type);
+                if (ret == 0) {
                     addr = (uint32_t)heap_info.mappedBase + heap_info.mappedSize;
-                    memory_range *mr = &blockmem[block_sz++];
-                    mr->start = (uint32_t)heap_info.mappedBase & ~0x80000000U;
-                    mr->size = heap_info.mappedSize;
+                    if ((heap_info.type == SCE_KERNEL_MEMBLOCK_TYPE_USER_RW || heap_info.type == SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE) && (heap_info.access & 6) == 6) {
+                        log_trace("HEAP: %08X %08X %08X %08X %08X\n", heap_info.mappedBase, heap_info.mappedSize, heap_info.access, heap_info.memoryType, heap_info.type);
+                        memory_range *mr = &heapmem[heap_cnt++];
+                        mr->start = (uint32_t)heap_info.mappedBase & ~0x80000000U;
+                        mr->size = heap_info.mappedSize;
+                    }
                     continue;
                 }
             }
         }
-        addr += 0x8000;
+        addr += 0x4000;
     }
 }
 
@@ -121,21 +143,21 @@ static void single_search(SceUID outfile, memory_range *mr, const void *data, in
     uint8_t *cend = curr + mr->size - size + 1;
     uint32_t addr[0x100];
     int addr_count = 0;
-    log_trace("Searching from 0x%08X, size %d\n", curr, mr->size);
+    log_debug("Searching from 0x%08X, size %d\n", curr, mr->size);
     for (; curr < cend; curr += size) {
         if (memcmp(data, (void*)curr, size) == 0) {
-            log_trace("Found at %08X\n", curr);
+            log_debug("Found at %08X\n", curr);
             addr[addr_count++] = is_heap ? ((uint32_t)curr & ~0x80000000U) : (uint32_t)curr;
             if (addr_count == 0x100) {
                 cb(addr, addr_count, size);
-                kIoWrite(outfile, addr, 0x100 * 4, NULL);
+                sceIoWrite(outfile, addr, 0x100 * 4);
                 addr_count = 0;
             }
         }
     }
     if (addr_count > 0) {
         cb(addr, addr_count, size);
-        kIoWrite(outfile, addr, addr_count * 4, NULL);
+        sceIoWrite(outfile, addr, addr_count * 4);
     }
 }
 
@@ -145,7 +167,8 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
     int addr_count = 0;
     while(1) {
         SceSize i, n;
-        kIoRead(infile, old, 4 * 0x100, &n);
+        n = sceIoRead(infile, old, 4 * 0x100);
+        if (n < 0) break;
         n >>= 2;
         for (i = 0; i < n; ++i) {
             int is_heap = !(old[i] & 0x80000000U);
@@ -157,7 +180,7 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
                 addr[addr_count++] = old[i];
                 if (addr_count == 0x100) {
                     cb(addr, addr_count, size);
-                    kIoWrite(outfile, addr, 0x100 * 4, NULL);
+                    sceIoWrite(outfile, addr, 0x100 * 4);
                     addr_count = 0;
                 }
             }
@@ -166,7 +189,7 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
     }
     if (addr_count > 0) {
         cb(addr, addr_count, size);
-        kIoWrite(outfile, addr, addr_count * 4, NULL);
+        sceIoWrite(outfile, addr, addr_count * 4);
     }
 }
 
@@ -174,34 +197,34 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
     int size = mem_get_type_size(type, data);
     if (size > len) return;
     if (!mem_loaded) {
-        mem_load();
+        mem_reload();
     }
     if (stype != type) {
         SceUID f = -1;
         char outfile[256];
-        sceClibSnprintf(outfile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
-        kIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, &f);
+        sceClibSnprintf(outfile, 256, "ux0:data/rcsvr/%d.tmp", last_sidx);
+        f = sceIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0666);
         int i;
-        for (i = 0; i < static_sz; ++i) {
+        for (i = 0; i < static_cnt; ++i) {
             single_search(f, &staticmem[i], data, size, cb);
         }
-        for (i = 0; i < stack_sz; ++i) {
+        for (i = 0; i < stack_cnt; ++i) {
             single_search(f, &stackmem[i], data, size, cb);
         }
         if (heap) {
-            reload_blocks();
-            for (i = 0; i < block_sz; ++i) {
-                single_search(f, &blockmem[i], data, size, cb);
+            reload_heaps();
+            for (i = 0; i < heap_cnt; ++i) {
+                single_search(f, &heapmem[i], data, size, cb);
             }
         }
-        kIoClose(f);
-        // reload_blocks();
+        sceIoClose(f);
         stype = type;
     } else {
         SceUID f = -1;
         char infile[256];
-        sceClibSnprintf(infile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
-        if (kIoOpen(infile, SCE_O_RDONLY, &f) < 0) {
+        sceClibSnprintf(infile, 256, "ux0:data/rcsvr/%d.tmp", last_sidx);
+        f = sceIoOpen(infile, SCE_O_RDONLY, 0666);
+        if (f < 0) {
             type = st_none;
             mem_search(type, heap, data, size, cb);
             return;
@@ -209,18 +232,18 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
         last_sidx ^= 1;
         SceUID of = -1;
         char outfile[256];
-        sceClibSnprintf(outfile, 256, "ux0:/data/rcsvr_%d.tmp", last_sidx);
-        kIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, &of);
+        sceClibSnprintf(outfile, 256, "ux0:data/rcsvr/%d.tmp", last_sidx);
+        of = sceIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0666);
         next_search(f, of, data, size, cb);
-        kIoClose(of);
-        kIoClose(f);
-        kIoRemove(infile);
+        sceIoClose(of);
+        sceIoClose(f);
+        sceIoRemove(infile);
     }
 }
 
 void mem_search_reset() {
-    kIoRemove("ux0:/data/rcsvr_0.tmp");
-    kIoRemove("ux0:/data/rcsvr_1.tmp");
+    sceIoRemove("ux0:data/rcsvr/0.tmp");
+    sceIoRemove("ux0:data/rcsvr/1.tmp");
     last_sidx = 0;
     stype = st_none;
 }
@@ -283,10 +306,10 @@ void mem_start_search(int type, int heap, const char *buf, int len, void (*cb)(c
 
 int mem_read(uint32_t addr, void *data, int size) {
     if (!mem_loaded) {
-        mem_load();
+        mem_reload();
     }
     int i;
-    for (i = 0; i < static_sz; ++i) {
+    for (i = 0; i < static_cnt; ++i) {
         if (addr >= staticmem[i].start && addr < staticmem[i].start + staticmem[i].size) {
             uint32_t end = staticmem[i].start + staticmem[i].size;
             if (addr + size > end) size = end - addr;
@@ -294,7 +317,7 @@ int mem_read(uint32_t addr, void *data, int size) {
             return size;
         }
     }
-    for (i = 0; i < stack_sz; ++i) {
+    for (i = 0; i < stack_cnt; ++i) {
         if (addr >= stackmem[i].start && addr < stackmem[i].start + stackmem[i].size) {
             uint32_t end = stackmem[i].start + stackmem[i].size;
             if (addr + size > end) size = end - addr;
@@ -322,27 +345,27 @@ int mem_read(uint32_t addr, void *data, int size) {
 int mem_list(memory_range *range, int size, int heap) {
     int res = 0;
     int i;
-    for (i = 0; i < static_sz && res < size; ++i) {
+    for (i = 0; i < static_cnt && res < size; ++i) {
         range[res++] = staticmem[i];
     }
-    for (i = 0; i < stack_sz && res < size; ++i) {
+    for (i = 0; i < stack_cnt && res < size; ++i) {
         range[res++] = stackmem[i];
     }
     if (!heap) return res;
-    reload_blocks();
-    for (i = 0; i < block_sz && res < size; ++i) {
-        range[res++] = blockmem[i];
+    reload_heaps();
+    for (i = 0; i < heap_cnt && res < size; ++i) {
+        range[res++] = heapmem[i];
     }
     return res;
 }
 
 static inline int mem_is_valid(uint32_t addr) {
     int i;
-    for (i = 0; i < static_sz; ++i) {
+    for (i = 0; i < static_cnt; ++i) {
         if (addr >= staticmem[i].start && addr < staticmem[i].start + staticmem[i].size)
             return 1;
     }
-    for (i = 0; i < stack_sz; ++i) {
+    for (i = 0; i < stack_cnt; ++i) {
         if (addr >= stackmem[i].start && addr < stackmem[i].start + stackmem[i].size)
             return 1;
     }

@@ -3,7 +3,6 @@
 #include "debug.h"
 
 #include <vitasdk.h>
-#include "kio.h"
 
 #ifndef RCSVR_DEBUG_IP
 #define RCSVR_DEBUG_IP "192.168.11.125"
@@ -57,7 +56,7 @@ void debug_printf(int level, const char* format, ...) {
     buffer[buffer_size - 1] = 0;
     va_end(args);
     if (is_file)
-        kIoWrite(debug_fd, buffer, strlen(buffer), NULL);
+        sceIoWrite(debug_fd, buffer, strlen(buffer));
     else
         sceNetSend(debug_fd, buffer, strlen(buffer), 0);
 }
@@ -84,7 +83,7 @@ void debug_init(int level) {
         is_file = 0;
     } else {
         debug_set_loglevel(-level);
-        kIoOpen("ux0:/temp/rcsvr.log", SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, &debug_fd);
+        debug_fd = sceIoOpen("ux0:/temp/rcsvr.log", SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 0666);
         is_file = 1;
     }
 

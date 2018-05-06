@@ -107,6 +107,14 @@ uint64_t util_gettick() {
     return (tick.tick - start_tick) / resolution_of_tick;
 }
 
+int util_is_allocated(int id) {
+    int i;
+    for (i = 0; i < mempool_count; ++i) {
+        if (mempool_id[i] == id) return 1;
+    }
+    return 0;
+}
+
 void*(*my_alloc)(size_t);
 void*(*my_realloc)(void*, size_t);
 void*(*my_calloc)(size_t, size_t);

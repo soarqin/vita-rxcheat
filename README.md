@@ -29,6 +29,7 @@ Credits
 7. Trophy unlocking idea from [TropHAX](https://github.com/SilicaAndPina/TropHAX)
 8. Way to prevent games from disabling net from [InfiniteNet](https://github.com/Rinnegatamante/InfiniteNet)
 9. Memory pool idea from [taipool](https://github.com/Rinnegatamante/taipool), codes modified from [liballoc 1.1](https://github.com/blanham/liballoc)
-10. [kcp](https://github.com/skywind3000/kcp) for reliable UDP commnication
-11. [GLFW](http://www.glfw.org), [gl3w](https://github.com/skaslev/gl3w), [Dear ImGui](https://github.com/ocornut/imgui) for client UI
-12. [yaml-cpp](https://github.com/jbeder/yaml-cpp) for client configurations and multi-language support
+10. Hook system IO functions to allow read/write to ux0:data & ux0:temp, idea from [ioPlus](https://github.com/CelesteBlue-dev/PSVita-RE-tools/tree/master/ioPlus/ioPlus-0.1)
+11. [kcp](https://github.com/skywind3000/kcp) for reliable UDP commnication
+12. [GLFW](http://www.glfw.org), [gl3w](https://github.com/skaslev/gl3w), [Dear ImGui](https://github.com/ocornut/imgui) for client UI
+13. [yaml-cpp](https://github.com/jbeder/yaml-cpp) for client configurations and multi-language support

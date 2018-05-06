@@ -8,11 +8,7 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   endif()
 endif()
 
-set(TARGET_NAME rcsvr)
-
-add_subdirectory(kernel)
-
-project(${TARGET_NAME})
+project(rcsvr)
 
 # C11
 set(CMAKE_C_STANDARD 11)
@@ -21,28 +17,43 @@ set(CMAKE_C_STANDARD 11)
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -Wall -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
-# remove assert symbol from kcp
-add_definitions(-DNDEBUG)
+
+add_executable(kernel
+  kernel.c
+)
+
+set_target_properties(kernel PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-D__VITA_KERNEL__")
+
+target_link_libraries(kernel
+  taihenForKernel_stub
+  SceSysrootForKernel_stub
+  SceSysmemForDriver_stub
+  SceModulemgrForDriver_stub
+  SceThreadmgrForDriver_stub
+  SceIofilemgrForDriver_stub
+)
+
+vita_create_self(rcsvr.skprx kernel UNSAFE CONFIG kernel.yml)
 
 # debug option
 option(RCSVR_DEBUG "Debug output through udp like libdebugnet" OFF)
 if(RCSVR_DEBUG)
-    add_definitions(-DRCSVR_DEBUG)
+    set(DEBUG_DEFS "-DRCSVR_DEBUG")
     set(RCSVR_DEBUG_IP "" CACHE STRING "Debug machine ip")
     set(RCSVR_DEBUG_PORT 18194 CACHE STRING "Debug machine port")
     option(RCSVR_DEBUG_LINENO "Add file:lineno to debug output" OFF)
     if(RCSVR_DEBUG_LINENO)
-        add_definitions(-DRCSVR_DEBUG_LINENO)
+        set(DEBUG_DEFS "${DEBUG_DEFS} -DRCSVR_DEBUG_LINENO")
     endif()
     if(RCSVR_DEBUG_IP)
-        add_definitions(-DRCSVR_DEBUG_IP="${RCSVR_DEBUG_IP}")
+        set(DEBUG_DEFS "${DEBUG_DEFS} -DRCSVR_DEBUG_IP=\\\"${RCSVR_DEBUG_IP}\\\"")
     endif()
     if(RCSVR_DEBUG_PORT)
-        add_definitions(-DRCSVR_DEBUG_PORT=${RCSVR_DEBUG_PORT})
+        set(DEBUG_DEFS "${DEBUG_DEFS} -DRCSVR_DEBUG_PORT=${RCSVR_DEBUG_PORT}")
     endif()
 endif()
 
-add_executable(${TARGET_NAME}
+add_executable(user
     main.c
     # network
     net.c net.h
@@ -61,9 +72,9 @@ add_executable(${TARGET_NAME}
     ../kcp/ikcp.c ../kcp/ikcp.h
 )
 
-target_include_directories(${TARGET_NAME} PRIVATE ../kcp PRIVATE kernel)
+target_include_directories(user PRIVATE ../kcp)
 
-target_link_libraries(${TARGET_NAME}
+target_link_libraries(user
     taihen_stub
     SceLibc_stub_weak
     SceLibKernel_stub_weak
@@ -82,15 +93,14 @@ target_link_libraries(${TARGET_NAME}
     SceRtc_stub_weak
     ScePgf_stub_weak
     SceNpTrophy_stub_weak
-    ${CMAKE_BINARY_DIR}/kernel/stubs/librcsvr_stub_weak.a
 )
 
-set_property(TARGET ${TARGET_NAME} PROPERTY LINK_FLAGS -nostdlib)
-add_dependencies(${TARGET_NAME} stubs)
+set_target_properties(user PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-DNDEBUG ${DEBUG_DEFS}")
 
-vita_create_self(${TARGET_NAME}.suprx ${TARGET_NAME} CONFIG exports.yml)
+vita_create_self(rcsvr.suprx user UNSAFE CONFIG user.yml)
 
 add_custom_target(dist ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/dist
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.suprx ${CMAKE_BINARY_DIR}/dist/
-    )
-add_dependencies(dist ${TARGET_NAME}.suprx dist_kernel)
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/rcsvr.skprx ${CMAKE_BINARY_DIR}/dist/
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/rcsvr.suprx ${CMAKE_BINARY_DIR}/dist/
+)
+add_dependencies(dist rcsvr.suprx rcsvr.skprx)

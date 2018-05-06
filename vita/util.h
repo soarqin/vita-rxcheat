@@ -7,6 +7,7 @@
 void util_init();
 uint32_t util_crc32(const unsigned char *buf, int len, uint32_t init);
 uint64_t util_gettick();
+int util_is_allocated(int id);
 
 extern void*(*my_alloc)(size_t);
 extern void*(*my_realloc)(void*, size_t);

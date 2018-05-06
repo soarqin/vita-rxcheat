@@ -25,11 +25,12 @@ VITA Remote Cheat 是一个在PC上通过网络连接到PSVTIA以修改游戏内
 2. [henkaku](https://github.com/henkaku/henkaku) & [taiHEN](https://github.com/yifanlu/taiHEN) 以支持3.60
 3. [henkaku](https://github.com/TheOfficialFloW/henkaku) & [taiHEN](https://github.com/TheOfficialFloW/taiHEN) 的3.65移植以支持3.65
 4. 通过UDP调试日志，想法来自 [libdebugnet](https://github.com/psxdev/debugnet)
-5. [oclockvita](https://github.com/frangarcj/oclockvita) 的显示函数, [libvita2d](https://github.com/xerpi/libvita2d) 的PGF支持
+5. 参考了 [oclockvita](https://github.com/frangarcj/oclockvita) 的显示函数, 以及 [libvita2d](https://github.com/xerpi/libvita2d) 的PGF支持
 6. 内存修改，想法来自 [rinCheat](https://github.com/Rinnegatamante/rinCheat)
 7. 奖杯解锁，想法来自 [TropHAX](https://github.com/SilicaAndPina/TropHAX)
 8. 禁止游戏关闭网络的方法来自 [InfiniteNet](https://github.com/Rinnegatamante/InfiniteNet)
 9. 内存池，想法来自 [taipool](https://github.com/Rinnegatamante/taipool), 实现代码修改自 [liballoc 1.1](https://github.com/blanham/liballoc)
-10. [kcp](https://github.com/skywind3000/kcp) 支持可靠的UDP网络通信
-11. [GLFW](http://www.glfw.org), [gl3w](https://github.com/skaslev/gl3w), [Dear ImGui](https://github.com/ocornut/imgui) 实现客户端UI
-12. [yaml-cpp](https://github.com/jbeder/yaml-cpp) 支持客户端配置和多语言
+10. 系统IO钩子以允许插件读写ux0:data和ux0:temp的文件，想法来自 [ioPlus](https://github.com/CelesteBlue-dev/PSVita-RE-tools/tree/master/ioPlus/ioPlus-0.1)
+11. [kcp](https://github.com/skywind3000/kcp) 支持可靠的UDP网络通信
+12. [GLFW](http://www.glfw.org), [gl3w](https://github.com/skaslev/gl3w), [Dear ImGui](https://github.com/ocornut/imgui) 实现客户端UI
+13. [yaml-cpp](https://github.com/jbeder/yaml-cpp) 支持客户端配置和多语言
