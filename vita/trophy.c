@@ -77,7 +77,7 @@ static int _trophy_thread(SceSize args, void *argp) {
     int type = trophy_req.type;
     int id = trophy_req.id;
     uint32_t hidden[4];
-    memcpy(hidden, trophy_req.hidden, 4 * sizeof(uint32_t));
+    sceClibMemcpy(hidden, trophy_req.hidden, 4 * sizeof(uint32_t));
     void (*cb)(int id, int grade, int hidden, int unlocked, const char *name, const char *desc);
     void (*cb2)(int ret, int id, int platid);
     void (*cb_end)(int err);
@@ -188,7 +188,7 @@ void trophy_unlock(int id, int hidden, void (*cb)(int id, int grade, int hidden,
 
 void trophy_unlock_all(uint32_t *hidden, void (*cb)(int id, int grade, int hidden, int unlocked, const char *name, const char *desc), void (*cb2)(int ret, int id, int platid)) {
     trophy_req.type = 2;
-    memcpy(trophy_req.hidden, hidden, 4 * sizeof(uint32_t));
+    sceClibMemcpy(trophy_req.hidden, hidden, 4 * sizeof(uint32_t));
     trophy_req.cb = cb;
     trophy_req.cb2 = cb2;
     SceUID thid = sceKernelCreateThread("rcsvr_trophy_thread", (SceKernelThreadEntry)_trophy_thread, 0x10000100, 0x10000, 0, 0, NULL);

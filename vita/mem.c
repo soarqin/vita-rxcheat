@@ -23,11 +23,13 @@ typedef enum {
 } search_type;
 
 #define LOCK_COUNT_MAX 0x80
-#define STATIC_MEM_MAX 32
-#define STACK_MEM_MAX 32
-#define HEAP_MEM_MAX 1024 - 64
+#define MEM_RANGE_MAX (256)
+#define STATIC_MEM_MAX (16)
+#define STACK_MEM_MAX (32)
+#define HEAP_MEM_MAX (MEM_RANGE_MAX-STATIC_MEM_MAX-STACK_MEM_MAX)
 
-static memory_range staticmem[STATIC_MEM_MAX], stackmem[STACK_MEM_MAX], heapmem[HEAP_MEM_MAX];
+static memory_range mem_ranges[MEM_RANGE_MAX];
+static memory_range *staticmem = mem_ranges, *stackmem = mem_ranges + STATIC_MEM_MAX, *heapmem = mem_ranges + STATIC_MEM_MAX + STACK_MEM_MAX;
 static int static_cnt = 0, stack_cnt = 0, heap_cnt = 0;
 static int mem_loaded = 0;
 static int stype = 0, last_sidx = 0;
@@ -53,15 +55,27 @@ void mem_finish() {
     }
 }
 
+static int memory_range_compare(const void *a, const void *b) {
+    return (int)((memory_range*)a)->crc32 - (int)((memory_range*)b)->crc32;
+}
+
+uint32_t mem_convert(uint32_t addr) {
+    memory_range *mr = &mem_ranges[addr >> 24];
+    uint32_t off = addr & 0xFFFFFFU;
+    if (mr->start == 0 || off >= mr->size) return 0;
+    return mr->start + off;
+}
+
 static void mem_reload() {
     mem_loaded = 1;
     static_cnt = stack_cnt = 0;
+    sceClibMemset(staticmem, 0, sizeof(memory_range) * STATIC_MEM_MAX);
+    sceClibMemset(stackmem, 0, sizeof(memory_range) * STACK_MEM_MAX);
     SceUID modlist[256];
     int num_loaded = 256;
-    int ret;
+    int i, ret;
     ret = sceKernelGetModuleList(0xFF, modlist, &num_loaded);
     if (ret == 0) {
-        int i;
         for (i = 0; i < num_loaded && static_cnt < STATIC_MEM_MAX; ++i) {
             SceKernelModuleInfo info;
             if (sceKernelGetModuleInfo(modlist[i], &info) < 0) continue;
@@ -85,9 +99,12 @@ static void mem_reload() {
                 memory_range *mr = &staticmem[static_cnt++];
                 mr->start = (uint32_t)info.segments[j].vaddr;
                 mr->size = info.segments[j].memsz;
+                mr->crc32 = util_crc32((const uint8_t*)info.path, strlen(info.path), 0xFFFFFFFFU - j);
             }
         }
     }
+    qsort(staticmem, static_cnt, sizeof(memory_range), memory_range_compare);
+    for (i = 0; i < static_cnt; ++i) staticmem[i].index = i;
     SceKernelThreadInfo status;
     status.size = sizeof(SceKernelThreadInfo);
     SceUID thid = 0x40010001;
@@ -106,12 +123,17 @@ static void mem_reload() {
         memory_range *mr = &stackmem[stack_cnt++];
         mr->start = (uint32_t)status.stack;
         mr->size = status.stackSize;
+        mr->crc32 = util_crc32((const uint8_t*)status.name, strlen(status.name), 0xFFFFFFFFU);
     }
+    qsort(stackmem, stack_cnt, sizeof(memory_range), memory_range_compare);
+    for (i = 0; i < stack_cnt; ++i) stackmem[i].index = i + STATIC_MEM_MAX;
 }
 
 static void reload_heaps() {
-    heap_cnt = 0;
     uint32_t addr = 0x80000000U;
+    int i;
+    heap_cnt = 0;
+    sceClibMemset(heapmem, 0, sizeof(memory_range) * HEAP_MEM_MAX);
     while (addr < 0xA0000000U && heap_cnt < HEAP_MEM_MAX) {
         SceUID heap_memblock = sceKernelFindMemBlockByAddr((const void*)addr, 0);
         if (heap_memblock >= 0 && !util_is_allocated(heap_memblock)) {
@@ -135,11 +157,11 @@ static void reload_heaps() {
         }
         addr += 0x4000;
     }
+    for (i = 0; i < heap_cnt; ++i) stackmem[i].index = i + STATIC_MEM_MAX + STACK_MEM_MAX;
 }
 
 static void single_search(SceUID outfile, memory_range *mr, const void *data, int size, void (*cb)(const uint32_t *addr, int count, int datalen)) {
-    int is_heap = !(mr->start & 0x80000000U);
-    uint8_t *curr = (uint8_t*)(mr->start | 0x80000000U);
+    uint8_t *curr = (uint8_t*)mr->start;
     uint8_t *cend = curr + mr->size - size + 1;
     uint32_t addr[0x100];
     int addr_count = 0;
@@ -147,7 +169,7 @@ static void single_search(SceUID outfile, memory_range *mr, const void *data, in
     for (; curr < cend; curr += size) {
         if (memcmp(data, (void*)curr, size) == 0) {
             log_debug("Found at %08X\n", curr);
-            addr[addr_count++] = is_heap ? ((uint32_t)curr & ~0x80000000U) : (uint32_t)curr;
+            addr[addr_count++] = ((uint32_t)curr - mr->start) | (mr->index << 24);
             if (addr_count == 0x100) {
                 cb(addr, addr_count, size);
                 sceIoWrite(outfile, addr, 0x100 * 4);
@@ -171,10 +193,9 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
         if (n < 0) break;
         n >>= 2;
         for (i = 0; i < n; ++i) {
-            int is_heap = !(old[i] & 0x80000000U);
-            uint32_t raddr = old[i] | 0x80000000U;
+            uint32_t raddr = mem_convert(old[i]);
             log_debug("Check %08X\n", raddr);
-            if (is_heap && sceKernelFindMemBlockByAddr((const void*)raddr, 0) < 0) continue;
+            if ((old[i] >> 24) >= STATIC_MEM_MAX + STACK_MEM_MAX && sceKernelFindMemBlockByAddr((const void*)raddr, 0) < 0) continue;
             if (memcmp((void*)raddr, data, size) == 0) {
                 log_debug("Found at %08X\n", raddr);
                 addr[addr_count++] = old[i];
@@ -196,10 +217,8 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
 void mem_search(int type, int heap, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen)) {
     int size = mem_get_type_size(type, data);
     if (size > len) return;
-    if (!mem_loaded) {
-        mem_reload();
-    }
     if (stype != type) {
+        mem_reload();
         SceUID f = -1;
         char outfile[256];
         sceClibSnprintf(outfile, 256, "ux0:data/rcsvr/%d.tmp", last_sidx);
@@ -249,8 +268,10 @@ void mem_search_reset() {
 }
 
 void mem_set(uint32_t addr, const void *data, int size) {
-    log_trace("Writing %d bytes to 0x%08X\n", size, addr);
-    memcpy((void *)(addr | 0x80000000U), data, size);
+    uint32_t raddr = mem_convert(addr);
+    log_trace("Writing %d bytes to 0x%08X->0x%08X\n", size, addr, raddr);
+    if (raddr == 0) return;
+    sceClibMemcpy((void*)raddr, data, size);
 }
 
 typedef struct {
@@ -272,7 +293,7 @@ static int _search_thread(SceSize args, void *argp) {
     }
     int type = search_req.type;
     char buf[8];
-    memcpy(buf, (const char*)search_req.buf, 8);
+    sceClibMemcpy(buf, (const char*)search_req.buf, 8);
     int len = search_req.len;
     int heap = search_req.heap;
     void (*cb)(const uint32_t *addr, int count, int datalen);
@@ -292,8 +313,8 @@ static int _search_thread(SceSize args, void *argp) {
 void mem_start_search(int type, int heap, const char *buf, int len, void (*cb)(const uint32_t *addr, int count, int datalen), void (*cb_start)(int type), void (*cb_end)(int err)) {
     search_req.type = type;
     search_req.heap = heap;
-    memset((char*)search_req.buf, 0, 8);
-    memcpy((char*)search_req.buf, buf, len);
+    sceClibMemset((char*)search_req.buf, 0, 8);
+    sceClibMemcpy((char*)search_req.buf, buf, len);
     search_req.len = len;
     search_req.cb = cb;
     search_req.cb_start = cb_start;
@@ -308,37 +329,22 @@ int mem_read(uint32_t addr, void *data, int size) {
     if (!mem_loaded) {
         mem_reload();
     }
-    int i;
-    for (i = 0; i < static_cnt; ++i) {
-        if (addr >= staticmem[i].start && addr < staticmem[i].start + staticmem[i].size) {
-            uint32_t end = staticmem[i].start + staticmem[i].size;
-            if (addr + size > end) size = end - addr;
-            memcpy(data, (void*)addr, size);
-            return size;
-        }
-    }
-    for (i = 0; i < stack_cnt; ++i) {
-        if (addr >= stackmem[i].start && addr < stackmem[i].start + stackmem[i].size) {
-            uint32_t end = stackmem[i].start + stackmem[i].size;
-            if (addr + size > end) size = end - addr;
-            memcpy(data, (void*)addr, size);
-            return size;
-        }
-    }
-    SceUID heap_memblock = sceKernelFindMemBlockByAddr((const void*)addr, 0);
-    if (heap_memblock < 0) return -1;
-    void* heap_addr;
-    int ret = sceKernelGetMemBlockBase(heap_memblock, &heap_addr);
-    if (ret < 0) return -1;
-    SceKernelMemBlockInfo heap_info;
-    heap_info.size = sizeof(SceKernelMemBlockInfo);
-    ret = sceKernelGetMemBlockInfoByAddr(heap_addr, &heap_info);
-    if (ret < 0 || (heap_info.access & 6) != 6) return -1;
-    log_trace("HEAP: %08X %08X %08X %08X %08X\n", heap_info.mappedBase, heap_info.mappedSize, heap_info.access, heap_info.memoryType, heap_info.type);
-    uint32_t end = (uint32_t)heap_info.mappedBase + heap_info.mappedSize;
-    if (addr + size > end)
-        size = end - addr;
-    memcpy(data, (void*)addr, size);
+    uint32_t raddr = mem_convert(addr);
+    if (raddr == 0) return -1;
+    // SceUID heap_memblock = sceKernelFindMemBlockByAddr((const void*)addr, 0);
+    // if (heap_memblock < 0) return -1;
+    // void* heap_addr;
+    // int ret = sceKernelGetMemBlockBase(heap_memblock, &heap_addr);
+    // if (ret < 0) return -1;
+    // SceKernelMemBlockInfo heap_info;
+    // heap_info.size = sizeof(SceKernelMemBlockInfo);
+    // ret = sceKernelGetMemBlockInfoByAddr(heap_addr, &heap_info);
+    // if (ret < 0 || (heap_info.access & 6) != 6) return -1;
+    // log_trace("HEAP: %08X %08X %08X %08X %08X\n", heap_info.mappedBase, heap_info.mappedSize, heap_info.access, heap_info.memoryType, heap_info.type);
+    // uint32_t end = (uint32_t)heap_info.mappedBase + heap_info.mappedSize;
+    // if (addr + size > end)
+    //     size = end - addr;
+    sceClibMemcpy(data, (void*)raddr, size);
     return size;
 }
 
@@ -382,16 +388,20 @@ void mem_lockdata_begin() {
     log_trace("lock begin\n");
     mem_lockdata_clear();
     mem_lock_ready = 0;
+    if (!mem_loaded) {
+        mem_reload();
+    }
 }
 
 void mem_lockdata_add(uint32_t addr, uint8_t size, const char *data) {
     if (lock_count >= LOCK_COUNT_MAX) return;
-    if (!mem_is_valid(addr)) return;
-    log_trace("lock add %08X %d\n", addr, size);
+    uint32_t raddr = mem_convert(addr);
+    if (raddr == 0) return;
     memlock_data *ld = &lockdata[lock_count++];
-    ld->address = addr;
+    ld->address = raddr;
     ld->size = size;
-    memcpy(ld->data, data, 8);
+    log_trace("lock add %08X->%08X %d\n", addr, raddr, size);
+    sceClibMemcpy(ld->data, data, 8);
 }
 
 void mem_lockdata_end() {
@@ -409,7 +419,7 @@ void mem_lockdata_process() {
     int i;
     for (i = 0; i < lock_count; ++i) {
         memlock_data *ld = &lockdata[i];
-        memcpy((void*)ld->address, ld->data, ld->size);
+        sceClibMemcpy((void*)ld->address, ld->data, ld->size);
     }
 }
 

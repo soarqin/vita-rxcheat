@@ -71,7 +71,7 @@ void debug_init(int level) {
         struct SceNetSockaddrIn sockaddr;
         debug_set_loglevel(level);
         debug_fd = sceNetSocket("debug_socket", SCE_NET_AF_INET, SCE_NET_SOCK_DGRAM, SCE_NET_IPPROTO_UDP);
-        memset(&sockaddr, 0, sizeof sockaddr);
+        sceClibMemset(&sockaddr, 0, sizeof sockaddr);
 
         sockaddr.sin_family = SCE_NET_AF_INET;
         sockaddr.sin_port = sceNetHtons(RCSVR_DEBUG_PORT);

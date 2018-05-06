@@ -6,6 +6,8 @@
 void mem_init();
 void mem_finish();
 
+uint32_t mem_convert(uint32_t addr);
+
 void mem_search(int type, int heap, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen));
 void mem_search_reset();
 void mem_set(uint32_t addr, const void *data, int size);
@@ -15,6 +17,8 @@ int mem_read(uint32_t addr, void *data, int size);
 typedef struct memory_range {
     uint32_t start;
     uint32_t size;
+    uint32_t crc32;
+    uint32_t index;
 } memory_range;
 typedef struct memlock_data {
     uint32_t address;

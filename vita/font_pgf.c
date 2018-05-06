@@ -64,7 +64,7 @@ static inline uint16_t insert_glyph(uint16_t code, uint8_t realw, uint8_t w, uin
 
 static inline void free_glyphs() {
     RB_INIT(&glyph_charmap);
-    memset(entries, 0, sizeof(glyph_entry) * 51 * 51 * 2);
+    sceClibMemset(entries, 0, sizeof(glyph_entry) * 51 * 51 * 2);
     entry_used = 0;
 }
 

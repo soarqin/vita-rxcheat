@@ -101,18 +101,18 @@ static void _kcp_disconnect() {
         kcp = NULL;
     }
     recv_size = 0;
-    memset(&saddr_remote, 0, sizeof(SceNetSockaddrIn));
+    sceClibMemset(&saddr_remote, 0, sizeof(SceNetSockaddrIn));
 }
 
 static void _kcp_send(const char *buf, int len, SceNetSockaddrIn *addr, int is_kcp) {
     send_buf *b = (send_buf*)my_alloc(sizeof(send_buf) + (is_kcp ? (len + 4) : len));
-    memcpy(&b->addr, addr, sizeof(SceNetSockaddrIn));
+    sceClibMemcpy(&b->addr, addr, sizeof(SceNetSockaddrIn));
     b->len = is_kcp ? (len + 4) : len;
     if (is_kcp) {
         b->buf[0] = 'K';
-        memcpy(b->buf + 4, buf, len);
+        sceClibMemcpy(b->buf + 4, buf, len);
     } else
-        memcpy(b->buf, buf, len);
+        sceClibMemcpy(b->buf, buf, len);
     b->next = NULL;
     if (shead == NULL) {
         sceKernelLockMutex(packetMutex, 1, NULL);
@@ -155,7 +155,7 @@ void _kcp_send_cmd(int op, const void *buf, int len) {
     uint32_t sendbuf[0x208];
     sendbuf[0] = op;
     sendbuf[1] = len;
-    if (buf != NULL) memcpy(&sendbuf[2], buf, len);
+    if (buf != NULL) sceClibMemcpy(&sendbuf[2], buf, len);
     ikcp_send(kcp, (const char *)sendbuf, len + 8);
 }
 
@@ -179,9 +179,9 @@ static void _kcp_search_cb(const uint32_t *data, int size, int data_len) {
         int i;
         uint32_t buf[0xC0] = {0};
         for (i = 0; i < size; ++i) {
-            uint32_t addr = data[i] | 0x80000000U;
-            buf[i * 3] = addr;
-            memcpy(&buf[i * 3 + 1], (const void*)addr, data_len);
+            buf[i * 3] = data[i];
+            uint32_t addr = mem_convert(data[i]);
+            sceClibMemcpy(&buf[i * 3 + 1], (const void*)addr, data_len);
         }
         _kcp_send_cmd(0x10000, &buf, size * 4 * 3);
     }
@@ -200,9 +200,9 @@ static void _kcp_trophy_list(int id, int grade, int hidden, int unlocked, const 
     *(int*)(buf+4) = grade;
     *(int*)(buf+8) = hidden;
     *(int*)(buf+12) = unlocked;
-    memcpy(buf + 16, name, 64);
+    sceClibMemcpy(buf + 16, name, 64);
     buf[79] = 0;
-    memcpy(buf + 80, desc, 160);
+    sceClibMemcpy(buf + 80, desc, 160);
     buf[239] = 0;
     _kcp_send_cmd(0x8000, buf, 240);
 }
@@ -241,8 +241,8 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
     case 0x08: {
         mem_set(*(uint32_t*)buf, buf + 4, len - 4);
         char nbuf[12];
-        memset(nbuf, 0, 12);
-        memcpy(nbuf, buf, len);
+        sceClibMemset(nbuf, 0, 12);
+        sceClibMemcpy(nbuf, buf, len);
         _kcp_send_cmd(cmd, nbuf, 12);
         break;
     }
@@ -257,7 +257,7 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
     }
     case 0x0C: {
         char data[0x104];
-        memcpy(data, buf, 4);
+        sceClibMemcpy(data, buf, 4);
         int r = mem_read(*(uint32_t*)buf, data + 4, 0x100);
         if (r <= 0) {
             _kcp_send_cmd(0x0C01, buf, 4);
@@ -376,7 +376,7 @@ static inline void process_udp_packets() {
             }
             case 'C': {
                 _kcp_disconnect();
-                memcpy(&saddr_remote, &saddr, sizeof(SceNetSockaddrIn));
+                sceClibMemcpy(&saddr_remote, &saddr, sizeof(SceNetSockaddrIn));
                 static uint32_t conv = 0xC0DE;
                 kcp = ikcp_create(conv, NULL);
                 ikcp_nodelay(kcp, 0, 100, 0, 0);
