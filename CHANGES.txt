@@ -1,3 +1,7 @@
+v0.7:
+  1. do not search in memory blocks that are not belong to game main module
+  2. use a global hook to allow read/write to ux0:data and ux0:temp
+
 v0.6.1:
   1. fixed memlock packets
   2. better memory handling to improve game compatiblity
