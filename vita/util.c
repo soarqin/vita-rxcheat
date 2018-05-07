@@ -27,28 +27,29 @@ void* liballoc_alloc(size_t sz) {
     char name[16];
     SceUID pool_id;
     void *pool_addr;
+    int type[2], alloc_sz, i;
     if (mempool_count >= 16) return NULL;
     sceClibSnprintf(name, 16, "rcsvr_mem_%d", seq);
-    do {
-        pool_id = sceKernelAllocMemBlock(name, SCE_KERNEL_MEMBLOCK_TYPE_USER_MAIN_PHYCONT_RW, sz * 1024 * 1024, NULL);
-        log_trace("sceKernelAllocMemBlock(PHYCONT): %s %d %d\n", name, sz, pool_id);
-        if (pool_id >= 0) {
-            if (sceKernelGetMemBlockBase(pool_id, &pool_addr) == SCE_OK) {
-                break;
-            }
+    SceKernelFreeMemorySizeInfo fmsi;
+    fmsi.size = sizeof(fmsi);
+    sceKernelGetFreeMemorySize(&fmsi);
+    alloc_sz = sz * 1024 * 1024;
+    type[0] = SCE_KERNEL_MEMBLOCK_TYPE_USER_RW;
+    type[1] = SCE_KERNEL_MEMBLOCK_TYPE_USER_MAIN_PHYCONT_RW;
+    if (fmsi.size_user < alloc_sz) {
+        type[0] = SCE_KERNEL_MEMBLOCK_TYPE_USER_MAIN_PHYCONT_RW;
+        type[1] = SCE_KERNEL_MEMBLOCK_TYPE_USER_RW;
+    }
+    for (i = 0; i < 2; ++i) {
+        pool_id = sceKernelAllocMemBlock(name, type[i], alloc_sz, NULL);
+        log_trace("sceKernelAllocMemBlock(%s): %s %08X %08X\n", type[i] == SCE_KERNEL_MEMBLOCK_TYPE_USER_MAIN_PHYCONT_RW ? "PHYCONT" : "USER", name, sz, pool_id);
+        if (pool_id < 0) continue;
+        if (sceKernelGetMemBlockBase(pool_id, &pool_addr) != SCE_OK) {
             sceKernelFreeMemBlock(pool_id);
+            continue;
         }
-        pool_id = sceKernelAllocMemBlock(name, SCE_KERNEL_MEMBLOCK_TYPE_USER_RW, sz * 1024 * 1024, NULL);
-        log_trace("sceKernelAllocMemBlock(USER): %s %d %d\n", name, sz, pool_id);
-        if (pool_id >= 0) {
-            if (sceKernelGetMemBlockBase(pool_id, &pool_addr) == SCE_OK) {
-                break;
-            }
-            sceKernelFreeMemBlock(pool_id);
-        }
-        return NULL;
-    } while(0);
-
+        break;
+    }
     log_trace("sceKernelGetMemBlockBase: %08X\n", pool_addr);
     seq = (seq + 1) & 0xFFFF;
     mempool_id[mempool_count] = pool_id;

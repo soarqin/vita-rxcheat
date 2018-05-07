@@ -95,9 +95,11 @@ static int _trophy_thread(SceSize args, void *argp) {
     }
     switch(type) {
     case 0: {
-            SceNpTrophyFlagArray a;
-            int count;
-            int ret = sceNpTrophyGetTrophyUnlockState(context, handle, &a, &count);
+            SceNpTrophyGameDetails detail0;
+            SceNpTrophyGameData data0;
+            detail0.size = sizeof(SceNpTrophyGameDetails);
+            data0.size = sizeof(SceNpTrophyGameData);
+            ret = sceNpTrophyGetGameInfo(context, handle, &detail0, &data0);
             if (ret < 0) {
                 cb_end(-1);
                 break;
@@ -107,7 +109,7 @@ static int _trophy_thread(SceSize args, void *argp) {
             detail.size = sizeof(SceNpTrophyDetails);
             data.size = sizeof(SceNpTrophyData);
             int i;
-            for (i = 0; i < count; ++i) {
+            for (i = 0; i < detail0.numTrophies; ++i) {
                 int ret = sceNpTrophyGetTrophyInfo(context, handle, i, &detail, &data);
                 if (ret < 0) continue;
                 cb(detail.trophyId, detail.trophyGrade, detail.hidden, data.unlocked, detail.name, detail.description);
@@ -140,8 +142,17 @@ static int _trophy_thread(SceSize args, void *argp) {
                 cb2(ret, 0, 0);
                 break;
             }
+            SceNpTrophyGameDetails detail0;
+            SceNpTrophyGameData data0;
+            detail0.size = sizeof(SceNpTrophyGameDetails);
+            data0.size = sizeof(SceNpTrophyGameData);
+            ret = sceNpTrophyGetGameInfo(context, handle, &detail0, &data0);
+            if (ret < 0) {
+                cb2(ret, 0, 0);
+                break;
+            }
             int i;
-            for (i = 0; i < count; ++i) {
+            for (i = 0; i < detail0.numTrophies; ++i) {
                 if (a.flag_bits[i >> 5] & (1U << (i & 0x1F))) continue;
                 ret = sceNpTrophyUnlockTrophy(context, handle, i, &platid);
                 cb2(ret, i, platid);

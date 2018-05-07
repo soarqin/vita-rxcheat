@@ -130,7 +130,7 @@ static void main_net_init() {
 }
 
 int rcsvr_main_thread(SceSize args, void *argp) {
-    sceKernelDelayThread(8000000);
+    sceKernelDelayThread(10000000);
 
     util_init();
     main_net_init();
@@ -146,7 +146,7 @@ int rcsvr_main_thread(SceSize args, void *argp) {
 
     hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x7A410B64, sceDisplaySetFrameBuf_patched);
 
-    set_show_msg(10000, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
+    set_show_msg(15000, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
     while(running) {
         // checkInput();
         uint64_t curr_tick = util_gettick();
