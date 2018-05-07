@@ -83,7 +83,7 @@ void debug_init(int level) {
         is_file = 0;
     } else {
         debug_set_loglevel(-level);
-        debug_fd = sceIoOpen("ux0:/temp/rcsvr.log", SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 0666);
+        debug_fd = sceIoOpen("ux0:temp/rcsvr.log", SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 0666);
         is_file = 1;
     }
 

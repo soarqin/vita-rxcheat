@@ -5,14 +5,13 @@
 static SceUID hooks[HOOKS_NUM];
 static tai_hook_ref_t refs[HOOKS_NUM];
 
-// Allow ux0:data and ux0:temp
+// Allow ux0:data/rcsvr* and ux0:temp/rcsvr*
 static inline int is_valid_filename(const char *filename) {
-    if (filename[0] == 'u' && filename[1] == 'x' && filename[2] == '0' && filename[3] == ':') {
-        if (filename[4] == '/' && filename[5] == 'd' && filename[6] == 'a' && filename[7] == 't' && filename[8] == 'a' && filename[9] == '/') return 1;
-        if (filename[4] == 'd' && filename[5] == 'a' && filename[6] == 't' && filename[7] == 'a' && filename[8] == '/') return 1;
-        if (filename[4] == '/' && filename[5] == 't' && filename[6] == 'e' && filename[7] == 'm' && filename[8] == 'p' && filename[9] == '/') return 1;
-        if (filename[4] == 't' && filename[5] == 'e' && filename[6] == 'm' && filename[7] == 'p' && filename[8] == '/') return 1;
-    }
+    if (filename[0] == 'u' && filename[1] == 'x' && filename[2] == '0' && filename[3] == ':'
+        && ((filename[4] == 'd' && filename[5] == 'a' && filename[6] == 't' && filename[7] == 'a') || (filename[4] == 't' && filename[5] == 'e' && filename[6] == 'm' && filename[7] == 'p'))
+        && filename[8] == '/' && filename[9] == 'r' && filename[10] == 'c' && filename[11] == 's' && filename[12] == 'v' && filename[13] == 'r'
+        )
+        return 1;
     return 0;
 }
 
