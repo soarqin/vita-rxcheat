@@ -1,7 +1,7 @@
 #ifndef _LIBALLOC_H
 #define _LIBALLOC_H
 
-#include <stdlib.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /** \defgroup ALLOCHOOKS liballoc hooks 
@@ -12,7 +12,6 @@
  */
 
 /** @{ */
-
 
 
 // If we are told to not define our own size_t, then we skip the define.
@@ -65,8 +64,6 @@ extern void* liballoc_alloc(size_t);
 extern int liballoc_free(void*,size_t);
 
 
-       
-
 extern void    *PREFIX(malloc)(size_t);				///< The standard function.
 extern void    *PREFIX(realloc)(void *, size_t);		///< The standard function.
 extern void    *PREFIX(calloc)(size_t, size_t);		///< The standard function.
@@ -81,5 +78,3 @@ extern void     PREFIX(free)(void *);					///< The standard function.
 /** @} */
 
 #endif
-
-
