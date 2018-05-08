@@ -1,6 +1,7 @@
 #include "net.h"
 #include "mem.h"
 #include "trophy.h"
+#include "cheat.h"
 #include "util.h"
 #include "debug.h"
 #include "blit.h"
@@ -10,6 +11,7 @@
 
 #include <vitasdk.h>
 #include <taihen.h>
+#include <stdarg.h>
 
 #define HOOKS_NUM      7
 
@@ -21,26 +23,34 @@ static uint32_t old_buttons = 0;
 
 static int running = 1;
 
-static const char *show_msg = NULL, *show_msg2 = NULL;
+#define MSG_MAX (5)
+static char show_msg[MSG_MAX][80] = {};
 static uint64_t msg_deadline = 0ULL;
 static uint64_t last_tick = 0ULL;
 
 static void main_net_init();
 
-void set_show_msg(uint64_t millisec, const char *msg, const char *msg2) {
+void set_show_msg(uint64_t millisec, int count, ...) {
+    va_list arg_ptr;
+    int i;
     msg_deadline = millisec + util_gettick();
-    show_msg = msg;
-    show_msg2 = msg2;
+    va_start(arg_ptr, count);
+    if (count > MSG_MAX) count = MSG_MAX;
+    for (i = 0; i < count; ++i) {
+        sceClibStrncpy(show_msg[i], va_arg(arg_ptr, const char*), 79);
+        show_msg[i][79] = 0;
+    }
+    va_end(arg_ptr);
 }
 
 void clear_show_msg() {
     msg_deadline = 0;
-    show_msg = NULL; show_msg2 = NULL;
+    show_msg[0][0] = 0;
 }
 
 void check_msg_timeout(uint64_t curr_tick) {
-    if (show_msg && curr_tick >= msg_deadline) {
-        show_msg = show_msg2 = NULL;
+    if (msg_deadline > 0 && curr_tick >= msg_deadline) {
+        show_msg[0][0] = 0;
         msg_deadline = 0;
     }
 }
@@ -101,11 +111,12 @@ int sceSysmoduleUnloadModule_patched(SceSysmoduleModuleId id) {
 }
 
 int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam, int sync) {
-    if (show_msg) {
+    if (msg_deadline) {
+        int i;
         blit_set_frame_buf(pParam);
-        blit_string_ctr(2, show_msg);
-        if (show_msg2)
-            blit_string_ctr(20, show_msg2);
+        for (i = 0; i < MSG_MAX; ++i) {
+            blit_string_ctr(2 + 18 * i, show_msg[i]);
+        }
     }
     return TAI_CONTINUE(int, ref[4], pParam, sync);
 }
@@ -118,6 +129,12 @@ int sceNetInit_patched(SceNetInitParam *param) {
 int sceNetCtlInit_patched() {
     if (net_loaded()) return 0;
     return TAI_CONTINUE(int, ref[6]);
+}
+
+static void main_cheat_load() {
+    char titleid[16];
+    sceAppMgrAppParamGetString(0, 12, titleid, 16);
+    cheat_load(titleid);
 }
 
 static void main_net_init() {
@@ -133,6 +150,7 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(10000000);
 
     util_init();
+    main_cheat_load();
     main_net_init();
 #ifdef RCSVR_DEBUG
     SceKernelFreeMemorySizeInfo fmsi;
@@ -146,7 +164,10 @@ int rcsvr_main_thread(SceSize args, void *argp) {
 
     hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x7A410B64, sceDisplaySetFrameBuf_patched);
 
-    set_show_msg(15000, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
+    if (cheat_loaded())
+        set_show_msg(15000, 3, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin", "Cheat code loaded, L+R+" CHAR_LEFT "+SELECT for menu");
+    else
+        set_show_msg(15000, 2, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
     while(running) {
         // checkInput();
         uint64_t curr_tick = util_gettick();
@@ -154,6 +175,7 @@ int rcsvr_main_thread(SceSize args, void *argp) {
         net_kcp_process(curr_tick);
         if (curr_tick >= last_tick + 200) {
             mem_lockdata_process();
+            cheat_process();
             last_tick = curr_tick;
         }
     }
@@ -162,6 +184,10 @@ int rcsvr_main_thread(SceSize args, void *argp) {
 
 void _start() __attribute__((weak, alias ("module_start")));
 int module_start(SceSize argc, const void *args) {
+    sceIoMkdir("ux0:data", 0777);
+    sceIoMkdir("ux0:data/rcsvr", 0777);
+    sceIoMkdir("ux0:data/rcsvr/cheat", 0777);
+
     trophy_init();
 
     hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x4D695C1F, scePowerSetUsingWireless_patched);

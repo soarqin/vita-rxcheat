@@ -18,6 +18,8 @@ include("${VITASDK}/share/vita.cmake" REQUIRED)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -Wall -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
 
+add_subdirectory(libcheat)
+
 add_executable(kernel
   kernel.c
 )
@@ -61,6 +63,8 @@ add_executable(user
     mem.c mem.h
     # trophy
     trophy.c trophy.h
+    # cheat code
+    cheat.c cheat.h
     # draw
     blit.c blit.h font_pgf.c
     # util
@@ -75,6 +79,7 @@ add_executable(user
 target_include_directories(user PRIVATE ../kcp)
 
 target_link_libraries(user
+    cheat
     taihen_stub
     SceLibc_stub_weak
     SceLibKernel_stub_weak

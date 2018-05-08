@@ -38,8 +38,7 @@ static memlock_data lockdata[LOCK_COUNT_MAX];
 static int lock_count = 0, mem_lock_ready = 0;
 
 void mem_init() {
-    sceIoMkdir("ux0:data", 0777);
-    sceIoMkdir("ux0:data/rcsvr", 0777);
+    sceIoMkdir("ux0:data/rcsvr/temp", 0777);
     searchMutex = sceKernelCreateMutex("rcsvr_search_mutex", 0, 0, 0);
     searchSema = sceKernelCreateSema("rcsvr_search_sema", 0, 0, 1, NULL);
 }
@@ -221,7 +220,7 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
         mem_reload();
         SceUID f = -1;
         char outfile[256];
-        sceClibSnprintf(outfile, 256, "ux0:data/rcsvr/%d.tmp", last_sidx);
+        sceClibSnprintf(outfile, 256, "ux0:data/rcsvr/temp/%d", last_sidx);
         f = sceIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0666);
         int i;
         for (i = 0; i < static_cnt; ++i) {
@@ -241,7 +240,7 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
     } else {
         SceUID f = -1;
         char infile[256];
-        sceClibSnprintf(infile, 256, "ux0:data/rcsvr/%d.tmp", last_sidx);
+        sceClibSnprintf(infile, 256, "ux0:data/rcsvr/temp/%d", last_sidx);
         f = sceIoOpen(infile, SCE_O_RDONLY, 0666);
         if (f < 0) {
             type = st_none;
@@ -251,7 +250,7 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
         last_sidx ^= 1;
         SceUID of = -1;
         char outfile[256];
-        sceClibSnprintf(outfile, 256, "ux0:data/rcsvr/%d.tmp", last_sidx);
+        sceClibSnprintf(outfile, 256, "ux0:data/rcsvr/temp/%d", last_sidx);
         of = sceIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0666);
         next_search(f, of, data, size, cb);
         sceIoClose(of);
@@ -261,8 +260,8 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
 }
 
 void mem_search_reset() {
-    sceIoRemove("ux0:data/rcsvr/0.tmp");
-    sceIoRemove("ux0:data/rcsvr/1.tmp");
+    sceIoRemove("ux0:data/rcsvr/temp/0");
+    sceIoRemove("ux0:data/rcsvr/temp/1");
     last_sidx = 0;
     stype = st_none;
 }
