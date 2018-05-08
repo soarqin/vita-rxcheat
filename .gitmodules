@@ -1,0 +1,3 @@
+[submodule "vita/libcheat"]
+	path = vita/libcheat
+	url = https://github.com/soarqin/libcheat
