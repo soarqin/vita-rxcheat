@@ -7,6 +7,7 @@ void mem_init();
 void mem_finish();
 
 uint32_t mem_convert(uint32_t addr);
+void mem_reload();
 
 void mem_search(int type, int heap, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen));
 void mem_search_reset();

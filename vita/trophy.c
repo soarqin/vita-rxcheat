@@ -43,7 +43,7 @@ void trophy_hook() {
     hooks[0] = taiHookFunctionImport(
         &ref[0],
         TAI_MAIN_MODULE,
-        TAI_ANY_LIBRARY,
+        0x4332C10D,
         0xC49FD33F,
         sceNpTrophyCreateContext_patched);
 }

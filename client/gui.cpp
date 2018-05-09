@@ -129,6 +129,10 @@ Gui::Gui() {
     client_ = new UdpClient;
     client_->setOnConnected([&](const char *addr) {
         strncpy(ip_, addr, 256);
+        loadTable(client_->titleId().c_str());
+    });
+    client_->setOnDisconnected([&]() {
+        saveTable(client_->titleId().c_str());
     });
     cmd_ = new Command(*client_);
     handler_ = new Handler(*this);
@@ -328,6 +332,7 @@ inline void Gui::connectPanel() {
         ImGui::Text("%s - %s", client_->titleId().c_str(), client_->title().c_str());
         langPanel();
         if (ImGui::Button(LS(DISCONNECT), ImVec2(100.f, 0.f))) {
+            saveTable(client_->titleId().c_str());
             searchResults_.clear();
             searchStatus_ = 0;
             trophies_.clear();
@@ -484,7 +489,7 @@ inline void Gui::searchPanel() {
                     memAddr_ = searchResults_[searchResultIdx_].addr & ~0xFF;
                     snprintf(memoryAddr_, 9, "%08X", memAddr_);
                     memViewData_.clear();
-                    memViewIndex_ = -1;
+                    memViewIndex_ = searchResults_[searchResultIdx_].addr - memAddr_;
                     cmd_->readMem(memAddr_);
                 }
                 ImGui::SameLine();
@@ -687,7 +692,7 @@ inline void Gui::tablePanel() {
             memAddr_ = memTable_[memTableIdx_].addr & ~0xFF;
             snprintf(memoryAddr_, 9, "%08X", memAddr_);
             memViewData_.clear();
-            memViewIndex_ = -1;
+            memViewIndex_ = memTable_[memTableIdx_].addr - memAddr_;
             cmd_->readMem(memAddr_);
         }
         ImGui::SameLine();
@@ -706,13 +711,7 @@ inline void Gui::tablePanel() {
         tableEditAdding_ = true;
         openPopup = true;
     }
-    if (ImGui::Button(LS(TABLE_SAVE))) {
-        saveTable(client_->titleId().c_str());
-    }
     ImGui::SameLine();
-    if (ImGui::Button(LS(TABLE_LOAD))) {
-        loadTable(client_->titleId().c_str());
-    }
     if (openPopup) {
         ImGui::OpenPopup(LS(TABLE_EDIT));
     }

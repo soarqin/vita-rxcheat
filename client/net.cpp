@@ -195,6 +195,7 @@ void UdpClient::process() {
         while ((r = _recv(buf, 2048, &addr)) > 0) {
             fprintf(stdout, "Recv %c packets: %d\n", buf[0], r);
             if (buf[0] == 'D') {
+                if (onDisconnected_) onDisconnected_();
                 disconnect();
                 break;
             }

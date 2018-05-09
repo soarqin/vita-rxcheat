@@ -31,8 +31,11 @@ public:
     void process();
     int send(const char *buf, int len);
 
-    void setOnConnected(const std::function<void(const char*)>& f) {
+    void setOnConnected(const std::function<void(const char*)> &f) {
         onConnected_ = f;
+    }
+    void setOnDisconnected(const std::function<void()> &f) {
+        onDisconnected_ = f;
     }
 
 private:
@@ -52,4 +55,5 @@ private:
     std::string titleid_, title_;
 
     std::function<void(const char*)> onConnected_;
+    std::function<void()> onDisconnected_;
 };

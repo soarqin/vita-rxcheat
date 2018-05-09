@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.6)
 
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-  if(DEFINED ENV{VITASDK})
-    set(CMAKE_TOOLCHAIN_FILE "$ENV{VITASDK}/share/vita.toolchain.cmake" CACHE PATH "toolchain file")
-  else()
-    message(FATAL_ERROR "Please define VITASDK to point to your SDK path!")
-  endif()
+    if(DEFINED ENV{VITASDK})
+        set(CMAKE_TOOLCHAIN_FILE "$ENV{VITASDK}/share/vita.toolchain.cmake" CACHE PATH "toolchain file")
+    else()
+        message(FATAL_ERROR "Please define VITASDK to point to your SDK path!")
+    endif()
 endif()
 
 project(rcsvr)
@@ -21,18 +21,18 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
 add_subdirectory(libcheat)
 
 add_executable(kernel
-  kernel.c
+    kernel.c
 )
 
 set_target_properties(kernel PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-D__VITA_KERNEL__")
 
 target_link_libraries(kernel
-  taihenForKernel_stub
-  SceSysrootForKernel_stub
-  SceSysmemForDriver_stub
-  SceModulemgrForDriver_stub
-  SceThreadmgrForDriver_stub
-  SceIofilemgrForDriver_stub
+    taihenForKernel_stub
+    SceSysrootForKernel_stub
+    SceSysmemForDriver_stub
+    SceModulemgrForDriver_stub
+    SceThreadmgrForDriver_stub
+    SceIofilemgrForDriver_stub
 )
 
 vita_create_self(rcsvr.skprx kernel UNSAFE CONFIG kernel.yml)
@@ -65,7 +65,8 @@ add_executable(user
     trophy.c trophy.h
     # cheat code
     cheat.c cheat.h
-    # draw
+    # ui
+    ui.c ui.h
     blit.c blit.h font_pgf.c
     # util
     util.c util.h
@@ -89,6 +90,7 @@ target_link_libraries(user
     SceKernelThreadMgr_stub_weak
     SceKernelModulemgr_stub_weak
     SceAppMgr_stub_weak
+    SceAppUtil_stub_weak
     SceCtrl_stub_weak
     SceDisplay_stub_weak
     SceIofilemgr_stub_weak

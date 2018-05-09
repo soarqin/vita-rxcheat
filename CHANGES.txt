@@ -1,6 +1,14 @@
 v0.7:
-  1. do not search in memory blocks that are not belong to game main module
-  2. use a global hook to allow read/write to ux0:data and ux0:temp
+  1. added CwCheat code support
+  2. added ui codes to support basic menu, for toggling cheat code
+  3. redesigned memory address mapping for cheat code support. WARN: this will
+     break compatibility with old memory tables
+  4. do not search in memory blocks that are not belong to game main module
+  5. use a global hook to allow read/write to ux0:data and ux0:temp
+  6. fixed loading for some games
+  7. move to address cell while viewing memory from result/table
+  8. remove table load/save button, tables are loaded/saved automatically on
+     connect/disconnect
 
 v0.6.1:
   1. fixed memlock packets

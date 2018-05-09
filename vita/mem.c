@@ -65,7 +65,7 @@ uint32_t mem_convert(uint32_t addr) {
     return mr->start + off;
 }
 
-static void mem_reload() {
+void mem_reload() {
     mem_loaded = 1;
     static_cnt = stack_cnt = 0;
     sceClibMemset(staticmem, 0, sizeof(memory_range) * STATIC_MEM_MAX);
@@ -147,7 +147,7 @@ static void reload_heaps() {
                     if ((heap_info.type == SCE_KERNEL_MEMBLOCK_TYPE_USER_RW || heap_info.type == SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE) && (heap_info.access & 6) == 6) {
                         log_trace("HEAP: %08X %08X %08X %08X %08X\n", heap_info.mappedBase, heap_info.mappedSize, heap_info.access, heap_info.memoryType, heap_info.type);
                         memory_range *mr = &heapmem[heap_cnt++];
-                        mr->start = (uint32_t)heap_info.mappedBase & ~0x80000000U;
+                        mr->start = (uint32_t)heap_info.mappedBase;
                         mr->size = heap_info.mappedSize;
                     }
                     continue;
@@ -156,7 +156,7 @@ static void reload_heaps() {
         }
         addr += 0x4000;
     }
-    for (i = 0; i < heap_cnt; ++i) stackmem[i].index = i + STATIC_MEM_MAX + STACK_MEM_MAX;
+    for (i = 0; i < heap_cnt; ++i) heapmem[i].index = i + STATIC_MEM_MAX + STACK_MEM_MAX;
 }
 
 static void single_search(SceUID outfile, memory_range *mr, const void *data, int size, void (*cb)(const uint32_t *addr, int count, int datalen)) {

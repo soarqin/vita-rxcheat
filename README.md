@@ -10,12 +10,26 @@ Installation
         ux0:tai/rcsvr.skprx
 
 2. Copy tai/rcsvr.suprx to ux0:tai/
-
 3. Ensure the IP address of your PSVITA/PSTV can be accessed from your PC, start any game on PSVITA, run rcclient on PC after "VITA Remote Cheat" shown up, click Autoconnect button
-
 4. If step 3 is not connecting, you can get PSVITA IP address in Network Settings or VitaShell (Press SELECT in FTP MODE), input in the client and click Connect button
-
 5. Now your can search memory or unlock trophies as well
+
+
+HOW TO use CwCheat codes
+------------------------
+1. Put CwCheat code file as ux0:data/rcsvr/cheat/TITLE_ID.ini (the extension can also be txt or dat), e.g. below is a simple working CwCheat file for Atelier Firis (ASIA version), just save it as ux0:data/rcsvr/cheat/PCSH10026.ini:
+
+        _S PCSH10026
+        _G Atelier Firis
+        _C0 LOCK DAY LEFT TO 360
+        _L 0x000C6FB0 0x0000005B
+        _C0 LOCK HOUR TO 0
+        _L 0x000C6FB4 0x00000000
+        _C0 LOCK HOUR TO 12
+        _L 0x000C6FB4 0x0000000C
+
+2. Boot the game with certain TITLE_ID, the CwCheat codes will be loaded and you can see tips with "VITA Remote Cheat" message
+3. Press L+R+LEFT+SELECT to call up CwCheat menu and enable/disable sections (enabled sections are prefixed by a CIRCLE)
 
 
 Credits
@@ -33,3 +47,4 @@ Credits
 11. [kcp](https://github.com/skywind3000/kcp) for reliable UDP commnication
 12. [GLFW](http://www.glfw.org), [gl3w](https://github.com/skaslev/gl3w), [Dear ImGui](https://github.com/ocornut/imgui) for client UI
 13. [yaml-cpp](https://github.com/jbeder/yaml-cpp) for client configurations and multi-language support
+14. Subproject [libcheat](https://github.com/soarqin/libcheat) for cheat codes support

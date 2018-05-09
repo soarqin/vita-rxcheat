@@ -4,67 +4,24 @@
 #include "cheat.h"
 #include "util.h"
 #include "debug.h"
-#include "blit.h"
+#include "ui.h"
 #include "font_pgf.h"
 
 #include "../version.h"
 
 #include <vitasdk.h>
 #include <taihen.h>
-#include <stdarg.h>
 
-#define HOOKS_NUM      7
+#define HOOKS_NUM      6
 
-static SceUID hooks[HOOKS_NUM];
-static tai_hook_ref_t ref[HOOKS_NUM];
-
-// Generic variables
-static uint32_t old_buttons = 0;
+static SceUID hooks[HOOKS_NUM] = {};
+static tai_hook_ref_t ref[HOOKS_NUM] = {};
 
 static int running = 1;
 
-#define MSG_MAX (5)
-static char show_msg[MSG_MAX][80] = {};
-static uint64_t msg_deadline = 0ULL;
 static uint64_t last_tick = 0ULL;
 
 static void main_net_init();
-
-void set_show_msg(uint64_t millisec, int count, ...) {
-    va_list arg_ptr;
-    int i;
-    msg_deadline = millisec + util_gettick();
-    va_start(arg_ptr, count);
-    if (count > MSG_MAX) count = MSG_MAX;
-    for (i = 0; i < count; ++i) {
-        sceClibStrncpy(show_msg[i], va_arg(arg_ptr, const char*), 79);
-        show_msg[i][79] = 0;
-    }
-    va_end(arg_ptr);
-}
-
-void clear_show_msg() {
-    msg_deadline = 0;
-    show_msg[0][0] = 0;
-}
-
-void check_msg_timeout(uint64_t curr_tick) {
-    if (msg_deadline > 0 && curr_tick >= msg_deadline) {
-        show_msg[0][0] = 0;
-        msg_deadline = 0;
-    }
-}
-
-// Checking buttons startup/closeup
-void checkInput() {
-    SceCtrlData ctrl;
-    sceCtrlPeekBufferPositive(0, &ctrl, 1);
-    if (old_buttons == ctrl.buttons) return;
-    if ((ctrl.buttons & (SCE_CTRL_START | SCE_CTRL_SELECT)) == (SCE_CTRL_START | SCE_CTRL_SELECT)) {
-        trophy_test();
-    }
-    old_buttons = ctrl.buttons;
-}
 
 int scePowerSetUsingWireless_patched(int enable) {
     return TAI_CONTINUE(int, ref[0], 1);
@@ -110,25 +67,14 @@ int sceSysmoduleUnloadModule_patched(SceSysmoduleModuleId id) {
     return ret;
 }
 
-int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *pParam, int sync) {
-    if (msg_deadline) {
-        int i;
-        blit_set_frame_buf(pParam);
-        for (i = 0; i < MSG_MAX; ++i) {
-            blit_string_ctr(2 + 18 * i, show_msg[i]);
-        }
-    }
-    return TAI_CONTINUE(int, ref[4], pParam, sync);
-}
-
 int sceNetInit_patched(SceNetInitParam *param) {
     if (net_loaded()) return 0;
-    return TAI_CONTINUE(int, ref[5], param);
+    return TAI_CONTINUE(int, ref[4], param);
 }
 
 int sceNetCtlInit_patched() {
     if (net_loaded()) return 0;
-    return TAI_CONTINUE(int, ref[6]);
+    return TAI_CONTINUE(int, ref[5]);
 }
 
 static void main_cheat_load() {
@@ -141,8 +87,8 @@ static void main_net_init() {
     if (net_init() == 0) {
         debug_init(TRACE); // DEBUG
         net_kcp_listen(9527);
-        hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0xEB03E265, sceNetInit_patched);
-        hooks[6] = taiHookFunctionImport(&ref[6], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x495CA1DB, sceNetCtlInit_patched);
+        hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, 0x6BF8B2A2, 0xEB03E265, sceNetInit_patched);
+        hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, 0x6BF8B2A2, 0x495CA1DB, sceNetCtlInit_patched);
     }
 }
 
@@ -158,20 +104,17 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelGetFreeMemorySize(&fmsi);
     log_trace("Free memory: %X %X %X\n", fmsi.size_user, fmsi.size_phycont, fmsi.size_cdram);
 #endif
-    font_pgf_init();
+    ui_init();
     mem_init();
-    blit_set_color(0xffffffff);
-
-    hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x7A410B64, sceDisplaySetFrameBuf_patched);
 
     if (cheat_loaded())
-        set_show_msg(15000, 3, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin", "Cheat code loaded, L+R+" CHAR_LEFT "+SELECT for menu");
+        ui_set_show_msg(15000, 3, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin", "Cheat code loaded, L+R+" CHAR_LEFT "+SELECT for menu");
     else
-        set_show_msg(15000, 2, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
+        ui_set_show_msg(15000, 2, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
     while(running) {
         // checkInput();
         uint64_t curr_tick = util_gettick();
-        check_msg_timeout(curr_tick);
+        ui_check_msg_timeout(curr_tick);
         net_kcp_process(curr_tick);
         if (curr_tick >= last_tick + 200) {
             mem_lockdata_process();
@@ -179,6 +122,11 @@ int rcsvr_main_thread(SceSize args, void *argp) {
             last_tick = curr_tick;
         }
     }
+    mem_finish();
+    ui_finish();
+    net_finish();
+    cheat_free();
+
     return sceKernelExitDeleteThread(0);
 }
 
@@ -190,10 +138,10 @@ int module_start(SceSize argc, const void *args) {
 
     trophy_init();
 
-    hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x4D695C1F, scePowerSetUsingWireless_patched);
-    hooks[1] = taiHookFunctionImport(&ref[1], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x3CE187B6, scePowerSetConfigurationMode_patched);
-    hooks[2] = taiHookFunctionImport(&ref[2], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x79A0160A, sceSysmoduleLoadModule_patched);
-    hooks[3] = taiHookFunctionImport(&ref[3], TAI_MAIN_MODULE, TAI_ANY_LIBRARY, 0x31D87805, sceSysmoduleUnloadModule_patched);
+    hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, 0x1082DA7F, 0x4D695C1F, scePowerSetUsingWireless_patched);
+    hooks[1] = taiHookFunctionImport(&ref[1], TAI_MAIN_MODULE, 0x1082DA7F, 0x3CE187B6, scePowerSetConfigurationMode_patched);
+    hooks[2] = taiHookFunctionImport(&ref[2], TAI_MAIN_MODULE, 0x03FCF19D, 0x79A0160A, sceSysmoduleLoadModule_patched);
+    hooks[3] = taiHookFunctionImport(&ref[3], TAI_MAIN_MODULE, 0x03FCF19D, 0x31D87805, sceSysmoduleUnloadModule_patched);
 
     running = 1;
     SceUID thid = sceKernelCreateThread("rcsvr_main_thread", (SceKernelThreadEntry)rcsvr_main_thread, 0x10000100, 0xF000, 0, 0, NULL);
@@ -204,16 +152,14 @@ int module_start(SceSize argc, const void *args) {
 }
 
 int module_stop(SceSize argc, const void *args) {
+    int i;
+
     running = 0;
 
-    int i;
     for (i = 0; i < HOOKS_NUM; i++)
         if (hooks[i] > 0)
             taiHookRelease(hooks[i], ref[i]);
 
-    font_pgf_finish();
-    mem_finish();
-    net_finish();
     trophy_finish();
     return SCE_KERNEL_STOP_SUCCESS;
 }
