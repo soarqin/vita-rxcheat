@@ -176,6 +176,7 @@ Gui::Gui() {
 }
 
 Gui::~Gui() {
+    saveTable(client_->titleId().c_str());
     saveData();
     delete handler_;
     delete cmd_;
