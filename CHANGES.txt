@@ -1,3 +1,7 @@
+v0.7.1:
+  1. disable plugin loading while L is pressed on game start
+  2. added log system to kernel module
+
 v0.7:
   1. added CwCheat code support
   2. added ui codes to support basic menu, for toggling cheat code

@@ -41,7 +41,7 @@ static const char menu_items[MENU_MAX][80] = {};
 uint32_t old_buttons = 0;
 uint32_t enter_button = SCE_CTRL_CIRCLE, cancel_button = SCE_CTRL_CROSS;
 
-#define CHEAT_MENU_TRIGGER (SCE_CTRL_L1 | SCE_CTRL_R1 | SCE_CTRL_LEFT | SCE_CTRL_SELECT)
+#define CHEAT_MENU_TRIGGER (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER | SCE_CTRL_LEFT | SCE_CTRL_SELECT)
 
 static int check_input(SceCtrlData *pad_data) {
     if (old_buttons == pad_data->buttons) return 0;

@@ -18,8 +18,8 @@ int mem_read(uint32_t addr, void *data, int size);
 typedef struct memory_range {
     uint32_t start;
     uint32_t size;
-    uint32_t crc32;
     uint32_t index;
+    uint32_t flag;    // 1-read only memory
 } memory_range;
 typedef struct memlock_data {
     uint32_t address;

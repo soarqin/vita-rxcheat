@@ -10,32 +10,10 @@ endif()
 
 project(rcsvr)
 
-# C11
-set(CMAKE_C_STANDARD 11)
-
 # vitasdk
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -Wall -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
-
-add_subdirectory(libcheat)
-
-add_executable(kernel
-    kernel.c
-)
-
-set_target_properties(kernel PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-D__VITA_KERNEL__")
-
-target_link_libraries(kernel
-    taihenForKernel_stub
-    SceSysrootForKernel_stub
-    SceSysmemForDriver_stub
-    SceModulemgrForDriver_stub
-    SceThreadmgrForDriver_stub
-    SceIofilemgrForDriver_stub
-)
-
-vita_create_self(rcsvr.skprx kernel UNSAFE CONFIG kernel.yml)
 
 # debug option
 option(RCSVR_DEBUG "Debug output through udp like libdebugnet" OFF)
@@ -54,6 +32,38 @@ if(RCSVR_DEBUG)
         set(DEBUG_DEFS "${DEBUG_DEFS} -DRCSVR_DEBUG_PORT=${RCSVR_DEBUG_PORT}")
     endif()
 endif()
+
+option(RCSVR_KERNEL_DEBUG "Debug output to file for kernel module" OFF)
+if(RCSVR_KERNEL_DEBUG)
+    set(KERNEL_DEBUG_DEFS "-DRCSVR_DEBUG")
+    option(RCSVR_KERNEL_DEBUG_LINENO "Add file:lineno to debug output" OFF)
+    if(RCSVR_KERNEL_DEBUG_LINENO)
+        set(KERNEL_DEBUG_DEFS "${KERNEL_DEBUG_DEFS} -DRCSVR_DEBUG_LINENO")
+    endif()
+endif()
+
+add_subdirectory(libcheat)
+
+add_executable(kernel
+    kernel.c
+    kernel_debug.c kernel_debug.h
+)
+
+target_link_libraries(kernel
+    taihenForKernel_stub
+    k
+    gcc
+    SceSysrootForKernel_stub
+    SceSysmemForDriver_stub
+    SceModulemgrForDriver_stub
+    SceThreadmgrForDriver_stub
+    SceIofilemgrForDriver_stub
+    SceCtrlForDriver_stub
+)
+
+set_target_properties(kernel PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-std=gnu99 -D__VITA_KERNEL__ ${KERNEL_DEBUG_DEFS}")
+
+vita_create_self(rcsvr.skprx kernel UNSAFE CONFIG kernel.yml)
 
 add_executable(user
     main.c
@@ -102,7 +112,7 @@ target_link_libraries(user
     SceNpTrophy_stub_weak
 )
 
-set_target_properties(user PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-DNDEBUG ${DEBUG_DEFS}")
+set_target_properties(user PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-std=gnu11 -DNDEBUG ${DEBUG_DEFS}")
 
 vita_create_self(rcsvr.suprx user UNSAFE CONFIG user.yml)
 

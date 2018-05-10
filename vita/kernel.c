@@ -1,3 +1,5 @@
+#include "kernel_debug.h"
+
 #include <vitasdkkern.h>
 #include <taihen.h>
 
@@ -21,8 +23,16 @@ static SceUID start_preloaded_modules_patched(SceUID pid) {
         char titleid[32];
         int result = 0;
         ksceKernelGetProcessTitleId(pid, titleid, 32);
-        if (titleid[0] == 'P' && titleid[1] == 'C')
+        if (titleid[0] == 'P' && titleid[1] == 'C') {
+            /* Skip plugin load if L is pressed on startup */
+            SceCtrlData pad_data;
+            int cnt = ksceCtrlPeekBufferPositive(0, &pad_data, 1);
+            log_trace("ksceCtrlPeekBufferPositive: %s %d %08X\n", titleid, cnt, pad_data.buttons);
+            if (cnt > 0 && (pad_data.buttons & (SCE_CTRL_L1 | SCE_CTRL_LTRIGGER))) {
+                return ret;
+            }
             ksceKernelLoadStartModuleForPid(pid, "ux0:/tai/rcsvr.suprx", 0, NULL, 0, NULL, &result);
+        }
     }
     return ret;
 }
@@ -93,6 +103,7 @@ static int _sceIoRemove_patched(const char *filename, sceIoRemoveOpt* opt) {
 
 void _start() __attribute__ ((weak, alias("module_start")));
 int module_start(SceSize args, void *argp) {
+    debug_init(TRACE);
     hooks[0] = taiHookFunctionExportForKernel(KERNEL_PID, 
         &refs[0], 
         "SceKernelModulemgr", 

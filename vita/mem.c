@@ -55,7 +55,10 @@ void mem_finish() {
 }
 
 static int memory_range_compare(const void *a, const void *b) {
-    return (int)((memory_range*)a)->crc32 - (int)((memory_range*)b)->crc32;
+    uint32_t c1 = ((const memory_range*)a)->start;
+    uint32_t c2 = ((const memory_range*)b)->start;
+    if (c1 == c2) return 0;
+    return c1 < c2 ? -1 : 1;
 }
 
 uint32_t mem_convert(uint32_t addr) {
@@ -93,12 +96,12 @@ void mem_reload() {
             log_trace("Module %s\n", info.path);
             int j;
             for (j = 0; j < 4; ++j) {
-                if (info.segments[j].vaddr == 0 || (info.segments[j].perms & 6) != 6) continue;
-                log_trace("    0x%08X 0x%08X 0x%08X 0x%08X\n", info.segments[j].vaddr, info.segments[j].memsz, info.segments[j].perms, info.segments[j].flags);
+                if (info.segments[j].vaddr == 0 || (info.segments[j].perms & 4) != 4) continue;
                 memory_range *mr = &staticmem[static_cnt++];
                 mr->start = (uint32_t)info.segments[j].vaddr;
                 mr->size = info.segments[j].memsz;
-                mr->crc32 = util_crc32((const uint8_t*)info.path, strlen(info.path), 0xFFFFFFFFU - j);
+                mr->flag = (info.segments[j].perms & 2) == 0 ? 1 : 0;
+                log_trace("    0x%08X 0x%08X 0x%08X 0x%08X\n", info.segments[j].vaddr, info.segments[j].memsz, info.segments[j].perms, info.segments[j].flags);
             }
         }
     }
@@ -122,7 +125,6 @@ void mem_reload() {
         memory_range *mr = &stackmem[stack_cnt++];
         mr->start = (uint32_t)status.stack;
         mr->size = status.stackSize;
-        mr->crc32 = util_crc32((const uint8_t*)status.name, strlen(status.name), 0xFFFFFFFFU);
     }
     qsort(stackmem, stack_cnt, sizeof(memory_range), memory_range_compare);
     for (i = 0; i < stack_cnt; ++i) stackmem[i].index = i + STATIC_MEM_MAX;
@@ -145,10 +147,20 @@ static void reload_heaps() {
                 if (ret == 0) {
                     addr = (uint32_t)heap_info.mappedBase + heap_info.mappedSize;
                     if ((heap_info.type == SCE_KERNEL_MEMBLOCK_TYPE_USER_RW || heap_info.type == SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE) && (heap_info.access & 6) == 6) {
-                        log_trace("HEAP: %08X %08X %08X %08X %08X\n", heap_info.mappedBase, heap_info.mappedSize, heap_info.access, heap_info.memoryType, heap_info.type);
-                        memory_range *mr = &heapmem[heap_cnt++];
-                        mr->start = (uint32_t)heap_info.mappedBase;
-                        mr->size = heap_info.mappedSize;
+                        uint32_t base = (uint32_t)heap_info.mappedBase;
+                        uint32_t size = heap_info.mappedSize;
+                        log_trace("HEAP: %08X %08X %08X %08X %08X\n", base, size, heap_info.access, heap_info.memoryType, heap_info.type);
+                        while (size > 0) {
+                            memory_range *mr = &heapmem[heap_cnt++];
+                            mr->start = (uint32_t)base;
+                            if (size > 0x1000000U) {
+                                mr->size = 0x1000000U;
+                            } else {
+                                mr->size = size;
+                            }
+                            base += mr->size;
+                            size -= mr->size;
+                        }
                     }
                     continue;
                 }
