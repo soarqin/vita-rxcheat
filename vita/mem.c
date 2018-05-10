@@ -3,6 +3,8 @@
 #include "debug.h"
 #include "util.h"
 
+#include "kernel_api.h"
+
 #include <vitasdk.h>
 #include <stdlib.h>
 
@@ -61,10 +63,11 @@ static int memory_range_compare(const void *a, const void *b) {
     return c1 < c2 ? -1 : 1;
 }
 
-uint32_t mem_convert(uint32_t addr) {
+uint32_t mem_convert(uint32_t addr, int *read_only) {
     memory_range *mr = &mem_ranges[addr >> 24];
     uint32_t off = addr & 0xFFFFFFU;
     if (mr->start == 0 || off >= mr->size) return 0;
+    if (read_only) *read_only = mr->flag & 1;
     return mr->start + off;
 }
 
@@ -204,7 +207,7 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
         if (n < 0) break;
         n >>= 2;
         for (i = 0; i < n; ++i) {
-            uint32_t raddr = mem_convert(old[i]);
+            uint32_t raddr = mem_convert(old[i], NULL);
             log_debug("Check %08X\n", raddr);
             if ((old[i] >> 24) >= STATIC_MEM_MAX + STACK_MEM_MAX && sceKernelFindMemBlockByAddr((const void*)raddr, 0) < 0) continue;
             if (memcmp((void*)raddr, data, size) == 0) {
@@ -279,10 +282,14 @@ void mem_search_reset() {
 }
 
 void mem_set(uint32_t addr, const void *data, int size) {
-    uint32_t raddr = mem_convert(addr);
-    log_trace("Writing %d bytes to 0x%08X->0x%08X\n", size, addr, raddr);
+    int readonly;
+    uint32_t raddr = mem_convert(addr, &readonly);
     if (raddr == 0) return;
-    sceClibMemcpy((void*)raddr, data, size);
+    log_trace("Writing %d bytes to 0x%08X->0x%08X (%d)\n", size, addr, raddr, readonly);
+    if (readonly)
+        rcsvrMemcpy((void*)raddr, data, size);
+    else
+        sceClibMemcpy((void*)raddr, data, size);
 }
 
 typedef struct {
@@ -340,7 +347,7 @@ int mem_read(uint32_t addr, void *data, int size) {
     if (!mem_loaded) {
         mem_reload();
     }
-    uint32_t raddr = mem_convert(addr);
+    uint32_t raddr = mem_convert(addr, NULL);
     if (raddr == 0) return -1;
     // SceUID heap_memblock = sceKernelFindMemBlockByAddr((const void*)addr, 0);
     // if (heap_memblock < 0) return -1;
@@ -406,7 +413,7 @@ void mem_lockdata_begin() {
 
 void mem_lockdata_add(uint32_t addr, uint8_t size, const char *data) {
     if (lock_count >= LOCK_COUNT_MAX) return;
-    uint32_t raddr = mem_convert(addr);
+    uint32_t raddr = mem_convert(addr, NULL);
     if (raddr == 0) return;
     memlock_data *ld = &lockdata[lock_count++];
     ld->address = raddr;

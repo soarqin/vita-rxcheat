@@ -6,3 +6,8 @@ rcsvr:
     main:
         start: module_start
         stop: module_stop
+    modules:
+        rcsvr:
+            syscall: true
+            functions:
+                - rcsvrMemcpy

@@ -178,7 +178,7 @@ static void _kcp_search_cb(const uint32_t *data, int size, int data_len) {
         uint32_t buf[0xC0] = {0};
         for (i = 0; i < size; ++i) {
             buf[i * 3] = data[i];
-            uint32_t addr = mem_convert(data[i]);
+            uint32_t addr = mem_convert(data[i], NULL);
             sceClibMemcpy(&buf[i * 3 + 1], (const void*)addr, data_len);
         }
         _kcp_send_cmd(0x10000, &buf, size * 4 * 3);

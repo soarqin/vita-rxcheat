@@ -46,14 +46,15 @@ add_subdirectory(libcheat)
 
 add_executable(kernel
     kernel.c
+    kernel_api.c kernel_api.h
     kernel_debug.c kernel_debug.h
 )
 
 target_link_libraries(kernel
     taihenForKernel_stub
-    k
-    gcc
+    taihenModuleUtils_stub
     SceSysrootForKernel_stub
+    SceCpuForDriver_stub
     SceSysmemForDriver_stub
     SceModulemgrForDriver_stub
     SceThreadmgrForDriver_stub
@@ -61,9 +62,17 @@ target_link_libraries(kernel
     SceCtrlForDriver_stub
 )
 
+if (RCSVR_KERNEL_DEBUG)
+    target_link_libraries(kernel
+        k
+        gcc
+    )
+endif ()
+
 set_target_properties(kernel PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-std=gnu99 -D__VITA_KERNEL__ ${KERNEL_DEBUG_DEFS}")
 
 vita_create_self(rcsvr.skprx kernel UNSAFE CONFIG kernel.yml)
+vita_create_stubs(kernel-stubs kernel kernel.yml KERNEL)
 
 add_executable(user
     main.c
@@ -90,6 +99,7 @@ add_executable(user
 target_include_directories(user PRIVATE ../kcp)
 
 target_link_libraries(user
+    ${CMAKE_BINARY_DIR}/kernel-stubs/librcsvr_stub_weak.a
     cheat
     taihen_stub
     SceLibc_stub_weak
@@ -113,6 +123,7 @@ target_link_libraries(user
 )
 
 set_target_properties(user PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-std=gnu11 -DNDEBUG ${DEBUG_DEFS}")
+add_dependencies(user kernel-stubs)
 
 vita_create_self(rcsvr.suprx user UNSAFE CONFIG user.yml)
 

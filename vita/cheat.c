@@ -4,6 +4,8 @@
 #include "debug.h"
 #include "util.h"
 
+#include "kernel_api.h"
+
 #include "libcheat/libcheat.h"
 
 #include <vitasdk.h>
@@ -13,24 +15,29 @@ static int sec_count = 0;
 static const cheat_section_t *sections = NULL;
 
 int read_cb(uint32_t addr, void *data, int len, int need_conv) {
-    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(addr) : (void*)(uintptr_t)addr;
+    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(addr, NULL) : (void*)(uintptr_t)addr;
     if (!paddr) return -1;
     memcpy(data, paddr, len);
     return len;
 }
 
 int write_cb(uint32_t addr, const void *data, int len, int need_conv) {
-    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(addr) : (void*)(uintptr_t)addr;
+    int readonly = 0;
+    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(addr, &readonly) : (void*)(uintptr_t)addr;
     if (!paddr) return -1;
-    memcpy(paddr, data, len);
+    if (readonly)
+        rcsvrMemcpy(paddr, data, len);
+    else
+        sceClibMemcpy(paddr, data, len);
     return len;
 }
 
 int trans_cb(uint32_t addr, uint32_t value, int len, int op, int need_conv) {
-    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(addr) : (void*)(uintptr_t)addr;
-    uint32_t val;
+    int readonly = 0;
+    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(addr, &readonly) : (void*)(uintptr_t)addr;
+    uint32_t val = 0;
     if (!paddr) return -1;
-    memcpy(&val, paddr, len);
+    sceClibMemcpy(&val, paddr, len);
     switch(op) {
         case 0:
             val += value; break;
@@ -43,17 +50,24 @@ int trans_cb(uint32_t addr, uint32_t value, int len, int op, int need_conv) {
         case 4:
             val ^= value; break;
     }
-    memcpy(paddr, &val, len);
+    if (readonly)
+        rcsvrMemcpy(paddr, &val, len);
+    else
+        sceClibMemcpy(paddr, &val, len);
     return len;
 }
 
 int copy_cb(uint32_t toaddr, uint32_t fromaddr, int len, int need_conv) {
     void *paddr1, *paddr2;
-    paddr1 = need_conv ? (void*)(uintptr_t)mem_convert(toaddr) : (void*)(uintptr_t)toaddr;
-    if (!paddr1) return -1;
-    paddr2 = need_conv ? (void*)(uintptr_t)mem_convert(fromaddr) : (void*)(uintptr_t)fromaddr;
+    paddr2 = need_conv ? (void*)(uintptr_t)mem_convert(fromaddr, NULL) : (void*)(uintptr_t)fromaddr;
     if (!paddr2) return -1;
-    memcpy(paddr1, paddr2, len);
+    int readonly = 0;
+    paddr1 = need_conv ? (void*)(uintptr_t)mem_convert(toaddr, &readonly) : (void*)(uintptr_t)toaddr;
+    if (!paddr1) return -1;
+    if (readonly)
+        rcsvrMemcpy(paddr1, paddr2, len);
+    else
+        sceClibMemcpy(paddr1, paddr2, len);
     return len;
 }
 

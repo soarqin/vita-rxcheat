@@ -7,6 +7,8 @@
 static SceUID hooks[HOOKS_NUM];
 static tai_hook_ref_t refs[HOOKS_NUM];
 
+extern void kernel_api_init();
+
 // Allow ux0:data/rcsvr* and ux0:temp/rcsvr*
 static inline int is_valid_filename(const char *filename) {
     if (filename[0] == 'u' && filename[1] == 'x' && filename[2] == '0' && filename[3] == ':'
@@ -142,6 +144,7 @@ int module_start(SceSize args, void *argp) {
         0xF2FF276E,
         0x78955C65,
         _sceIoRemove_patched);
+    kernel_api_init();
     return SCE_KERNEL_START_SUCCESS;
 }
 
