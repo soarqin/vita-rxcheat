@@ -564,10 +564,11 @@ inline void Gui::memoryPanel() {
     ImGui::PopItemWidth();
     ImGui::SameLine();
     if (ImGui::Button("->##GotoMemAddr")) {
-        memAddr_ = (uint32_t)strtoul(memoryAddr_, NULL, 16) & ~0xFF;
+        uint32_t oaddr = (uint32_t)strtoul(memoryAddr_, NULL, 16);
+        memAddr_ = oaddr & ~0xFF;
         snprintf(memoryAddr_, 9, "%08X", memAddr_);
         memViewData_.clear();
-        memViewIndex_ = -1;
+        memViewIndex_ = oaddr - memAddr_;
         cmd_->readMem(memAddr_);
     }
     size_t sz = memViewData_.size();
