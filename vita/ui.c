@@ -24,6 +24,7 @@ static tai_hook_ref_t ref[HOOKS_NUM] = {};
 
 static char show_msg[MSG_MAX][80] = {};
 static uint64_t msg_deadline = 0ULL;
+static SceUID msgMutex = -1;
 
 #define MENU_MAX        (10)
 #define MENU_SCROLL_MAX (10)
@@ -41,24 +42,23 @@ static const char menu_items[MENU_MAX][80] = {};
 uint32_t old_buttons = 0;
 uint32_t enter_button = SCE_CTRL_CIRCLE, cancel_button = SCE_CTRL_CROSS;
 
-#define CHEAT_MENU_TRIGGER (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER | SCE_CTRL_LEFT | SCE_CTRL_SELECT)
-#define CHEAT_MENU_TRIGGER_EXT (SCE_CTRL_L1 | SCE_CTRL_R1 | SCE_CTRL_LEFT | SCE_CTRL_SELECT)
+#define CHEAT_MENU_TRIGGER (SCE_CTRL_L1 | SCE_CTRL_R1 | SCE_CTRL_LEFT | SCE_CTRL_SELECT)
 
-static int check_input(SceCtrlData *pad_data, int ext) {
-    if (old_buttons == pad_data->buttons) return 0;
-    old_buttons = pad_data->buttons;
+static int check_input(SceCtrlData *pad_data, int pad2) {
+    uint32_t cur_button = pad_data->buttons;
+    if (!pad2) {
+        if (cur_button & SCE_CTRL_LTRIGGER)
+            cur_button = (cur_button & ~SCE_CTRL_LTRIGGER) | SCE_CTRL_L1;
+        if (cur_button & SCE_CTRL_RTRIGGER)
+            cur_button = (cur_button & ~SCE_CTRL_RTRIGGER) | SCE_CTRL_R1;
+    }
+    if (old_buttons == cur_button) return 0;
+    old_buttons = cur_button;
     switch (menu_mode) {
     case 0:
-        if (ext) {
-            if ((old_buttons & CHEAT_MENU_TRIGGER_EXT) == CHEAT_MENU_TRIGGER_EXT) {
-                menu_mode = 2;
-                break;
-            }
-        } else {
-            if ((old_buttons & CHEAT_MENU_TRIGGER) == CHEAT_MENU_TRIGGER) {
-                menu_mode = 2;
-                break;
-            }
+        if ((old_buttons & CHEAT_MENU_TRIGGER) == CHEAT_MENU_TRIGGER) {
+            menu_mode = 2;
+            break;
         }
         return 0;
     case 1:
@@ -104,15 +104,18 @@ static int check_input(SceCtrlData *pad_data, int ext) {
     return 1;
 }
 
-static inline void ui_draw(const SceDisplayFrameBuf *param) {
+int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
     int i;
     if (msg_deadline || menu_mode) {
-        if (blit_set_frame_buf(param) < 0) return;
+        if (blit_set_frame_buf(param) < 0)
+            return TAI_CONTINUE(int, ref[0], param, sync);
     }
     if (msg_deadline) {
+        sceKernelLockMutex(msgMutex, 1, NULL);
         for (i = 0; i < MSG_MAX && show_msg[i][0] != 0; ++i) {
             blit_string_ctr(MSG_Y_TOP + LINE_HEIGHT * i, show_msg[i]);
         }
+        sceKernelUnlockMutex(msgMutex, 1);
     }
     switch (menu_mode) {
         case 1:
@@ -140,10 +143,6 @@ static inline void ui_draw(const SceDisplayFrameBuf *param) {
         default:
             break;
     }
-}
-
-int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
-    ui_draw(param);
     return TAI_CONTINUE(int, ref[0], param, sync);
 }
 
@@ -213,6 +212,7 @@ void ui_init() {
         enter_button = SCE_CTRL_CROSS;
         cancel_button = SCE_CTRL_CIRCLE;
     }
+    msgMutex = sceKernelCreateMutex("rcsvr_msg_mutex", 0, 0, 0);
     font_pgf_init();
     blit_set_color(0xffffffff);
 
@@ -234,11 +234,16 @@ void ui_finish() {
             taiHookRelease(hooks[i], ref[i]);
 
     font_pgf_finish();
+    if (msgMutex >= 0) {
+        sceKernelDeleteMutex(msgMutex);
+        msgMutex = -1;
+    }
 }
 
 void ui_set_show_msg(uint64_t millisec, int count, ...) {
     va_list arg_ptr;
     int i;
+    sceKernelLockMutex(msgMutex, 1, NULL);
     msg_deadline = millisec + util_gettick();
     va_start(arg_ptr, count);
     if (count > MSG_MAX) count = MSG_MAX;
@@ -247,6 +252,7 @@ void ui_set_show_msg(uint64_t millisec, int count, ...) {
         show_msg[i][79] = 0;
     }
     va_end(arg_ptr);
+    sceKernelUnlockMutex(msgMutex, 1);
 }
 
 void ui_clear_show_msg() {

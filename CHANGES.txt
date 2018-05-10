@@ -1,6 +1,9 @@
-v0.7.1:
+v0.8:
   1. disable plugin loading while L is pressed on game start
   2. added log system to kernel module
+  3. fixed L/R check of controller input
+  4. read-only memory region can be modified now (from taiHEN's solution)
+  5. (TODO) add a buton that export memory table as cheat codes
 
 v0.7:
   1. added CwCheat code support

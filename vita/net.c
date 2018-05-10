@@ -112,17 +112,15 @@ static void _kcp_send(const char *buf, int len, SceNetSockaddrIn *addr, int is_k
     } else
         sceClibMemcpy(b->buf, buf, len);
     b->next = NULL;
+    sceKernelLockMutex(packetMutex, 1, NULL);
     if (shead == NULL) {
-        sceKernelLockMutex(packetMutex, 1, NULL);
         shead = b;
         stail = b;
-        sceKernelUnlockMutex(packetMutex, 1);
     } else {
-        sceKernelLockMutex(packetMutex, 1, NULL);
         stail->next = b;
         stail = b;
-        sceKernelUnlockMutex(packetMutex, 1);
     }
+    sceKernelUnlockMutex(packetMutex, 1);
 }
 
 static int _kcp_output(const char *buf, int len, ikcpcb *kcp, void *user) {
