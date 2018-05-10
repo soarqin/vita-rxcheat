@@ -57,9 +57,14 @@ void mem_finish() {
 }
 
 static int memory_range_compare(const void *a, const void *b) {
-    uint32_t c1 = ((const memory_range*)a)->start;
-    uint32_t c2 = ((const memory_range*)b)->start;
-    if (c1 == c2) return 0;
+    uint32_t c1 = ((const memory_range*)a)->flag;
+    uint32_t c2 = ((const memory_range*)b)->flag;
+    if (c1 == c2) {
+        c1 = ((const memory_range*)a)->start;
+        c2 = ((const memory_range*)b)->start;
+        if (c1 == c2) return 0;
+        return c1 < c2 ? -1 : 1;
+    }
     return c1 < c2 ? -1 : 1;
 }
 
@@ -103,13 +108,16 @@ void mem_reload() {
                 memory_range *mr = &staticmem[static_cnt++];
                 mr->start = (uint32_t)info.segments[j].vaddr;
                 mr->size = info.segments[j].memsz;
-                mr->flag = (info.segments[j].perms & 2) == 0 ? 1 : 0;
+                mr->flag = ((info.segments[j].perms & 2) == 0 ? 1 : 0) | (i << 24);
                 log_trace("    0x%08X 0x%08X 0x%08X 0x%08X\n", info.segments[j].vaddr, info.segments[j].memsz, info.segments[j].perms, info.segments[j].flags);
             }
         }
     }
     qsort(staticmem, static_cnt, sizeof(memory_range), memory_range_compare);
-    for (i = 0; i < static_cnt; ++i) staticmem[i].index = i;
+    for (i = 0; i < static_cnt; ++i) {
+        staticmem[i].index = i;
+        stackmem[i].flag &= 0xFFFFFFU;
+    }
     SceKernelThreadInfo status;
     status.size = sizeof(SceKernelThreadInfo);
     SceUID thid = 0x40010001;
@@ -128,9 +136,13 @@ void mem_reload() {
         memory_range *mr = &stackmem[stack_cnt++];
         mr->start = (uint32_t)status.stack;
         mr->size = status.stackSize;
+        mr->flag = 0;
     }
     qsort(stackmem, stack_cnt, sizeof(memory_range), memory_range_compare);
-    for (i = 0; i < stack_cnt; ++i) stackmem[i].index = i + STATIC_MEM_MAX;
+    for (i = 0; i < stack_cnt; ++i) {
+        stackmem[i].index = i + STATIC_MEM_MAX;
+        stackmem[i].flag &= 0xFFFFFFU;
+    }
 }
 
 static void reload_heaps() {
