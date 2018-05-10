@@ -42,15 +42,23 @@ uint32_t old_buttons = 0;
 uint32_t enter_button = SCE_CTRL_CIRCLE, cancel_button = SCE_CTRL_CROSS;
 
 #define CHEAT_MENU_TRIGGER (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER | SCE_CTRL_LEFT | SCE_CTRL_SELECT)
+#define CHEAT_MENU_TRIGGER_EXT (SCE_CTRL_L1 | SCE_CTRL_R1 | SCE_CTRL_LEFT | SCE_CTRL_SELECT)
 
-static int check_input(SceCtrlData *pad_data) {
+static int check_input(SceCtrlData *pad_data, int ext) {
     if (old_buttons == pad_data->buttons) return 0;
     old_buttons = pad_data->buttons;
     switch (menu_mode) {
     case 0:
-        if ((old_buttons & CHEAT_MENU_TRIGGER) == CHEAT_MENU_TRIGGER) {
-            menu_mode = 2;
-            break;
+        if (ext) {
+            if ((old_buttons & CHEAT_MENU_TRIGGER_EXT) == CHEAT_MENU_TRIGGER_EXT) {
+                menu_mode = 2;
+                break;
+            }
+        } else {
+            if ((old_buttons & CHEAT_MENU_TRIGGER) == CHEAT_MENU_TRIGGER) {
+                menu_mode = 2;
+                break;
+            }
         }
         return 0;
     case 1:
@@ -142,56 +150,56 @@ int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
 int sceCtrlPeekBufferPositive_patched(int port, SceCtrlData *pad_data, int count) {
     int ret = TAI_CONTINUE(int, ref[1], port, pad_data, count);
     if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1]);
+    check_input(&pad_data[ret - 1], 0);
     return ret;
 }
 
 int sceCtrlPeekBufferPositive2_patched(int port, SceCtrlData *pad_data, int count) {
     int ret = TAI_CONTINUE(int, ref[2], port, pad_data, count);
     if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1]);
+    check_input(&pad_data[ret - 1], 1);
     return ret;
 }
 
 int sceCtrlPeekBufferPositiveExt_patched(int port, SceCtrlData *pad_data, int count) {
     int ret = TAI_CONTINUE(int, ref[3], port, pad_data, count);
     if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1]);
+    check_input(&pad_data[ret - 1], 0);
     return ret;
 }
 
 int sceCtrlPeekBufferPositiveExt2_patched(int port, SceCtrlData *pad_data, int count) {
     int ret = TAI_CONTINUE(int, ref[4], port, pad_data, count);
     if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1]);
+    check_input(&pad_data[ret - 1], 1);
     return ret;
 }
 
 int sceCtrlReadBufferPositive_patched(int port, SceCtrlData *pad_data, int count) {
     int ret = TAI_CONTINUE(int, ref[5], port, pad_data, count);
     if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1]);
+    check_input(&pad_data[ret - 1], 0);
     return ret;
 }
 
 int sceCtrlReadBufferPositive2_patched(int port, SceCtrlData *pad_data, int count) {
     int ret = TAI_CONTINUE(int, ref[6], port, pad_data, count);
     if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1]);
+    check_input(&pad_data[ret - 1], 1);
     return ret;
 }
 
 int sceCtrlReadBufferPositiveExt_patched(int port, SceCtrlData *pad_data, int count) {
     int ret = TAI_CONTINUE(int, ref[7], port, pad_data, count);
     if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1]);
+    check_input(&pad_data[ret - 1], 0);
     return ret;
 }
 
 int sceCtrlReadBufferPositiveExt2_patched(int port, SceCtrlData *pad_data, int count) {
     int ret = TAI_CONTINUE(int, ref[8], port, pad_data, count);
     if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1]);
+    check_input(&pad_data[ret - 1], 1);
     return ret;
 }
 
