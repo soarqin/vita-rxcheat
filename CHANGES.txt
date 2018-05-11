@@ -5,6 +5,7 @@ v0.8:
   4. read-only memory region can be modified now (from taiHEN's solution)
   5. added a buton that export memory table as cheat codes
   6. do not search in small heaps which likely do not contain any useful data
+  7. added a extension code type _B for memory region selection 
 
 v0.7:
   1. added CwCheat code support
