@@ -936,12 +936,13 @@ inline void getRelFilePath(char *path, const char *subPath, const char *name, co
     PathAppendA(path, name);
     lstrcatA(path, ext);
 #else
-    mkdir("tables", 0775);
+    mkdir(subPath, 0775);
     sprintf(path, "%s/%s%s", subPath, name, ext);
 #endif
 }
 
 void Gui::saveTable(const char *name) {
+    if (name[0] == 0) return;
     char path[256];
     getRelFilePath(path, "tables", name, ".yml");
     YAML::Emitter out;

@@ -45,10 +45,12 @@ endif()
 add_subdirectory(libcheat)
 
 add_executable(kernel
-    kernel.c
-    kernel_api.c kernel_api.h
-    kernel_debug.c kernel_debug.h
+    kernel/main.c
+    kernel/api.c kernel/api.h
+    kernel/debug.c kernel/debug.h
 )
+
+target_include_directories(kernel PRIVATE .)
 
 target_link_libraries(kernel
     taihenForKernel_stub
@@ -71,32 +73,32 @@ endif ()
 
 set_target_properties(kernel PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-std=gnu99 -D__VITA_KERNEL__ ${KERNEL_DEBUG_DEFS}")
 
-vita_create_self(rcsvr.skprx kernel UNSAFE CONFIG kernel.yml)
-vita_create_stubs(kernel-stubs kernel kernel.yml KERNEL)
+vita_create_self(rcsvr.skprx kernel UNSAFE CONFIG kernel/exports.yml)
+vita_create_stubs(kernel-stubs kernel kernel/exports.yml KERNEL)
 
 add_executable(user
-    main.c
+    user/main.c
     # network
-    net.c net.h
+    user/net.c user/net.h
     # memory search
-    mem.c mem.h
+    user/mem.c user/mem.h
     # trophy
-    trophy.c trophy.h
+    user/trophy.c user/trophy.h
     # cheat code
-    cheat.c cheat.h
+    user/cheat.c user/cheat.h
     # ui
-    ui.c ui.h
-    blit.c blit.h font_pgf.c
+    user/ui.c user/ui.h
+    user/blit.c user/blit.h user/font_pgf.c
     # util
-    util.c util.h
-    liballoc.c liballoc.h
+    user/util.c user/util.h
+    user/liballoc.c user/liballoc.h
     # debug
-    debug.c debug.h
+    user/debug.c user/debug.h
     # kcp
     ../kcp/ikcp.c ../kcp/ikcp.h
 )
 
-target_include_directories(user PRIVATE ../kcp)
+target_include_directories(user PRIVATE . PRIVATE ../kcp)
 
 target_link_libraries(user
     ${CMAKE_BINARY_DIR}/kernel-stubs/librcsvr_stub_weak.a
@@ -125,7 +127,7 @@ target_link_libraries(user
 set_target_properties(user PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-std=gnu11 -DNDEBUG ${DEBUG_DEFS}")
 add_dependencies(user kernel-stubs)
 
-vita_create_self(rcsvr.suprx user UNSAFE CONFIG user.yml)
+vita_create_self(rcsvr.suprx user UNSAFE CONFIG user/exports.yml)
 
 add_custom_target(dist ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/dist
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/rcsvr.skprx ${CMAKE_BINARY_DIR}/dist/

@@ -1,9 +1,11 @@
+#include "api.h"
+
+#include "debug.h"
+
 #include <vitasdkkern.h>
 #include <taihen.h>
 
 #include <libk/string.h>
-
-#include "kernel_debug.h"
 
 static int kernel_api_inited = 0;
 
@@ -11,6 +13,8 @@ int module_get_export_func(SceUID pid, const char *modname, uint32_t libnid, uin
 int (*sceKernelRxMemcpyKernelToUserForPidForKernel)(SceUID pid, uintptr_t dst, const void *src, size_t len);
 void (*sceKernelCpuDcacheWritebackInvalidateRangeForKernel)(void *addr, unsigned int size);
 void (*sceKernelCpuIcacheAndL2WritebackInvalidateRangeForKernel)(const void *ptr, size_t len);
+
+int ksceKernelMemcpyUserToUserForPid(SceUID pid, void *dst, const void *src, SceSize size);
 
 /*
   Codes from taiHEN - patch.c
@@ -51,32 +55,40 @@ static int tai_force_memcpy(SceUID dst_pid, void *dst, const void *src, size_t s
     if (dst_pid == KERNEL_PID)
         return -1;
     ret = sceKernelRxMemcpyKernelToUserForPidForKernel(dst_pid, (uintptr_t)dst, src, size);
-    cache_flush(dst_pid, (uintptr_t)dst, size);
+    if (ret < 0) return ret;
     return ret;
 }
 
-void rcsvrMemcpy(void *addr, const void *data, int data_len) {
-    module_get_export_func(0, 0, 0, 0, 0);
+void rcsvrMemcpyForce(void *dstp, const void *srcp, int size, int flush) {
     uint32_t state;
     ENTER_SYSCALL(state);
     SceUID pid = ksceKernelGetProcessId();
-    char buf[0x40];
-    int len = data_len;
-    uintptr_t src = (uintptr_t)data;
-    uintptr_t dst = (uintptr_t)addr;
+    char buf[0x100];
+    int len = size;
+    uintptr_t src = (uintptr_t)srcp;
+    uintptr_t dst = (uintptr_t)dstp;
     while (len > 0) {
-        if (len > 0x40) {
-            ksceKernelMemcpyUserToKernel(buf, src, 0x40);
-            tai_force_memcpy(pid, (void*)dst, buf, 0x40);
-            len -= 0x40;
-            src += 0x40;
-            dst += 0x40;
+        if (len > 0x100) {
+            if (ksceKernelMemcpyUserToKernel(buf, src, 0x100) < 0) break;
+            if (tai_force_memcpy(pid, (void*)dst, buf, 0x100) < 0) break;
+            if (flush) cache_flush(pid, dst, 0x100);
+            len -= 0x100;
+            src += 0x100;
+            dst += 0x100;
         } else {
-            ksceKernelMemcpyUserToKernel(buf, src, len);
-            tai_force_memcpy(pid, (void*)dst, buf, len);
+            if (ksceKernelMemcpyUserToKernel(buf, src, len) < 0) break;
+            if (tai_force_memcpy(pid, (void*)dst, buf, len) < 0) break;
+            if (flush) cache_flush(pid, dst, len);
             len = 0;
         }
     }
+    EXIT_SYSCALL(state);
+}
+
+void rcsvrMemcpy(void *dst, const void *src, int size) {
+    uint32_t state;
+    ENTER_SYSCALL(state);
+    ksceKernelMemcpyUserToUserForPid(ksceKernelGetProcessId(), dst, src, size);
     EXIT_SYSCALL(state);
 }
 
