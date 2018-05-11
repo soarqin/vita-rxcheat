@@ -66,23 +66,21 @@ static int check_input(SceCtrlData *pad_data, int pad2) {
     case 2:
         if ((old_buttons & enter_button) == enter_button) {
             int count;
-            const cheat_section_t *secs;
             cheat_t *ch = cheat_get_handle();
-            count = cheat_get_sections(ch, &secs);
+            count = cheat_get_section_count(ch);
             if (menu_index >= 0 && menu_index < count) {
-                cheat_section_toggle(ch, menu_index, !secs[menu_index].enabled);
+                cheat_section_toggle(ch, menu_index, !cheat_get_section(ch, menu_index)->enabled);
             }
         }
         if ((old_buttons & cancel_button) == cancel_button) {
             menu_mode = 0;
-            mem_reload();
+            mem_force_reload();
         }
         if ((old_buttons & SCE_CTRL_UP) == SCE_CTRL_UP) {
             if (--menu_index < 0) {
                 int count;
-                const cheat_section_t *secs;
                 cheat_t *ch = cheat_get_handle();
-                count = cheat_get_sections(ch, &secs);
+                count = cheat_get_section_count(ch);
                 menu_index = count - 1;
             }
             if (menu_index < menu_top) menu_top = menu_index;
@@ -90,9 +88,8 @@ static int check_input(SceCtrlData *pad_data, int pad2) {
         }
         if ((old_buttons & SCE_CTRL_DOWN) == SCE_CTRL_DOWN) {
             int count;
-            const cheat_section_t *secs;
             cheat_t *ch = cheat_get_handle();
-            count = cheat_get_sections(ch, &secs);
+            count = cheat_get_section_count(ch);
             if (++menu_index >= count) {
                 menu_index = 0;
             }

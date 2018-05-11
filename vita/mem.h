@@ -6,6 +6,8 @@
 void mem_init();
 void mem_finish();
 
+void mem_force_reload();
+void mem_check_reload();
 uint32_t mem_convert(uint32_t addr, int *read_only);
 void mem_reload();
 

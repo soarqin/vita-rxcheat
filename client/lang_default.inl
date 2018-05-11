@@ -48,8 +48,7 @@ strings:
   TABLE_ADD: Add
   TABLE_DELETE: Delete
   TABLE_EDIT: Edit
-  TABLE_SAVE: Save
-  TABLE_LOAD: Load
+  TABLE_EXPORT: Export Cheat Codes
   TABLE_ADDR: "Address:"
   TABLE_COMMENT: "Comment:"
   TABLE_TYPE: "Value Type:"

@@ -10,20 +10,29 @@
 
 #include <vitasdk.h>
 
+typedef struct cheat_data_t {
+    uint32_t base_addr;
+} cheat_data_t;
+
 static cheat_t *cheat = NULL;
+static cheat_data_t cheat_data;
 static int sec_count = 0;
 static const cheat_section_t *sections = NULL;
 
-int read_cb(uint32_t addr, void *data, int len, int need_conv) {
-    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(addr, NULL) : (void*)(uintptr_t)addr;
+enum {
+    CO_SETBASEADDR = CO_EXTENSION,
+};
+
+int read_cb(void *arg, uint32_t addr, void *data, int len, int need_conv) {
+    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(cheat_data.base_addr + addr, NULL) : (void*)(uintptr_t)addr;
     if (!paddr) return -1;
     memcpy(data, paddr, len);
     return len;
 }
 
-int write_cb(uint32_t addr, const void *data, int len, int need_conv) {
+int write_cb(void *arg, uint32_t addr, const void *data, int len, int need_conv) {
     int readonly = 0;
-    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(addr, &readonly) : (void*)(uintptr_t)addr;
+    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(cheat_data.base_addr + addr, &readonly) : (void*)(uintptr_t)addr;
     if (!paddr) return -1;
     if (readonly)
         rcsvrMemcpy(paddr, data, len);
@@ -32,9 +41,9 @@ int write_cb(uint32_t addr, const void *data, int len, int need_conv) {
     return len;
 }
 
-int trans_cb(uint32_t addr, uint32_t value, int len, int op, int need_conv) {
+int trans_cb(void *arg, uint32_t addr, uint32_t value, int len, int op, int need_conv) {
     int readonly = 0;
-    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(addr, &readonly) : (void*)(uintptr_t)addr;
+    void *paddr = need_conv ? (void*)(uintptr_t)mem_convert(cheat_data.base_addr + addr, &readonly) : (void*)(uintptr_t)addr;
     uint32_t val = 0;
     if (!paddr) return -1;
     sceClibMemcpy(&val, paddr, len);
@@ -57,12 +66,12 @@ int trans_cb(uint32_t addr, uint32_t value, int len, int op, int need_conv) {
     return len;
 }
 
-int copy_cb(uint32_t toaddr, uint32_t fromaddr, int len, int need_conv) {
+int copy_cb(void *arg, uint32_t toaddr, uint32_t fromaddr, int len, int need_conv) {
     void *paddr1, *paddr2;
-    paddr2 = need_conv ? (void*)(uintptr_t)mem_convert(fromaddr, NULL) : (void*)(uintptr_t)fromaddr;
+    paddr2 = need_conv ? (void*)(uintptr_t)mem_convert(cheat_data.base_addr + fromaddr, NULL) : (void*)(uintptr_t)fromaddr;
     if (!paddr2) return -1;
     int readonly = 0;
-    paddr1 = need_conv ? (void*)(uintptr_t)mem_convert(toaddr, &readonly) : (void*)(uintptr_t)toaddr;
+    paddr1 = need_conv ? (void*)(uintptr_t)mem_convert(cheat_data.base_addr + toaddr, &readonly) : (void*)(uintptr_t)toaddr;
     if (!paddr1) return -1;
     if (readonly)
         rcsvrMemcpy(paddr1, paddr2, len);
@@ -72,8 +81,32 @@ int copy_cb(uint32_t toaddr, uint32_t fromaddr, int len, int need_conv) {
 }
 
 extern uint32_t old_buttons;
-static int input_cb(uint32_t buttons) {
+static int input_cb(void *arg, uint32_t buttons) {
     return (buttons & old_buttons) == buttons;
+}
+
+int ext_cb(void *arg, cheat_code_t *code, const char *op, uint32_t val1, uint32_t val2) {
+    switch (op[0]) {
+        case 'B':
+            code->op = CO_SETBASEADDR;
+            code->type = CT_I32;
+            code->extra = 0;
+            code->addr = val1;
+            code->value = 0;
+            return CR_OK;
+        default:
+            return CR_INVALID;
+    }
+}
+
+int ext_call_cb(void *arg, int line, const cheat_code_t *code) {
+    switch (code->op) {
+        case CO_SETBASEADDR:
+            ((cheat_data_t*)arg)->base_addr = code->addr;
+            return CR_OK;
+        default:
+            return CR_INVALID;
+    }
 }
 
 static int cheat_loadfile(const char *filename) {
@@ -84,12 +117,15 @@ static int cheat_loadfile(const char *filename) {
     if (cheat != NULL) {
         cheat_free();
     }
-    cheat = cheat_new2(CH_CWCHEAT, my_realloc, my_free);
+    cheat_data.base_addr = 0U;
+    cheat = cheat_new2(CH_CWCHEAT, my_realloc, my_free, &cheat_data);
     cheat_set_read_cb(cheat, read_cb);
     cheat_set_write_cb(cheat, write_cb);
     cheat_set_trans_cb(cheat, trans_cb);
     cheat_set_copy_cb(cheat, copy_cb);
     cheat_set_button_cb(cheat, input_cb);
+    cheat_set_ext_cb(cheat, ext_cb);
+    cheat_set_ext_call_cb(cheat, ext_call_cb);
     {
         int pos = 0;
         while(1) {
@@ -127,34 +163,8 @@ static int cheat_loadfile(const char *filename) {
             }
         }
     }
-    {
-        int pos = 0;
-        while(1) {
-            int i = pos, n = sceIoRead(f, buf + pos, 256 - pos), s;
-            if (n <= 0) {
-                if (pos > 0) {
-                    buf[pos] = 0;
-                    cheat_add(cheat, buf);
-                }
-                break;
-            }
-            n += pos;
-            s = 0;
-            while(1) {
-                while(i < n && buf[i] != '\r' && buf[i] != '\n' && buf[i] != 0) ++i;
-                if (i >= n) break;
-                buf[i] = 0;
-                cheat_add(cheat, buf + s);
-                ++i;
-                while(i < n && buf[i] == '\r' && buf[i] == '\n') ++i;
-                if (i >= n) break;
-                pos = s = i;
-            }
-        }
-    }
     sec_count = cheat_get_sections(cheat, &sections);
     sceIoClose(f);
-    mem_reload();
     return 0;
 }
 
@@ -185,6 +195,8 @@ int cheat_loaded() {
 
 void cheat_process() {
     if (cheat == NULL) return;
+    mem_check_reload();
+    cheat_data.base_addr = 0U;
     cheat_apply(cheat);
 }
 

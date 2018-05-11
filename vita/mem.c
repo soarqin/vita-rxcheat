@@ -33,11 +33,13 @@ typedef enum {
 static memory_range mem_ranges[MEM_RANGE_MAX];
 static memory_range *staticmem = mem_ranges, *stackmem = mem_ranges + STATIC_MEM_MAX, *heapmem = mem_ranges + STATIC_MEM_MAX + STACK_MEM_MAX;
 static int static_cnt = 0, stack_cnt = 0, heap_cnt = 0;
-static int mem_loaded = 0;
+static int mem_loaded = 0, heap_loaded = 0;
 static int stype = 0, last_sidx = 0;
 static SceUID searchMutex = -1, searchSema = -1;
 static memlock_data lockdata[LOCK_COUNT_MAX];
 static int lock_count = 0, mem_lock_ready = 0;
+
+static void reload_heaps();
 
 void mem_init() {
     sceIoMkdir("ux0:data/rcsvr/temp", 0777);
@@ -53,6 +55,18 @@ void mem_finish() {
     if (searchMutex >= 0) {
         sceKernelDeleteMutex(searchMutex);
         searchMutex = -1;
+    }
+}
+
+void mem_force_reload() {
+    mem_loaded = 0;
+    heap_loaded = 0;
+}
+
+void mem_check_reload() {
+    if (!mem_loaded) {
+        mem_reload();
+        if (!heap_loaded) reload_heaps();
     }
 }
 
@@ -146,6 +160,7 @@ void mem_reload() {
 }
 
 static void reload_heaps() {
+    heap_loaded = 1;
     uint32_t addr = 0x80000000U;
     int i;
     heap_cnt = 0;
@@ -161,7 +176,7 @@ static void reload_heaps() {
                 ret = sceKernelGetMemBlockInfoByAddr(heap_addr, &heap_info);
                 if (ret == 0) {
                     addr = (uint32_t)heap_info.mappedBase + heap_info.mappedSize;
-                    if ((heap_info.type == SCE_KERNEL_MEMBLOCK_TYPE_USER_RW || heap_info.type == SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE) && (heap_info.access & 6) == 6) {
+                    if (heap_info.mappedSize > 0x10000 && (heap_info.type == SCE_KERNEL_MEMBLOCK_TYPE_USER_RW || heap_info.type == SCE_KERNEL_MEMBLOCK_TYPE_USER_RW_UNCACHE) && (heap_info.access & 6) == 6) {
                         uint32_t base = (uint32_t)heap_info.mappedBase;
                         uint32_t size = heap_info.mappedSize;
                         log_trace("HEAP: %08X %08X %08X %08X %08X\n", base, size, heap_info.access, heap_info.memoryType, heap_info.type);

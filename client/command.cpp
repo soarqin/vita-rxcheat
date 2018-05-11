@@ -113,45 +113,77 @@ void Command::formatTypeData(char *output, uint8_t type, const void *data, bool 
     }
 }
 
-void Command::getRawData(void *dst, uint8_t type, const char *src, bool isHex) {
+int Command::getRawData(void *dst, uint8_t type, const char *src, bool isHex) {
     switch (type) {
         case Command::st_autouint: case Command::st_u64:
         {
             uint64_t val = strtoull(src, NULL, isHex ? 16 : 10);
             memcpy(dst, &val, 8);
-            break;
+            return 8;
         }
         case Command::st_autoint: case Command::st_i64:
         {
             int64_t val = strtoll(src, NULL, isHex ? 16 : 10);
             memcpy(dst, &val, 8);
-            break;
+            return 8;
         }
-        case Command::st_u32: case Command::st_u16: case Command::st_u8:
+        case Command::st_u32:
         {
-            uint32_t val = strtoul(src, NULL, isHex ? 16 : 10);
+            uint32_t val = (uint32_t)strtoul(src, NULL, isHex ? 16 : 10);
+            memset(dst, 0, 8);
             memcpy(dst, &val, 4);
-            break;
+            return 4;
         }
-        case Command::st_i32: case Command::st_i16: case Command::st_i8:
+        case Command::st_u16:
         {
-            int32_t val = strtol(src, NULL, isHex ? 16 : 10);
+            uint16_t val = (uint16_t)strtoul(src, NULL, isHex ? 16 : 10);
+            memset(dst, 0, 8);
+            memcpy(dst, &val, 2);
+            return 2;
+        }
+        case Command::st_u8:
+        {
+            uint8_t val = (uint8_t)strtoul(src, NULL, isHex ? 16 : 10);
+            memset(dst, 0, 8);
+            memcpy(dst, &val, 1);
+            return 1;
+        }
+        case Command::st_i32:
+        {
+            int32_t val = (int32_t)strtol(src, NULL, isHex ? 16 : 10);
+            memset(dst, 0, 8);
             memcpy(dst, &val, 4);
-            break;
+            return 4;
+        }
+        case Command::st_i16:
+        {
+            int16_t val = (int16_t)strtol(src, NULL, isHex ? 16 : 10);
+            memset(dst, 0, 8);
+            memcpy(dst, &val, 2);
+            return 2;
+        }
+        case Command::st_i8:
+        {
+            int8_t val = (int8_t)strtol(src, NULL, isHex ? 16 : 10);
+            memset(dst, 0, 8);
+            memcpy(dst, &val, 1);
+            return 1;
         }
         case Command::st_float:
         {
             float val = strtof(src, NULL);
+            memset(dst, 0, 8);
             memcpy(dst, &val, 4);
-            break;
+            return 4;
         }
         case Command::st_double:
         {
             double val = strtod(src, NULL);
             memcpy(dst, &val, 8);
-            break;
+            return 8;
         }
     }
+    return 0;
 }
 
 void Command::readMem(uint32_t addr) {

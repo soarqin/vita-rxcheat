@@ -62,6 +62,8 @@ private:
     void saveTable(const char *name);
     bool loadTable(const char *name);
 
+    void exportCheatCodes(const char *name);
+
     void reloadFonts();
 
 private:

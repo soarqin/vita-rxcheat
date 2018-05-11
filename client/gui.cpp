@@ -705,7 +705,7 @@ inline void Gui::tablePanel() {
         }
         ImGui::SameLine();
     }
-    if(ImGui::Button(LS(TABLE_ADD))) {
+    if (ImGui::Button(LS(TABLE_ADD))) {
         tableTypeComboIdx_ = 0;
         tableEditAddr_[0] = 0;
         tableEditComment_[0] = 0;
@@ -714,6 +714,9 @@ inline void Gui::tablePanel() {
         openPopup = true;
     }
     ImGui::SameLine();
+    if (ImGui::Button(LS(TABLE_EXPORT))) {
+        exportCheatCodes(client_->titleId().c_str());
+    }
     if (openPopup) {
         ImGui::OpenPopup(LS(TABLE_EDIT));
     }
@@ -766,9 +769,7 @@ inline void Gui::tablePopup() {
                 mi.hexaddr = hexaddr;
                 mi.comment = tableEditComment_;
                 mi.type = comboItemType[tableTypeComboIdx_];
-                char output[8];
-                Command::getRawData(output, mi.type, tableEditVal_, tableHex_);
-                memcpy(mi.memval, output, 8);
+                Command::getRawData(mi.memval, mi.type, tableEditVal_, tableHex_);
                 mi.formatValue(tableHex_);
                 memTable_.push_back(mi);
                 if (memTableIdx_ < 0) memTableIdx_ = (int)memTable_.size() - 1;
@@ -783,11 +784,9 @@ inline void Gui::tablePopup() {
                 mi.comment = tableEditComment_;
                 uint8_t type = comboItemType[tableTypeComboIdx_];
                 if (type != mi.type) mi.type = type;
-                char output[8];
-                Command::getRawData(output, type, tableEditVal_, tableHex_);
-                memcpy(memTable_[memTableIdx_].memval, output, 8);
+                Command::getRawData(memTable_[memTableIdx_].memval, type, tableEditVal_, tableHex_);
                 mi.formatValue(tableHex_);
-                cmd_->modifyMemory(type, memTable_[memTableIdx_].addr, output);
+                cmd_->modifyMemory(type, memTable_[memTableIdx_].addr, memTable_[memTableIdx_].memval);
             }
             tableEditAdding_ = false;
             tableEditAddr_[0] = 0;
@@ -928,23 +927,23 @@ inline void Gui::loadData() {
     } catch (...) { return; }
 }
 
-inline void getTableFilePath(char *path, const char *name) {
+inline void getRelFilePath(char *path, const char *subPath, const char *name, const char *ext) {
 #ifdef _WIN32
     GetModuleFileNameA(NULL, path, 256);
     PathRemoveFileSpecA(path);
-    PathAppendA(path, "tables");
+    PathAppendA(path, subPath);
     CreateDirectoryA(path, NULL);
     PathAppendA(path, name);
-    lstrcatA(path, ".yml");
+    lstrcatA(path, ext);
 #else
     mkdir("tables", 0775);
-    sprintf(path, "tables/%s.yml", name);
+    sprintf(path, "%s/%s%s", subPath, name, ext);
 #endif
 }
 
 void Gui::saveTable(const char *name) {
     char path[256];
-    getTableFilePath(path, name);
+    getRelFilePath(path, "tables", name, ".yml");
     YAML::Emitter out;
     out << YAML::BeginMap;
     out << YAML::Key << "List" << YAML::BeginSeq;
@@ -967,8 +966,9 @@ void Gui::saveTable(const char *name) {
 }
 
 bool Gui::loadTable(const char *name) {
+    memTable_.clear();
     char path[256];
-    getTableFilePath(path, name);
+    getRelFilePath(path, "tables", name, ".yml");
     YAML::Node node;
     try {
         node = YAML::LoadFile(path);
@@ -988,6 +988,69 @@ bool Gui::loadTable(const char *name) {
         }
     } catch (...) { return false; }
     return true;
+}
+
+void Gui::exportCheatCodes(const char *name) {
+    char path[256];
+    getRelFilePath(path, "cheats", name, ".ini");
+    FILE *f = fopen(path, "wt");
+    fprintf(f, "_S %s\n", client_->titleId().c_str());
+    fprintf(f, "_G %s\n", client_->title().c_str());
+    std::string lastcomment;
+    uint32_t lastbaseaddr = 0U;
+    int index = 0;
+    for (auto &t: memTable_) {
+        if (lastcomment.empty() || lastcomment != t.comment) {
+            if (lastbaseaddr != 0U) {
+                fprintf(f, "_B 0x00000000 0x00000000\n\n");
+                lastbaseaddr = 0U;
+            } else {
+                fprintf(f, "\n");
+            }
+            ++index;
+            if (t.comment.empty()) {
+                fprintf(f, "_C%d Section%d\n", t.locked ? 1 : 0, index);
+                lastcomment = "";
+            } else {
+                fprintf(f, "_C%d %s\n", t.locked ? 1 : 0, t.comment.c_str());
+                lastcomment = t.comment;
+            }
+        }
+        uint32_t base = t.addr & ~0xFFFFFFF;
+        if (base != lastbaseaddr) {
+            fprintf(f, "_B 0x%08X 0x00000000\n", base);
+            lastbaseaddr = base;
+        }
+        int wt = 0;
+        int sz = Command::getTypeSize(t.type, t.memval);
+        switch (sz) {
+            case 1:
+            case 2:
+            case 4:
+                switch (sz) {
+                    case 1:
+                        wt = 0;
+                        break;
+                    case 2:
+                        wt = 1;
+                        break;
+                    case 4:
+                        wt = 2;
+                        break;
+                }
+                fprintf(f, "_L 0x%d%07X 0x%08X\n", wt, t.addr - base, *(uint32_t*)t.memval);
+                break;
+            case 8:
+                fprintf(f, "_L 0x2%07X 0x%08X\n", t.addr - base, *(uint32_t*)t.memval);
+                fprintf(f, "_L 0x2%07X 0x%08X\n", t.addr + 4 - base, *(uint32_t*)(t.memval + 4));
+                break;
+        }
+    }
+    if (lastbaseaddr != 0U) {
+        fprintf(f, "_B 0x00000000 0x00000000\n");
+        lastbaseaddr = 0U;
+    }
+    fclose(f);
 }
 
 void Gui::reloadFonts() {

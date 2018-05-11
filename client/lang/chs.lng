@@ -49,8 +49,7 @@ strings:
   TABLE_ADD: 添加
   TABLE_DELETE: 删除
   TABLE_EDIT: 修改
-  TABLE_SAVE: 保存
-  TABLE_LOAD: 加载
+  TABLE_EXPORT: 导出为作弊码
   TABLE_ADDR: "地址:"
   TABLE_COMMENT: "注释:"
   TABLE_TYPE: "数值类型:"
