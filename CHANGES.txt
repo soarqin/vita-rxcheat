@@ -1,9 +1,13 @@
+v0.9:
+  1. rename to VITA MultiCheat
+  2. (TODO) unlock trophy through in-game menu
+
 v0.8:
   1. disable plugin loading while L is pressed on game start
   2. added log system to kernel module
   3. fixed L/R check of controller input
   4. read-only memory region can be modified now (from taiHEN's solution)
-  5. added a buton that export memory table as cheat codes
+  5. added a button that export memory table as cheat codes
   6. do not search in small heaps which likely do not contain any useful data
   7. added a extension code type _B for memory region selection 
 

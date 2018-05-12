@@ -1,6 +1,6 @@
-VITA Remote Cheat
+VITA MultiCheat
 =================
-VITA Remote Cheat is a plugin for 3.60/3.65 taiHEN used to modify memory or unlock trophies from PC throught network
+VITA MultiCheat is a plugin for 3.60/3.65 taiHEN used to run CwCheat codes or unlock trophies locally, and modify memory or unlock trophies from PC throught network
 
 Installation
 ------------
@@ -10,7 +10,7 @@ Installation
         ux0:tai/rcsvr.skprx
 
 2. Copy tai/rcsvr.suprx to ux0:tai/
-3. Ensure the IP address of your PSVITA/PSTV can be accessed from your PC, start any game on PSVITA, run rcclient on PC after "VITA Remote Cheat" shown up, click Autoconnect button
+3. Ensure the IP address of your PSVITA/PSTV can be accessed from your PC, start any game on PSVITA, run rcclient on PC after "VITA MultiCheat" shown up, click Autoconnect button
 4. If step 3 is not connecting, you can get PSVITA IP address in Network Settings or VitaShell (Press SELECT in FTP MODE), input in the client and click Connect button
 5. Now your can search memory or unlock trophies as well
 
@@ -28,7 +28,7 @@ HOW TO use CwCheat codes
         _C0 LOCK HOUR TO 12
         _L 0x000C6FB4 0x0000000C
 
-2. Boot the game with certain TITLE_ID, the CwCheat codes will be loaded and you can see tips with "VITA Remote Cheat" message
+2. Boot the game with certain TITLE_ID, the CwCheat codes will be loaded and you can see tips with "VITA MultiCheat" message
 3. Press L+R+LEFT+SELECT to call up CwCheat menu and enable/disable sections (enabled sections are prefixed by a CIRCLE)
 
 
