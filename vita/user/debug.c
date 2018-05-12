@@ -1,6 +1,7 @@
 #ifdef RCSVR_DEBUG
 
 #include "debug.h"
+#include "../version.h"
 
 #include <vitasdk.h>
 
@@ -88,7 +89,7 @@ void debug_init(int level) {
     }
 
     /*Show log on pc/mac side*/
-    log_none("Initialized debug log\n");
+    log_none(PLUGIN_NAME " v" VERSION_STR " loaded\n");
 }
 
 #endif

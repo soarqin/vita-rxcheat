@@ -1,6 +1,7 @@
 #ifdef RCSVR_DEBUG
 
 #include "debug.h"
+#include "../version.h"
 
 #include <vitasdkkern.h>
 
@@ -63,7 +64,7 @@ void debug_init(int level) {
     debug_set_loglevel(level);
     debug_fd = ksceIoOpen("ux0:temp/rcsvr_k.log", SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 0666);
 
-    log_none("Vita Remote Cheat kernel plugin loaded\n");
+    log_none(PLUGIN_NAME " v" VERSION_STR " kernel plugin loaded\n");
 }
 
 #endif

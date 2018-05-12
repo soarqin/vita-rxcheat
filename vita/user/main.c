@@ -108,9 +108,9 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     mem_init();
 
     if (cheat_loaded())
-        ui_set_show_msg(15000, 3, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin", "Cheat code loaded, L+R+" CHAR_LEFT "+SELECT for menu");
+        ui_set_show_msg(15000, 3, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR, "Cheat code loaded, L+R+" CHAR_LEFT "+SELECT for menu");
     else
-        ui_set_show_msg(15000, 2, "VITA Remote Cheat v" VERSION_STR, "by Soar Qin");
+        ui_set_show_msg(15000, 2, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR);
     while(running) {
         // checkInput();
         uint64_t curr_tick = util_gettick();

@@ -5,7 +5,7 @@ fonts:
   - C:/Windows/Fonts/msyh.ttc
   - C:/Windows/Fonts/simsun.ttc
 strings:
-  WINDOW_TITLE: VITA Remote Cheat客户端
+  WINDOW_TITLE: VITA MultiCheat客户端
   TROPHY_GRADE_PLATINUM: 白金
   TROPHY_GRADE_GOLD: 金
   TROPHY_GRADE_SILVER: 银
