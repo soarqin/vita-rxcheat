@@ -15,7 +15,7 @@
 #define HOOKS_NUM      6
 
 static SceUID hooks[HOOKS_NUM] = {};
-static tai_hook_ref_t ref[HOOKS_NUM] = {};
+static tai_hook_ref_t refs[HOOKS_NUM] = {};
 
 static int running = 1;
 
@@ -24,7 +24,8 @@ static uint64_t last_tick = 0ULL;
 static void main_net_init();
 
 int scePowerSetUsingWireless_patched(int enable) {
-    return TAI_CONTINUE(int, ref[0], 1);
+    if (refs[0] <= 0) return -1;
+    return TAI_CONTINUE(int, refs[0], 1);
 }
 
 int scePowerSetConfigurationMode_patched(int mode) {
@@ -32,6 +33,7 @@ int scePowerSetConfigurationMode_patched(int mode) {
 }
 
 int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
+    if (refs[2] <= 0) return -1;
     switch(id) {
     case SCE_SYSMODULE_NET:
         if (net_loaded())
@@ -43,7 +45,7 @@ int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
         break;
     default: break;
     }
-    int ret = TAI_CONTINUE(int, ref[2], id);
+    int ret = TAI_CONTINUE(int, refs[2], id);
     switch (id) {
     case SCE_SYSMODULE_NP_TROPHY:
         trophy_hook();
@@ -54,6 +56,7 @@ int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
 }
 
 int sceSysmoduleUnloadModule_patched(SceSysmoduleModuleId id) {
+    if (refs[3] <= 0) return -1;
     switch(id) {
     case SCE_SYSMODULE_NET:
     case SCE_SYSMODULE_PGF:
@@ -63,18 +66,20 @@ int sceSysmoduleUnloadModule_patched(SceSysmoduleModuleId id) {
         break;
     default: break;
     }
-    int ret = TAI_CONTINUE(int, ref[3], id);
+    int ret = TAI_CONTINUE(int, refs[3], id);
     return ret;
 }
 
 int sceNetInit_patched(SceNetInitParam *param) {
+    if (refs[4] <= 0) return -1;
     if (net_loaded()) return 0;
-    return TAI_CONTINUE(int, ref[4], param);
+    return TAI_CONTINUE(int, refs[4], param);
 }
 
 int sceNetCtlInit_patched() {
+    if (refs[5] <= 0) return -1;
     if (net_loaded()) return 0;
-    return TAI_CONTINUE(int, ref[5]);
+    return TAI_CONTINUE(int, refs[5]);
 }
 
 static void main_cheat_load() {
@@ -87,8 +92,8 @@ static void main_net_init() {
     if (net_init() == 0) {
         debug_init(TRACE); // DEBUG
         net_kcp_listen(9527);
-        hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, 0x6BF8B2A2, 0xEB03E265, sceNetInit_patched);
-        hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, 0x6BF8B2A2, 0x495CA1DB, sceNetCtlInit_patched);
+        hooks[4] = taiHookFunctionImport(&refs[4], TAI_MAIN_MODULE, 0x6BF8B2A2, 0xEB03E265, sceNetInit_patched);
+        hooks[5] = taiHookFunctionImport(&refs[5], TAI_MAIN_MODULE, 0x6BF8B2A2, 0x495CA1DB, sceNetCtlInit_patched);
     }
 }
 
@@ -138,10 +143,10 @@ int module_start(SceSize argc, const void *args) {
 
     trophy_init();
 
-    hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, 0x1082DA7F, 0x4D695C1F, scePowerSetUsingWireless_patched);
-    hooks[1] = taiHookFunctionImport(&ref[1], TAI_MAIN_MODULE, 0x1082DA7F, 0x3CE187B6, scePowerSetConfigurationMode_patched);
-    hooks[2] = taiHookFunctionImport(&ref[2], TAI_MAIN_MODULE, 0x03FCF19D, 0x79A0160A, sceSysmoduleLoadModule_patched);
-    hooks[3] = taiHookFunctionImport(&ref[3], TAI_MAIN_MODULE, 0x03FCF19D, 0x31D87805, sceSysmoduleUnloadModule_patched);
+    hooks[0] = taiHookFunctionImport(&refs[0], TAI_MAIN_MODULE, 0x1082DA7F, 0x4D695C1F, scePowerSetUsingWireless_patched);
+    hooks[1] = taiHookFunctionImport(&refs[1], TAI_MAIN_MODULE, 0x1082DA7F, 0x3CE187B6, scePowerSetConfigurationMode_patched);
+    hooks[2] = taiHookFunctionImport(&refs[2], TAI_MAIN_MODULE, 0x03FCF19D, 0x79A0160A, sceSysmoduleLoadModule_patched);
+    hooks[3] = taiHookFunctionImport(&refs[3], TAI_MAIN_MODULE, 0x03FCF19D, 0x31D87805, sceSysmoduleUnloadModule_patched);
 
     running = 1;
     SceUID thid = sceKernelCreateThread("rcsvr_main_thread", (SceKernelThreadEntry)rcsvr_main_thread, 0x10000100, 0xF000, 0, 0, NULL);
@@ -158,7 +163,7 @@ int module_stop(SceSize argc, const void *args) {
 
     for (i = 0; i < HOOKS_NUM; i++)
         if (hooks[i] > 0)
-            taiHookRelease(hooks[i], ref[i]);
+            taiHookRelease(hooks[i], refs[i]);
 
     trophy_finish();
     return SCE_KERNEL_STOP_SUCCESS;

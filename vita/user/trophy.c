@@ -9,14 +9,15 @@
 
 #define HOOKS_NUM 1
 
-static SceUID hooks[HOOKS_NUM] = {0};
-static tai_hook_ref_t ref[HOOKS_NUM];
+static SceUID hooks[HOOKS_NUM] = {};
+static tai_hook_ref_t refs[HOOKS_NUM] = {};
 
 static SceNpTrophyContext context = -1;
 static SceUID trophyMutex = -1, trophySema = -1;
 
 int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, void *commID, void *commSign, uint64_t options) {
-    int ret = TAI_CONTINUE(int, ref[0], c, commID, commSign, options);
+    if (refs[0] <= 0) return -1;
+    int ret = TAI_CONTINUE(int, refs[0], c, commID, commSign, options);
     if (ret >= 0)
         context = *c;
     return ret;
@@ -41,7 +42,7 @@ void trophy_finish() {
 
 void trophy_hook() {
     hooks[0] = taiHookFunctionImport(
-        &ref[0],
+        &refs[0],
         TAI_MAIN_MODULE,
         0x4332C10D,
         0xC49FD33F,
@@ -52,7 +53,7 @@ void trophy_unhook() {
     int i;
     for (i = 0; i < HOOKS_NUM; i++) {
         if (hooks[i] > 0) {
-            taiHookRelease(hooks[i], ref[i]);
+            taiHookRelease(hooks[i], refs[i]);
             hooks[i] = 0;
         }
     }
