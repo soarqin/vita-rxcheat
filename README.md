@@ -10,12 +10,23 @@ Installation
         ux0:tai/rcsvr.skprx
 
 2. Copy tai/rcsvr.suprx to ux0:tai/
-3. Ensure the IP address of your PSVITA/PSTV can be accessed from your PC, start any game on PSVITA, run rcclient on PC after "VITA RxCheat" shown up, click Autoconnect button
-4. If step 3 is not connecting, you can get PSVITA IP address in Network Settings or VitaShell (Press SELECT in FTP MODE), input in the client and click Connect button
-5. Now your can search memory or unlock trophies as well
 
 
-HOW TO use CwCheat codes
+HOW-TO use client sofware
+-------------------------
+1. Ensure the IP address of your PSVITA/PSTV can be accessed from your PC, start any game on PSVITA, run rcclient on PC after "VITA RxCheat" shown up, click Autoconnect button
+2. If step 3 is not connecting, you can get PSVITA IP address in Network Settings or VitaShell (Press SELECT in FTP MODE), input in the client and click Connect button
+3. Now your can search memory or unlock trophies as well
+
+
+
+HOW-TO use in-game menu
+-----------------------
+1. After "VITA RxCheat" shown up, follow instruction to call up menu by pressing L+R+LEFT+SELECT
+2. You can enable/disable cheats(if CwCheat codes are loaded) and unlock trophies here
+
+
+HOW-TO use CwCheat codes
 ------------------------
 1. Put CwCheat code file as ux0:data/rcsvr/cheat/TITLE_ID.ini (the extension can also be txt or dat), e.g. below is a simple working CwCheat file for Atelier Firis (ASIA version), just save it as ux0:data/rcsvr/cheat/PCSH10026.ini:
 

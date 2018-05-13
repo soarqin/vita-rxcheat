@@ -3,7 +3,7 @@ VITA RxCheat
 VITA RxCheat 是一个在PC上通过网络连接到PSVTIA以修改游戏内存和解锁奖杯taiHEN插件
 
 安装说明
-============
+------------
 
 1. 将 tai/rcsvr.skprx 复制到你的 taiHEN 插件目录，修改插件的 config.txt 文件，把 rcsvr.skprx 添加到 *KERNEL 加载列表里，举例，如果你把文件复制为 ux0:tai/rcsvr.skprx，那么在 config.txt 里添加两行：
 
@@ -11,9 +11,19 @@ VITA RxCheat 是一个在PC上通过网络连接到PSVTIA以修改游戏内存�
         ux0:tai/rcsvr.skprx
 
 2. 将 tai/rcsvr.suprx 复制到 ux0:tai/
-3. 确保 PSVITA/PSTV 的 IP 地址可以被你的 PC 访问，运行任意游戏，等待屏幕上出现 VITA RxCheat 加载的字样后在 PC 上运行 rcclient，点击自动连接按钮
-4. 如果第三步无法连上插件，那么可以通过网络设置菜单或者VitaShell(FTP模式下按SELECT)获取 PSVITA 的 IP 地址，然后在客户端内输入地址并点击连接按钮
-5. 现在你可以搜索内存或者解锁奖杯了
+
+
+使用客户端连接
+---------------------
+1. 确保 PSVITA/PSTV 的 IP 地址可以被你的 PC 访问，运行任意游戏，等待屏幕上出现 VITA RxCheat 加载的字样后在 PC 上运行 rcclient，点击自动连接按钮
+2. 如果第三步无法连上插件，那么可以通过网络设置菜单或者VitaShell(FTP模式下按SELECT)获取 PSVITA 的 IP 地址，然后在客户端内输入地址并点击连接按钮
+3. 现在你可以搜索内存或者解锁奖杯了
+
+
+使用游戏内菜单
+---------------------
+1. VITA RxCheat 加载字样出现后，按照提示按下 L+R+LEFT+SELECT 可以呼出菜单
+2. 在这里可以开关金手指(如果CwCheat作弊码已加载)或者解锁奖杯
 
 
 如何使用金手指
@@ -30,7 +40,7 @@ VITA RxCheat 是一个在PC上通过网络连接到PSVTIA以修改游戏内存�
         _L 0x000C6FB4 0x0000000C
 
 2. 引导对应TITLE_ID的游戏，金手指代码会被自动加载，你可以在 "VITA RxCheat" 字样下面看到额外的加载提示
-3. 按下 L+R+LEFT+SELECT 呼出金手指菜单，你可以在这里开关金手指项 (前面会有个圆圈表示已经打开的项)
+3. 按下 L+R+LEFT+SELECT 呼出菜单，进入金手指菜单后可以在这里开关金手指项 (前面会有个圆圈表示已经打开的项)
 
 
 感谢
