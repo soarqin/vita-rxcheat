@@ -28,7 +28,7 @@ typedef struct wchar_info {
     const uint8_t *lines;
     int pitch;
     uint16_t wch;
-    uint8_t realw, w, h, l, t;
+    int8_t realw, w, h, l, t;
 } wchar_info;
 static wchar_info wci[128];
 

@@ -4,7 +4,7 @@ name: English (Default)
 code: en-US
 fonts:
 strings:
-  WINDOW_TITLE: VITA MultiCheat Client
+  WINDOW_TITLE: Client
   TROPHY_GRADE_PLATINUM: Platinum
   TROPHY_GRADE_GOLD: Gold
   TROPHY_GRADE_SILVER: Silver

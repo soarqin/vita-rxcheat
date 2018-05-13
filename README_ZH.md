@@ -1,6 +1,6 @@
-VITA MultiCheat
-=================
-VITA MultiCheat 是一个在PC上通过网络连接到PSVTIA以修改游戏内存和解锁奖杯taiHEN插件
+VITA RxCheat
+============
+VITA RxCheat 是一个在PC上通过网络连接到PSVTIA以修改游戏内存和解锁奖杯taiHEN插件
 
 安装说明
 ============
@@ -11,7 +11,7 @@ VITA MultiCheat 是一个在PC上通过网络连接到PSVTIA以修改游戏内�
         ux0:tai/rcsvr.skprx
 
 2. 将 tai/rcsvr.suprx 复制到 ux0:tai/
-3. 确保 PSVITA/PSTV 的 IP 地址可以被你的 PC 访问，运行任意游戏，等待屏幕上出现 VITA MultiCheat 加载的字样后在 PC 上运行 rcclient，点击自动连接按钮
+3. 确保 PSVITA/PSTV 的 IP 地址可以被你的 PC 访问，运行任意游戏，等待屏幕上出现 VITA RxCheat 加载的字样后在 PC 上运行 rcclient，点击自动连接按钮
 4. 如果第三步无法连上插件，那么可以通过网络设置菜单或者VitaShell(FTP模式下按SELECT)获取 PSVITA 的 IP 地址，然后在客户端内输入地址并点击连接按钮
 5. 现在你可以搜索内存或者解锁奖杯了
 
@@ -29,7 +29,7 @@ VITA MultiCheat 是一个在PC上通过网络连接到PSVTIA以修改游戏内�
         _C0 LOCK HOUR TO 12
         _L 0x000C6FB4 0x0000000C
 
-2. 引导对应TITLE_ID的游戏，金手指代码会被自动加载，你可以在 "VITA MultiCheat" 字样下面看到额外的加载提示
+2. 引导对应TITLE_ID的游戏，金手指代码会被自动加载，你可以在 "VITA RxCheat" 字样下面看到额外的加载提示
 3. 按下 L+R+LEFT+SELECT 呼出金手指菜单，你可以在这里开关金手指项 (前面会有个圆圈表示已经打开的项)
 
 

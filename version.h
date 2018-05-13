@@ -1,7 +1,7 @@
 #ifndef __VERSION_H_
 #define __VERSION_H_
 
-#define PLUGIN_NAME "VITA MultiCheat"
+#define PLUGIN_NAME "VITA RxCheat"
 #define PLUGIN_AUTHOR "Soar Qin"
 
 #define VERSION_MAJOR 0

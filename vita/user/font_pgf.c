@@ -16,7 +16,7 @@ typedef struct glyph_entry {
     RB_ENTRY(glyph_entry) entry;
     uint16_t code;
     uint16_t index;
-    uint8_t realw, w, h, l, t;
+    int8_t realw, w, h, l, t;
 } glyph_entry;
 static glyph_entry *entries = NULL;
 static int entry_used = 0;
@@ -35,7 +35,7 @@ struct glyph_map glyph_charmap = RB_INITIALIZER(&glyph_charmap);
 
 RB_GENERATE(glyph_map, glyph_entry, entry, glyph_entry_compare);
 
-static inline uint16_t find_glyph(uint16_t code, uint8_t *realw, uint8_t *w, uint8_t *h, uint8_t *l, uint8_t *t) {
+static inline uint16_t find_glyph(uint16_t code, int8_t *realw, int8_t *w, int8_t *h, int8_t *l, int8_t *t) {
     glyph_entry ge;
     ge.code = code;
     glyph_entry *res = RB_FIND(glyph_map, &glyph_charmap, &ge);
@@ -48,7 +48,7 @@ static inline uint16_t find_glyph(uint16_t code, uint8_t *realw, uint8_t *w, uin
     return res->index;
 }
 
-static inline uint16_t insert_glyph(uint16_t code, uint8_t realw, uint8_t w, uint8_t h, uint8_t l, uint8_t t) {
+static inline uint16_t insert_glyph(uint16_t code, int8_t realw, int8_t w, int8_t h, int8_t l, int8_t t) {
     if (entry_used >= 51 * 51 * 2) return 0;
     glyph_entry *ge = &entries[entry_used++];
     ge->code = code;
@@ -76,12 +76,51 @@ static void my_pgf_free(void *data, void *p) {
     my_free(p);
 }
 
+enum {
+    SCE_FONT_ERROR_FILEOPEN  = 0x80460005,
+    SCE_FONT_ERROR_FILECLOSE = 0x80460006,
+    SCE_FONT_ERROR_FILEREAD  = 0x80460007,
+    SCE_FONT_ERROR_FILESEEK  = 0x80460008,
+};
+
+static void *my_open(void *data, const char *filename, int *errCode) {
+    int fd = sceIoOpen(filename, SCE_O_RDONLY, 0644);
+    if (fd < 0) {
+        if (errCode) *errCode = SCE_FONT_ERROR_FILEOPEN;
+        return NULL;
+    }
+    if (errCode) *errCode = SCE_OK;
+    return (void*)(uintptr_t)fd;
+}
+static int my_close(void *data, void *file) {
+    int ret = sceIoClose((uintptr_t)file);
+    if (ret < 0) return SCE_FONT_ERROR_FILECLOSE;
+    return SCE_OK;
+}
+
+static uint32_t my_read(void *data, void *file, void *ptr, uint32_t size, uint32_t num, int *errCode) {
+    int r = sceIoRead((uintptr_t)file, ptr, size * num);
+    if (r < 0) {
+        if (errCode) *errCode = SCE_FONT_ERROR_FILEREAD;
+        return 0;
+    }
+    if (errCode) *errCode = SCE_OK;
+    return r / size;
+}
+
+static int my_seek(void *data, void *file, int offset) {
+    int pos = sceIoLseek((uintptr_t)file, offset, SCE_SEEK_SET);
+    if (pos < 0 || pos != offset) return SCE_FONT_ERROR_FILESEEK;
+    return SCE_OK;
+}
+
+
 void font_pgf_init() {
     if (font_lib != NULL) return;
     if (sceSysmoduleIsLoaded(SCE_SYSMODULE_PGF) != SCE_SYSMODULE_LOADED)
         sceSysmoduleLoadModule(SCE_SYSMODULE_PGF);
     SceFontNewLibParams params = {
-        NULL, 4, NULL, my_pgf_alloc, my_pgf_free, NULL, NULL, NULL, NULL, NULL, NULL,
+        NULL, 4, NULL, my_pgf_alloc, my_pgf_free, my_open, my_close, my_read, my_seek, NULL, NULL,
     };
     unsigned int err;
     font_lib = sceFontNewLib(&params, &err);
@@ -90,31 +129,35 @@ void font_pgf_init() {
         log_error("sceFontNewLib: %08X\n", err);
         return;
     }
-    SceFontStyle style = {0};
-    style.fontH = 10;
-    style.fontV = 10;
-    style.fontLanguage = SCE_FONT_LANGUAGE_DEFAULT;
-    int index = sceFontFindOptimumFont(font_lib, &style, &err);
+    font_handle = sceFontOpenUserFile(font_lib, "ux0:data/rcsvr/font.pgf", 0, &err);
     if (err != SCE_OK) {
-        sceFontDoneLib(font_lib);
-        font_lib = NULL;
-        log_error("sceFontFindOptimumFont: %08X\n", err);
-        return;
-    }
-    log_trace("Found PGF font index: %d\n", index);
-    font_handle = sceFontOpen(font_lib, index, 0, &err);
-    if (err != SCE_OK) {
-        font_handle = NULL;
-        sceFontDoneLib(font_lib);
-        font_lib = NULL;
-        log_error("sceFontOpen: %08X\n", err);
-        return;
+        log_trace("sceFontOpenUserFile: %08X\n", err);
+        SceFontStyle style = {0};
+        style.fontH = 10;
+        style.fontV = 10;
+        style.fontLanguage = SCE_FONT_LANGUAGE_DEFAULT;
+        int index = sceFontFindOptimumFont(font_lib, &style, &err);
+        if (err != SCE_OK) {
+            sceFontDoneLib(font_lib);
+            font_lib = NULL;
+            log_error("sceFontFindOptimumFont: %08X\n", err);
+            return;
+        }
+        log_trace("Found PGF font index: %d\n", index);
+        font_handle = sceFontOpen(font_lib, index, 0, &err);
+        if (err != SCE_OK) {
+            font_handle = NULL;
+            sceFontDoneLib(font_lib);
+            font_lib = NULL;
+            log_error("sceFontOpen: %08X\n", err);
+            return;
+        }
     }
     font_data = (uint8_t*)my_alloc(512 * 2048);
     entries = (glyph_entry*)my_alloc(sizeof(glyph_entry) * 51 * 51 * 2);
 }
 
-int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, uint8_t *realw, uint8_t *w, uint8_t *h, uint8_t *l, uint8_t *t) {
+int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, int8_t *realw, int8_t *w, int8_t *h, int8_t *l, int8_t *t) {
     if (font_handle == NULL) return -1;
     SceFontCharInfo char_info;
     uint16_t glyph_index = find_glyph(code, realw, w, h, l, t);
@@ -134,11 +177,11 @@ int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, uint8_
         log_error("sceFontGetCharInfo: %d\n", ret);
         return -1;
     }
-    *realw = (uint8_t)((char_info.sfp26AdvanceH + 32) / 64);
-    *w = (uint8_t)char_info.bitmapWidth;
-    *h = (uint8_t)char_info.bitmapHeight;
-    *l = (uint8_t)(char_info.bitmapLeft < 0 ? 0 : char_info.bitmapLeft);
-    *t = (uint8_t)(char_info.bitmapTop < 0 || char_info.bitmapTop >= 32 ? 0 : char_info.bitmapTop);
+    *realw = (int8_t)((char_info.sfp26AdvanceH + 32) / 64);
+    *w = (int8_t)char_info.bitmapWidth;
+    *h = (int8_t)char_info.bitmapHeight;
+    *l = (int8_t)(char_info.bitmapLeft < 0 ? 0 : char_info.bitmapLeft);
+    *t = (int8_t)(char_info.bitmapTop < 0 || char_info.bitmapTop >= 32 ? 0 : char_info.bitmapTop);
     glyph_index = insert_glyph(code, *realw, *w, *h, *l, *t);
     log_debug("insert_glyph: %04X %u %u %u %u %u\n", code, *realw, *w, *h, *l, *t);
     SceFontGlyphImage glyph_image;

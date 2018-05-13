@@ -15,7 +15,7 @@
 
 void font_pgf_init();
 void font_pgf_finish();
-int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, uint8_t *realw, uint8_t *w, uint8_t *h, uint8_t *l, uint8_t *t);
+int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, int8_t *realw, int8_t *w, int8_t *h, int8_t *l, int8_t *t);
 int font_pgf_loaded();
 
 #endif

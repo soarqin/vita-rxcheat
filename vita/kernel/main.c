@@ -19,7 +19,7 @@ static inline int is_valid_filename(const char *filename) {
     return 0;
 }
 
-static SceUID start_preloaded_modules_patched(SceUID pid) {
+static SceUID ksceKernelStartPreloadedModules_patched(SceUID pid) {
     int ret = TAI_CONTINUE(int, refs[0], pid);
     if (ret >= 0) {
         char titleid[32];
@@ -111,14 +111,14 @@ int module_start(SceSize args, void *argp) {
         "SceKernelModulemgr", 
         0xC445FA63, // SceModulemgrForKernel
         0x432DCC7A,
-        start_preloaded_modules_patched);
+        ksceKernelStartPreloadedModules_patched);
     if (hooks[0] < 0) {
         hooks[0] = taiHookFunctionExportForKernel(KERNEL_PID, 
             &refs[0], 
             "SceKernelModulemgr", 
             0x92C9FFC2, // SceModulemgrForKernel
             0x998C7AE9,
-            start_preloaded_modules_patched);
+            ksceKernelStartPreloadedModules_patched);
     }
     hooks[1] = taiHookFunctionExportForKernel(KERNEL_PID,
         &refs[1],

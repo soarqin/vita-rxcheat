@@ -1057,7 +1057,7 @@ void Gui::exportCheatCodes(const char *name) {
 void Gui::reloadFonts() {
     ImGui_ImplGlfwGL3_InvalidateDeviceObjects();
     char title[256];
-    snprintf(title, 256, "%s v" VERSION_STR, LS(WINDOW_TITLE));
+    snprintf(title, 256, "%s %s v" VERSION_STR, PLUGIN_NAME, LS(WINDOW_TITLE));
     glfwSetWindowTitle(window_, title);
     ImFontAtlas *f = ImGui::GetIO().Fonts;
     static const ImWchar ranges[] =

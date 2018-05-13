@@ -1,6 +1,7 @@
 v0.9:
-  1. rename to VITA MultiCheat
-  2. (TODO) unlock trophy through in-game menu
+  1. rename to VITA RxCheat
+  2. try use ux0:data/rcsvr/font.pgf first (for full-CJK support)
+  3. (TODO) unlock trophy through in-game menu
 
 v0.8:
   1. disable plugin loading while L is pressed on game start
