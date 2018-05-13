@@ -9,15 +9,22 @@ typedef SceInt32 SceNpTrophyContext;
 typedef SceInt32 SceNpTrophyId;
 
 enum {
-    SCE_NP_TROPHY_GAME_TITLE_MAX_SIZE  = 128,
-    SCE_NP_TROPHY_GAME_DESCR_MAX_SIZE  = 1024,
-    SCE_NP_TROPHY_GROUP_TITLE_MAX_SIZE = 128,
-    SCE_NP_TROPHY_GROUP_DESCR_MAX_SIZE = 1024,
-    SCE_NP_TROPHY_NAME_MAX_SIZE        = 128,
-    SCE_NP_TROPHY_DESCR_MAX_SIZE       = 1024,
-    SCE_NP_TROPHY_FLAG_SETSIZE         = 128,
-    SCE_NP_TROPHY_FLAG_BITS_SHIFT      = 5,
+    SCE_NP_COMMUNICATION_SIGNATURE_SIZE = 160,
+    SCE_NP_TROPHY_GAME_TITLE_MAX_SIZE   = 128,
+    SCE_NP_TROPHY_GAME_DESCR_MAX_SIZE   = 1024,
+    SCE_NP_TROPHY_GROUP_TITLE_MAX_SIZE  = 128,
+    SCE_NP_TROPHY_GROUP_DESCR_MAX_SIZE  = 1024,
+    SCE_NP_TROPHY_NAME_MAX_SIZE         = 128,
+    SCE_NP_TROPHY_DESCR_MAX_SIZE        = 1024,
+    SCE_NP_TROPHY_FLAG_SETSIZE          = 128,
+    SCE_NP_TROPHY_FLAG_BITS_SHIFT       = 5,
 };
+
+/* SceNpCommunicationId is defined in VitaSDK already */
+typedef struct SceNpCommunicationId SceNpCommunicationId;
+typedef struct SceNpCommunicationSignature {
+    SceUChar8 data[SCE_NP_COMMUNICATION_SIGNATURE_SIZE];
+} SceNpCommunicationSignature;
 
 typedef enum SceNpTrophyGrade {
     SCE_NP_TROPHY_GRADE_UNKNOWN        = 0,
@@ -93,10 +100,6 @@ typedef struct SceNpTrophyData {
 typedef struct SceNpTrophyFlagArray {
     SceUInt32 flag_bits[SCE_NP_TROPHY_FLAG_SETSIZE >> SCE_NP_TROPHY_FLAG_BITS_SHIFT];
 } SceNpTrophyFlagArray;
-
-/* dummy structure */
-typedef struct SceNpCommunicationId SceNpCommunicationId;
-typedef struct SceNpCommunicationSignature SceNpCommunicationSignature;
 
 extern int sceNpTrophyInit(void *opt);
 extern int sceNpTrophyTerm(void);

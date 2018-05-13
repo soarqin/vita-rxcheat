@@ -15,9 +15,9 @@ static tai_hook_ref_t refs[HOOKS_NUM] = {};
 static SceNpTrophyContext context = -1;
 static SceUID trophyMutex = -1, trophySema = -1;
 
-int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, void *commID, void *commSign, uint64_t options) {
+int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, const SceNpCommunicationId *commId, const SceNpCommunicationSignature *commSign, SceUInt64 options) {
     if (refs[0] <= 0) return -1;
-    int ret = TAI_CONTINUE(int, refs[0], c, commID, commSign, options);
+    int ret = TAI_CONTINUE(int, refs[0], c, commId, commSign, options);
     if (ret >= 0)
         context = *c;
     return ret;
@@ -26,9 +26,27 @@ int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, void *commID, void *
 void trophy_init() {
     trophyMutex = sceKernelCreateMutex("rcsvr_trophy_mutex", 0, 0, 0);
     trophySema = sceKernelCreateSema("rcsvr_trophy_sema", 0, 0, 1, NULL);
+    if (sceSysmoduleIsLoaded(SCE_SYSMODULE_NP) != SCE_SYSMODULE_LOADED)
+        sceSysmoduleLoadModule(SCE_SYSMODULE_NP);
+    if (sceSysmoduleIsLoaded(SCE_SYSMODULE_NP_TROPHY) != SCE_SYSMODULE_LOADED)
+        sceSysmoduleLoadModule(SCE_SYSMODULE_NP_TROPHY);
+    hooks[0] = taiHookFunctionExport(
+        &refs[0],
+        "SceNpTrophy",
+        0x4332C10D,
+        0xC49FD33F,
+        sceNpTrophyCreateContext_patched);
+    log_trace("Hook sceNpTrophyCreateContext: %X %X\n", hooks[0], refs[0]);
 }
 
 void trophy_finish() {
+    int i;
+    for (i = 0; i < HOOKS_NUM; i++) {
+        if (hooks[i] > 0) {
+            taiHookRelease(hooks[i], refs[i]);
+            hooks[i] = 0;
+        }
+    }
     if (trophySema >= 0) {
         sceKernelDeleteSema(trophySema);
         trophySema = -1;
@@ -36,26 +54,6 @@ void trophy_finish() {
     if (trophyMutex >= 0) {
         sceKernelDeleteMutex(trophyMutex);
         trophyMutex = -1;
-    }
-    trophy_unhook();
-}
-
-void trophy_hook() {
-    hooks[0] = taiHookFunctionImport(
-        &refs[0],
-        TAI_MAIN_MODULE,
-        0x4332C10D,
-        0xC49FD33F,
-        sceNpTrophyCreateContext_patched);
-}
-
-void trophy_unhook() {
-    int i;
-    for (i = 0; i < HOOKS_NUM; i++) {
-        if (hooks[i] > 0) {
-            taiHookRelease(hooks[i], refs[i]);
-            hooks[i] = 0;
-        }
     }
 }
 

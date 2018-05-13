@@ -43,15 +43,12 @@ int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
         if (font_pgf_loaded())
             return 0;
         break;
+    case SCE_SYSMODULE_NP:
+    case SCE_SYSMODULE_NP_TROPHY:
+        return 0;
     default: break;
     }
     int ret = TAI_CONTINUE(int, refs[2], id);
-    switch (id) {
-    case SCE_SYSMODULE_NP_TROPHY:
-        trophy_hook();
-        break;
-    default: break;
-    }
     return ret;
 }
 
@@ -61,9 +58,9 @@ int sceSysmoduleUnloadModule_patched(SceSysmoduleModuleId id) {
     case SCE_SYSMODULE_NET:
     case SCE_SYSMODULE_PGF:
         return 0;
+    case SCE_SYSMODULE_NP:
     case SCE_SYSMODULE_NP_TROPHY:
-        trophy_unhook();
-        break;
+        return 0;
     default: break;
     }
     int ret = TAI_CONTINUE(int, refs[3], id);
@@ -113,9 +110,9 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     mem_init();
 
     if (cheat_loaded())
-        ui_set_show_msg(15000, 3, PLUGIN_NAME " 测试版 v" VERSION_STR, "by " PLUGIN_AUTHOR, "Cheat code loaded, L+R+" CHAR_LEFT "+SELECT for menu");
+        ui_set_show_msg(15000, 3, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR, "Cheat code loaded, L+R+" CHAR_LEFT "+SELECT for menu");
     else
-        ui_set_show_msg(15000, 2, PLUGIN_NAME " 测试版 v" VERSION_STR, "by " PLUGIN_AUTHOR);
+        ui_set_show_msg(15000, 2, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR);
     while(running) {
         // checkInput();
         uint64_t curr_tick = util_gettick();
