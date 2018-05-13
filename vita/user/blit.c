@@ -59,6 +59,15 @@ void blit_set_color(uint32_t fg_col) {
     fgcolor = fg_col;
 }
 
+void blit_clear(int sx, int sy, int w, int h) {
+    uint32_t *offset = vram32 + sy * bufferwidth + sx;
+    uint32_t wr = w * 4;
+    for (int j = 0; j < h; ++j) {
+        sceClibMemset(offset, 0, wr);
+        offset += bufferwidth;
+    }
+}
+
 inline int utf8_to_ucs2(const char *utf8, uint16_t *character) {
     if (((utf8[0] & 0xF0) == 0xE0) && ((utf8[1] & 0xC0) == 0x80) && ((utf8[2] & 0xC0) == 0x80)) {
         *character = ((utf8[0] & 0x0F) << 12) | ((utf8[1] & 0x3F) << 6) | (utf8[2] & 0x3F);

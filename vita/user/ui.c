@@ -4,7 +4,9 @@
 #include "font_pgf.h"
 #include "util.h"
 #include "cheat.h"
+#include "trophy.h"
 #include "mem.h"
+#include "debug.h"
 
 #include "libcheat/libcheat.h"
 
@@ -17,32 +19,184 @@
 static SceUID hooks[HOOKS_NUM] = {};
 static tai_hook_ref_t ref[HOOKS_NUM] = {};
 
-#define LINE_HEIGHT (18)
+enum {
+    LINE_HEIGHT = 18,
 
-#define MSG_MAX   (5)
-#define MSG_Y_TOP (2)
+    MSG_MAX   = 5,
+    MSG_Y_TOP = 2,
+
+    /* menu modes */
+    MENU_MODE_CLOSE = 0,
+    MENU_MODE_MAIN  = 1,
+    MENU_MODE_CHEAT = 2,
+    MENU_MODE_TROP  = 3,
+    MENU_MODE_MAX   = 4,
+
+    MENU_SCROLL_MAX = 10,
+    MENU_X_SELECTOR = 280,
+    MENU_X_LEFT     = 300,
+    MENU_Y_TOP      = 180,
+};
 
 static char show_msg[MSG_MAX][80] = {};
 static uint64_t msg_deadline = 0ULL;
 static SceUID msgMutex = -1;
 
-#define MENU_MAX        (10)
-#define MENU_SCROLL_MAX (10)
-#define MENU_X_SELECTOR (280)
-#define MENU_X_LEFT     (300)
-#define MENU_Y_TOP      (180)
-
-// 0 - closed  1 - normal menu  2 - cheat code list
 static int menu_mode = 0;
-static int menu_count = 0;
-static int menu_index = 0;
-static int menu_top = 0;
-static const char menu_items[MENU_MAX][80] = {};
+static int menu_index[MENU_MODE_MAX] = {};
+static int menu_top[MENU_MODE_MAX] = {};
 
 uint32_t old_buttons = 0;
 uint32_t enter_button = SCE_CTRL_CIRCLE, cancel_button = SCE_CTRL_CROSS;
 
 #define CHEAT_MENU_TRIGGER (SCE_CTRL_L1 | SCE_CTRL_R1 | SCE_CTRL_LEFT | SCE_CTRL_SELECT)
+
+static inline int menu_get_count() {
+    switch (menu_mode) {
+        case MENU_MODE_MAIN:
+            return cheat_loaded() ? 3 : 2;
+        case MENU_MODE_CHEAT:
+            return cheat_get_section_count(cheat_get_handle());
+        case MENU_MODE_TROP:
+            return trophy_get_count();
+        default: return 0;
+    }
+}
+
+static inline void _show_menu() {
+    if (menu_mode == MENU_MODE_CLOSE) return;
+    blit_clear(240, 135, 960 - 480, 544 - 270);
+    switch (menu_mode) {
+        case MENU_MODE_MAIN: {
+            const char *text1[3] = {"Cheats", "Trophies", "Close"};
+            const char *text2[2] = {"Trophies", "Close"};
+            const char **text;
+            int count;
+            if (cheat_loaded()) {
+                count = 3;
+                text = text1;
+            } else {
+                count = 2;
+                text = text2;
+            }
+            int menu_bot = menu_get_count();
+            if (menu_bot > menu_top[menu_mode] + MENU_SCROLL_MAX) menu_bot = menu_top[menu_mode] + MENU_SCROLL_MAX;
+            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, "Main Menu");
+            blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], CHAR_RIGHT);
+            for (int i = 0; i < count; ++i) {
+                blit_string(MENU_X_LEFT, MENU_Y_TOP + LINE_HEIGHT * i, text[i]);
+            }
+            break;
+        }
+        case MENU_MODE_CHEAT: {
+            const cheat_section_t *secs;
+            int menu_bot = cheat_get_sections(cheat_get_handle(), &secs);
+            int mt = menu_top[menu_mode];
+            int mi = menu_index[menu_mode];
+            if (menu_bot > mt + MENU_SCROLL_MAX) menu_bot = mt + MENU_SCROLL_MAX;
+            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, "Cheats");
+            blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * (mi - mt), CHAR_RIGHT);
+            for (int i = mt; i < menu_bot; ++i) {
+                int y = MENU_Y_TOP + LINE_HEIGHT * (i - mt);
+                if (secs[i].enabled)
+                    blit_string(MENU_X_LEFT + 2, y, CHAR_CIRCLE);
+                blit_string(MENU_X_LEFT + 22, y, secs[i].name);
+            }
+            break;
+        }
+        case MENU_MODE_TROP: {
+            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, "Trophies");
+            switch (trophy_get_status()) {
+                case 0:
+                    break;
+                case 1:
+                    blit_string(MENU_X_LEFT, MENU_Y_TOP, "Loading trophies, be patient...");
+                    break;
+                case 2: {
+                    const char *gradeName[5] = {"", "|P|", "|G|", "|S|", "|B|"};
+                    const trophy_info *trops;
+                    int count = trophy_get_info(&trops);
+                    int menu_bot = count;
+                    int mt = menu_top[menu_mode];
+                    int mi = menu_index[menu_mode];
+                    if (menu_bot > mt + MENU_SCROLL_MAX) menu_bot = mt + MENU_SCROLL_MAX;
+                    blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * (mi - mt), CHAR_RIGHT);
+                    for (int i = mt; i < menu_bot; ++i) {
+                        int y = MENU_Y_TOP + LINE_HEIGHT * (i - menu_top[menu_mode]);
+                        const trophy_info *ti = &trops[i];
+                        if (ti->unlocked)
+                            blit_string(MENU_X_LEFT + 2, y, CHAR_CIRCLE);
+                        if(ti->grade) blit_string(MENU_X_LEFT + 22, y, gradeName[ti->grade]);
+                        blit_string(MENU_X_LEFT + 44, y, ti->unlocked || !ti->hidden ? ti->name : "[HIDDEN]");
+                    }
+                    if (mi >= 0 && mi < count) {
+                        const trophy_info *ti = &trops[mi];
+                        if (ti->unlocked || !ti->hidden) blit_string(MENU_X_LEFT - 40, MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX + 1), ti->desc);
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+static void menu_cancel() {
+    switch(menu_mode) {
+        case MENU_MODE_MAIN:
+            menu_mode = MENU_MODE_CLOSE;
+            return;
+        case MENU_MODE_CHEAT:
+            mem_force_reload();
+            break;
+    }
+    menu_mode = MENU_MODE_MAIN;
+}
+
+static void menu_run() {    
+    switch(menu_mode) {
+        case MENU_MODE_MAIN: {
+            int idx = menu_index[menu_mode];
+            if (!cheat_loaded()) ++idx;
+            switch(idx) {
+                case 0:
+                    menu_mode = MENU_MODE_CHEAT;
+                    log_debug("Enter cheat menu\n");
+                    break;
+                case 1:
+                    trophy_list(NULL, NULL);
+                    menu_mode = MENU_MODE_TROP;
+                    log_debug("Enter trophy menu\n");
+                    break;
+                case 2:
+                    menu_cancel();
+                    return;
+            }
+            break;
+        }
+        case MENU_MODE_CHEAT: {
+            cheat_t *ch = cheat_get_handle();
+            int count = cheat_get_section_count(ch);
+            if (menu_index[menu_mode] >= 0 && menu_index[menu_mode] < count) {
+                cheat_section_toggle(ch, menu_index[menu_mode], !cheat_get_section(ch, menu_index[menu_mode])->enabled);
+            }
+            break;
+        }
+        case MENU_MODE_TROP: {
+            const trophy_info *trops;
+            int count = trophy_get_info(&trops);
+            int mi = menu_index[menu_mode];
+            if (mi >= 0 && mi < count) {
+                const trophy_info *ti = &trops[mi];
+                if (!ti->unlocked)
+                    trophy_unlock(ti->id, ti->hidden, NULL, NULL);
+            }
+            break;
+        }
+    }
+}
 
 static int check_input(SceCtrlData *pad_data, int pad2) {
     uint32_t cur_button = pad_data->buttons;
@@ -57,44 +211,33 @@ static int check_input(SceCtrlData *pad_data, int pad2) {
     switch (menu_mode) {
     case 0:
         if ((old_buttons & CHEAT_MENU_TRIGGER) == CHEAT_MENU_TRIGGER) {
-            menu_mode = 2;
+            menu_mode = 0;
+            menu_mode = MENU_MODE_MAIN;
             break;
         }
         return 0;
-    case 1:
-        break;
-    case 2:
+    default:
         if ((old_buttons & enter_button) == enter_button) {
-            int count;
-            cheat_t *ch = cheat_get_handle();
-            count = cheat_get_section_count(ch);
-            if (menu_index >= 0 && menu_index < count) {
-                cheat_section_toggle(ch, menu_index, !cheat_get_section(ch, menu_index)->enabled);
-            }
+            menu_run();
         }
         if ((old_buttons & cancel_button) == cancel_button) {
-            menu_mode = 0;
-            mem_force_reload();
+            menu_cancel();
         }
         if ((old_buttons & SCE_CTRL_UP) == SCE_CTRL_UP) {
-            if (--menu_index < 0) {
-                int count;
-                cheat_t *ch = cheat_get_handle();
-                count = cheat_get_section_count(ch);
-                menu_index = count - 1;
+            int count = menu_get_count();
+            if (--menu_index[menu_mode] < 0) {
+                menu_index[menu_mode] = count - 1;
             }
-            if (menu_index < menu_top) menu_top = menu_index;
-            else if (menu_index >= menu_top + MENU_MAX) menu_top = menu_index + 1 - MENU_MAX;
+            if (menu_index[menu_mode] < menu_top[menu_mode]) menu_top[menu_mode] = menu_index[menu_mode];
+            else if (menu_index[menu_mode] >= menu_top[menu_mode] + MENU_SCROLL_MAX) menu_top[menu_mode] = menu_index[menu_mode] + 1 - MENU_SCROLL_MAX;
         }
         if ((old_buttons & SCE_CTRL_DOWN) == SCE_CTRL_DOWN) {
-            int count;
-            cheat_t *ch = cheat_get_handle();
-            count = cheat_get_section_count(ch);
-            if (++menu_index >= count) {
-                menu_index = 0;
+            int count = menu_get_count();
+            if (++menu_index[menu_mode] >= count) {
+                menu_index[menu_mode] = 0;
             }
-            if (menu_index < menu_top) menu_top = menu_index;
-            else if (menu_index >= menu_top + MENU_MAX) menu_top = menu_index + 1 - MENU_MAX;
+            if (menu_index[menu_mode] < menu_top[menu_mode]) menu_top[menu_mode] = menu_index[menu_mode];
+            else if (menu_index[menu_mode] >= menu_top[menu_mode] + MENU_SCROLL_MAX) menu_top[menu_mode] = menu_index[menu_mode] + 1 - MENU_SCROLL_MAX;
         }
         break;
     }
@@ -114,32 +257,7 @@ int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
         }
         sceKernelUnlockMutex(msgMutex, 1);
     }
-    switch (menu_mode) {
-        case 1:
-            blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * menu_index, CHAR_RIGHT);
-            for (i = 0; i < menu_count; ++i) {
-                blit_string(MENU_X_LEFT, MENU_Y_TOP + LINE_HEIGHT * i, menu_items[i]);
-            }
-            break;
-        case 2: {
-            int count, menu_bot;
-            const cheat_section_t *secs;
-            count = cheat_get_sections(cheat_get_handle(), &secs);
-            menu_bot = count;
-            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, "Cheat Codes");
-            if (menu_bot > menu_top + MENU_MAX) menu_bot = menu_top + MENU_MAX;
-                blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * (menu_index - menu_top), CHAR_RIGHT);
-            for (i = menu_top; i < menu_bot; ++i) {
-                int y = MENU_Y_TOP + LINE_HEIGHT * (i - menu_top);
-                if (secs[i].enabled)
-                    blit_string(MENU_X_LEFT + 2, y, CHAR_CIRCLE);
-                blit_string(MENU_X_LEFT + 22, y, secs[i].name);
-            }
-            break;
-        }
-        default:
-            break;
-    }
+    _show_menu();
     return TAI_CONTINUE(int, ref[0], param, sync);
 }
 

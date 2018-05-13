@@ -19,6 +19,7 @@ static char vita_ip[32];
 static uint64_t vita_addr;
 static SceUID isNetAvailable = 0;
 static SceUID packetMutex = -1;
+static SceUID kcpSendMutex = -1;
 
 int net_loaded() {
     return isNetAvailable != 0;
@@ -62,10 +63,15 @@ int net_init() {
     sceClibSnprintf(vita_ip, 32, "%s", info.ip_address);
     sceNetInetPton(SCE_NET_AF_INET, info.ip_address, &vita_addr);
     packetMutex = sceKernelCreateMutex("rcsvr_packet_mutex", 0, 0, 0);
+    kcpSendMutex = sceKernelCreateMutex("rcsvr_kcp_send_mutex", 0, 0, 0);
     return 0;
 }
 
 void net_finish() {
+    if (kcpSendMutex >= 0) {
+        sceKernelDeleteMutex(kcpSendMutex);
+        kcpSendMutex = -1;
+    }
     if (packetMutex >= 0) {
         sceKernelDeleteMutex(packetMutex);
         packetMutex = -1;
@@ -152,7 +158,9 @@ void _kcp_send_cmd(int op, const void *buf, int len) {
     sendbuf[0] = op;
     sendbuf[1] = len;
     if (buf != NULL) sceClibMemcpy(&sendbuf[2], buf, len);
+    sceKernelLockMutex(kcpSendMutex, 1, NULL);
     ikcp_send(kcp, (const char *)sendbuf, len + 8);
+    sceKernelUnlockMutex(kcpSendMutex, 1);
 }
 
 static void _kcp_search_start(int type) {

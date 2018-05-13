@@ -14,6 +14,7 @@
 
 int blit_setup(void);
 void blit_set_color(uint32_t fg_col);
+void blit_clear(int sx, int sy, int w, int h);
 int blit_string(int sx, int sy, const char *msg);
 int blit_string_ctr(int sy, const char *msg);
 int blit_stringf(int sx, int sy, const char *msg, ...);
