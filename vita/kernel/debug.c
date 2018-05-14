@@ -33,7 +33,7 @@ void debug_printf(int level, const char* format, ...) {
         case INFO:
         case ERROR:
         case TRACE:
-        case DEBUG:
+        case DEBUG_:
 #ifdef RCSVR_DEBUG_LINENO
             len = snprintf(buffer, buffer_size, "[VITA][%s] (%s:%d) ", level_names[level], srcfile, lineno);
 #else

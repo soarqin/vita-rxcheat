@@ -68,7 +68,7 @@ void blit_clear(int sx, int sy, int w, int h) {
     }
 }
 
-inline int utf8_to_ucs2(const char *utf8, uint16_t *character) {
+static inline int utf8_to_ucs2(const char *utf8, uint16_t *character) {
     if (((utf8[0] & 0xF0) == 0xE0) && ((utf8[1] & 0xC0) == 0x80) && ((utf8[2] & 0xC0) == 0x80)) {
         *character = ((utf8[0] & 0x0F) << 12) | ((utf8[1] & 0x3F) << 6) | (utf8[2] & 0x3F);
         return 3;
@@ -81,7 +81,7 @@ inline int utf8_to_ucs2(const char *utf8, uint16_t *character) {
     }
 }
 
-inline uint32_t alpha_blend(uint32_t c1, uint32_t c2, uint32_t alpha) {
+static inline uint32_t alpha_blend(uint32_t c1, uint32_t c2, uint32_t alpha) {
     if (alpha == 0) return c2;
     if (alpha == 256) return c1;
     uint32_t crb = (((c1 & 0xFF00FF) * alpha + (c2 & 0xFF00FF) * (256 - alpha)) >> 8) & 0xFF00FF;
@@ -89,7 +89,7 @@ inline uint32_t alpha_blend(uint32_t c1, uint32_t c2, uint32_t alpha) {
     return 0xFF000000U | cg | crb;
 }
 
-inline void blit_stringw(int sx, int sy, const wchar_info *wci) {
+static inline void blit_stringw(int sx, int sy, const wchar_info *wci) {
     uint32_t *offset = vram32 + sy * bufferwidth + sx;
     const wchar_info *pwci = wci;
     while(pwci->wch != 0) {

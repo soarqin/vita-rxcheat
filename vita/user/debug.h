@@ -6,7 +6,7 @@ enum {
     INFO = 1,
     ERROR = 2,
     TRACE = 3,
-    DEBUG = 4,
+    DEBUG_ = 4,
 };
 
 #ifdef RCSVR_DEBUG
@@ -18,9 +18,9 @@ void debug_printf(int level, const char* format, ...);
 void debug_set_loglevel(int level);
 void debug_init(int level);
 #else
-inline void debug_printf(int level, const char* format, ...) {}
-inline void debug_set_loglevel(int level) {}
-inline void debug_init(int level) {}
+static inline void debug_printf(int level, const char* format, ...) {}
+static inline void debug_set_loglevel(int level) {}
+static inline void debug_init(int level) {}
 #endif
 
 #ifdef RCSVR_DEBUG_LINENO
@@ -28,13 +28,13 @@ inline void debug_init(int level) {}
 #define log_info(...) debug_printf(INFO, __FILE__, __LINE__, __VA_ARGS__)
 #define log_error(...) debug_printf(ERROR, __FILE__, __LINE__, __VA_ARGS__)
 #define log_trace(...) debug_printf(TRACE, __FILE__, __LINE__, __VA_ARGS__)
-#define log_debug(...) debug_printf(DEBUG, __FILE__, __LINE__, __VA_ARGS__)
+#define log_debug(...) debug_printf(DEBUG_, __FILE__, __LINE__, __VA_ARGS__)
 #else
 #define log_none(...) debug_printf(NONE, __VA_ARGS__)
 #define log_info(...) debug_printf(INFO, __VA_ARGS__)
 #define log_error(...) debug_printf(ERROR, __VA_ARGS__)
 #define log_trace(...) debug_printf(TRACE, __VA_ARGS__)
-#define log_debug(...) debug_printf(DEBUG, __VA_ARGS__)
+#define log_debug(...) debug_printf(DEBUG_, __VA_ARGS__)
 #endif
 
 #endif

@@ -21,7 +21,7 @@ typedef struct glyph_entry {
 static glyph_entry *entries = NULL;
 static int entry_used = 0;
 
-inline int glyph_entry_compare(glyph_entry *a, glyph_entry *b) {
+static inline int glyph_entry_compare(glyph_entry *a, glyph_entry *b) {
     return (int)(a->code - b->code);
 }
 
