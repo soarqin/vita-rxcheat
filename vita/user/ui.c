@@ -146,7 +146,7 @@ static inline void _show_menu() {
 static void menu_cancel() {
     switch(menu_mode) {
         case MENU_MODE_MAIN:
-            util_resume_main_thread();
+            // util_resume_main_thread();
             menu_mode = MENU_MODE_CLOSE;
             return;
         case MENU_MODE_CHEAT:
@@ -199,25 +199,21 @@ static void menu_run() {
     }
 }
 
-static int check_input(SceCtrlData *pad_data, int pad2) {
-    uint32_t cur_button = pad_data->buttons;
-    if (!pad2) {
-        if (cur_button & SCE_CTRL_LTRIGGER)
-            cur_button = (cur_button & ~SCE_CTRL_LTRIGGER) | SCE_CTRL_L1;
-        if (cur_button & SCE_CTRL_RTRIGGER)
-            cur_button = (cur_button & ~SCE_CTRL_RTRIGGER) | SCE_CTRL_R1;
-    }
-    if (old_buttons == cur_button) return 0;
+int sceCtrlPeekBufferPositive2(int port, SceCtrlData *pad_data, int count);
+
+void ui_check_input() {
+    SceCtrlData pad_data;
+    if (sceCtrlPeekBufferPositive2(0, &pad_data, 1) <= 0) return;
+    uint32_t cur_button = pad_data.buttons;
+    if (old_buttons == cur_button) return;
     old_buttons = cur_button;
     switch (menu_mode) {
     case 0:
         if ((old_buttons & CHEAT_MENU_TRIGGER) == CHEAT_MENU_TRIGGER) {
-            util_pause_main_thread();
-            menu_mode = 0;
+            // util_pause_main_thread();
             menu_mode = MENU_MODE_MAIN;
-            break;
         }
-        return 0;
+        break;
     default:
         if ((old_buttons & enter_button) == enter_button) {
             menu_run();
@@ -243,7 +239,6 @@ static int check_input(SceCtrlData *pad_data, int pad2) {
         }
         break;
     }
-    return 1;
 }
 
 int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
@@ -263,62 +258,6 @@ int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
     return TAI_CONTINUE(int, ref[0], param, sync);
 }
 
-int sceCtrlPeekBufferPositive_patched(int port, SceCtrlData *pad_data, int count) {
-    int ret = TAI_CONTINUE(int, ref[1], port, pad_data, count);
-    if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1], 0);
-    return ret;
-}
-
-int sceCtrlPeekBufferPositive2_patched(int port, SceCtrlData *pad_data, int count) {
-    int ret = TAI_CONTINUE(int, ref[2], port, pad_data, count);
-    if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1], 1);
-    return ret;
-}
-
-int sceCtrlPeekBufferPositiveExt_patched(int port, SceCtrlData *pad_data, int count) {
-    int ret = TAI_CONTINUE(int, ref[3], port, pad_data, count);
-    if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1], 0);
-    return ret;
-}
-
-int sceCtrlPeekBufferPositiveExt2_patched(int port, SceCtrlData *pad_data, int count) {
-    int ret = TAI_CONTINUE(int, ref[4], port, pad_data, count);
-    if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1], 1);
-    return ret;
-}
-
-int sceCtrlReadBufferPositive_patched(int port, SceCtrlData *pad_data, int count) {
-    int ret = TAI_CONTINUE(int, ref[5], port, pad_data, count);
-    if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1], 0);
-    return ret;
-}
-
-int sceCtrlReadBufferPositive2_patched(int port, SceCtrlData *pad_data, int count) {
-    int ret = TAI_CONTINUE(int, ref[6], port, pad_data, count);
-    if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1], 1);
-    return ret;
-}
-
-int sceCtrlReadBufferPositiveExt_patched(int port, SceCtrlData *pad_data, int count) {
-    int ret = TAI_CONTINUE(int, ref[7], port, pad_data, count);
-    if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1], 0);
-    return ret;
-}
-
-int sceCtrlReadBufferPositiveExt2_patched(int port, SceCtrlData *pad_data, int count) {
-    int ret = TAI_CONTINUE(int, ref[8], port, pad_data, count);
-    if (ret <= 0) return ret;
-    check_input(&pad_data[ret - 1], 1);
-    return ret;
-}
-
 void ui_init() {
     int but;
     sceAppUtilSystemParamGetInt(SCE_SYSTEM_PARAM_ID_ENTER_BUTTON, &but);
@@ -334,14 +273,6 @@ void ui_init() {
     blit_set_color(0xffffffff);
 
     hooks[0] = taiHookFunctionImport(&ref[0], TAI_MAIN_MODULE, 0x4FAACD11, 0x7A410B64, sceDisplaySetFrameBuf_patched);
-    hooks[1] = taiHookFunctionImport(&ref[1], TAI_MAIN_MODULE, 0xD197E3C7, 0xA9C3CED6, sceCtrlPeekBufferPositive_patched);
-    hooks[2] = taiHookFunctionImport(&ref[2], TAI_MAIN_MODULE, 0xD197E3C7, 0x15F81E8C, sceCtrlPeekBufferPositive2_patched);
-    hooks[3] = taiHookFunctionImport(&ref[3], TAI_MAIN_MODULE, 0xD197E3C7, 0xA59454D3, sceCtrlPeekBufferPositiveExt_patched);
-    hooks[4] = taiHookFunctionImport(&ref[4], TAI_MAIN_MODULE, 0xD197E3C7, 0x860BF292, sceCtrlPeekBufferPositiveExt2_patched);
-    hooks[5] = taiHookFunctionImport(&ref[5], TAI_MAIN_MODULE, 0xD197E3C7, 0x67E7AB83, sceCtrlReadBufferPositive_patched);
-    hooks[6] = taiHookFunctionImport(&ref[6], TAI_MAIN_MODULE, 0xD197E3C7, 0xC4226A3E, sceCtrlReadBufferPositive2_patched);
-    hooks[7] = taiHookFunctionImport(&ref[7], TAI_MAIN_MODULE, 0xD197E3C7, 0xE2D99296, sceCtrlReadBufferPositiveExt_patched);
-    hooks[8] = taiHookFunctionImport(&ref[8], TAI_MAIN_MODULE, 0xD197E3C7, 0xA7178860, sceCtrlReadBufferPositiveExt2_patched);
 }
 
 void ui_finish() {

@@ -110,13 +110,14 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     mem_init();
 
     if (cheat_loaded())
-        ui_set_show_msg(15000, 3, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR, "L+R+" CHAR_LEFT "+SELECT to open in-game menu", "Cheat codes loaded");
+        ui_set_show_msg(15000, 4, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR, "L+R+" CHAR_LEFT "+SELECT to open in-game menu", "Cheat codes loaded");
     else
-        ui_set_show_msg(15000, 2, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR, "L+R+" CHAR_LEFT "+SELECT to open in-game menu");
+        ui_set_show_msg(15000, 3, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR, "L+R+" CHAR_LEFT "+SELECT to open in-game menu");
     while(running) {
         // checkInput();
         uint64_t curr_tick = util_gettick();
         ui_check_msg_timeout(curr_tick);
+        ui_check_input();
         net_kcp_process(curr_tick);
         if (curr_tick >= last_tick + 200) {
             mem_lockdata_process();
