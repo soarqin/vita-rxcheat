@@ -6,6 +6,8 @@
 
 void util_init();
 uint64_t util_gettick();
+void util_pause_main_thread();
+void util_resume_main_thread();
 int util_is_allocated(int id);
 
 extern void*(*my_alloc)(size_t);

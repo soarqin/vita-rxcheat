@@ -146,6 +146,7 @@ static inline void _show_menu() {
 static void menu_cancel() {
     switch(menu_mode) {
         case MENU_MODE_MAIN:
+            util_resume_main_thread();
             menu_mode = MENU_MODE_CLOSE;
             return;
         case MENU_MODE_CHEAT:
@@ -211,6 +212,7 @@ static int check_input(SceCtrlData *pad_data, int pad2) {
     switch (menu_mode) {
     case 0:
         if ((old_buttons & CHEAT_MENU_TRIGGER) == CHEAT_MENU_TRIGGER) {
+            util_pause_main_thread();
             menu_mode = 0;
             menu_mode = MENU_MODE_MAIN;
             break;

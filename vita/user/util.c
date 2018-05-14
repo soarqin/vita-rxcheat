@@ -6,12 +6,23 @@
 #include <vitasdk.h>
 #include <stdint.h>
 
+static SceUID main_thread_id = 0;
+static int main_thread_priority = 0;
+static int main_thread_cpu_affinity = 0;
+static volatile int main_thread_paused = 0;
 static SceUID mempool_sema = 0;
 static SceUID mempool_id[16];
 static void *mempool_start[16];
 static int mempool_count = 0;
 static uint64_t start_tick = 0ULL;
 static uint64_t resolution_of_tick = 0ULL;
+
+enum {
+    SCE_KERNEL_CPU_MASK_SHIFT = 16,
+    SCE_KERNEL_CPU_MASK_USER_0 = (0x01 << SCE_KERNEL_CPU_MASK_SHIFT),
+    SCE_KERNEL_CPU_MASK_USER_1 = (0x01 << (SCE_KERNEL_CPU_MASK_SHIFT + 1)),
+    SCE_KERNEL_CPU_MASK_USER_2 = (0x01 << (SCE_KERNEL_CPU_MASK_SHIFT + 2)),
+};
 
 int liballoc_lock() {
     return sceKernelWaitSema(mempool_sema, 1, NULL);
@@ -88,6 +99,59 @@ uint64_t util_gettick() {
     SceRtcTick tick;
     sceRtcGetCurrentTick(&tick);
     return (tick.tick - start_tick) / resolution_of_tick;
+}
+
+static int pause_blocking_thread(SceSize args, void *argv) {
+    while (1) {
+        if (!main_thread_paused) break;
+    }
+    sceKernelExitDeleteThread(0);
+    return 0;
+}
+
+int sceKernelChangeThreadCpuAffinityMask(SceUID threadId, int cpuAffinityMask);
+
+void util_pause_main_thread() {
+    SceKernelThreadInfo info;
+    if (main_thread_id == 0) {
+        // find main thread
+        SceUID thid = 0x40010001;
+        SceUID curr = sceKernelGetThreadId();
+        for(; thid <= 0x40010FFF; ++thid) {
+            if (thid == curr) continue;
+            int ret = sceKernelGetThreadInfo(thid, &info);
+            if (ret < 0) continue;
+            main_thread_id = thid;
+            main_thread_priority = info.currentPriority;
+            main_thread_cpu_affinity = info.currentCpuAffinityMask;
+            break;
+        }
+        if (main_thread_id == 0) return;
+    } else {
+        int ret = sceKernelGetThreadInfo(main_thread_id, &info);
+        if (ret > 0) {
+            main_thread_priority = info.currentPriority;
+            main_thread_cpu_affinity = info.currentCpuAffinityMask;
+        } else {
+            main_thread_priority = 0x10000100;
+            main_thread_cpu_affinity = 0;
+        }
+    }
+    sceKernelChangeThreadPriority(0, 0x40);
+    sceKernelChangeThreadPriority(main_thread_id, 0xBF);
+    sceKernelChangeThreadCpuAffinityMask(main_thread_id, SCE_KERNEL_CPU_MASK_USER_2);
+    main_thread_paused = 1;
+    SceUID thid = sceKernelCreateThread("rcsvr_pause_blocking_thread", pause_blocking_thread, 0x40, 0x4000, 0, SCE_KERNEL_CPU_MASK_USER_2, NULL);
+    if (thid >= 0) sceKernelStartThread(thid, 0, NULL);
+}
+
+void util_resume_main_thread() {
+    if (main_thread_id == 0) return;
+    if (!main_thread_paused) return;
+    main_thread_paused = 0;
+    sceKernelChangeThreadPriority(0, 0x10000100);
+    sceKernelChangeThreadPriority(main_thread_id, 0xBF);
+    sceKernelChangeThreadCpuAffinityMask(main_thread_id, SCE_KERNEL_CPU_MASK_USER_2);
 }
 
 int util_is_allocated(int id) {
