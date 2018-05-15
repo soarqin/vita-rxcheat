@@ -57,7 +57,7 @@ static inline int menu_get_count() {
         case MENU_MODE_MAIN:
             return 3;
         case MENU_MODE_ADV:
-            return 1;
+            return 5;
         case MENU_MODE_CHEAT:
             return cheat_loaded() ? cheat_get_section_count(cheat_get_handle()) : 0;
         case MENU_MODE_TROP:
@@ -81,7 +81,7 @@ static inline void _show_menu(int standalone) {
             break;
         }
         case MENU_MODE_ADV: {
-            const char *text[1] = {"Dump Memory"};
+            const char *text[5] = {"Dump Memory", "CPU CLOCKS", "BUS CLOCKS", "GPU CLOCKS", "GPU XBAR CLOCKS"};
             if (mem_is_dumping()) text[0] = "Dump Memory - Dumping...";
             int count = menu_get_count();
             blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, "Advance");
@@ -89,6 +89,14 @@ static inline void _show_menu(int standalone) {
             for (int i = 0; i < count; ++i) {
                 blit_string(MENU_X_LEFT, MENU_Y_TOP + LINE_HEIGHT * i, 0, text[i]);
             }
+            blit_string(MENU_X_LEFT - 40, MENU_Y_TOP + LINE_HEIGHT * MENU_SCROLL_MAX, 0,
+                "CPU/BUS/GPU/XBAR CLOCKS(MHz):");
+            blit_stringf(MENU_X_LEFT - 40, MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX + 1), 0,
+                "%d / %d / %d / %d",
+                scePowerGetArmClockFrequency(),
+                scePowerGetBusClockFrequency(),
+                scePowerGetGpuClockFrequency(),
+                scePowerGetGpuXbarClockFrequency());
             break;
         }
         case MENU_MODE_CHEAT: {
@@ -191,6 +199,38 @@ static void menu_run() {
                 case 0:
                     if (!mem_is_dumping()) mem_dump();
                     break;
+                case 1: {
+                    int c = scePowerGetArmClockFrequency();
+                    if (scePowerSetArmClockFrequency(c + 1) != 0) {
+                        c = 1;
+                        while (scePowerSetArmClockFrequency(c) != 0) ++c;
+                    }
+                    break;
+                }
+                case 2: {
+                    int c = scePowerGetBusClockFrequency();
+                    if (scePowerSetBusClockFrequency(c + 1) != 0) {
+                        c = 1;
+                        while (scePowerSetBusClockFrequency(c) != 0) ++c;
+                    }
+                    break;
+                }
+                case 3: {
+                    int c = scePowerGetGpuClockFrequency();
+                    if (scePowerSetGpuClockFrequency(c + 1) != 0) {
+                        c = 1;
+                        while (scePowerSetGpuClockFrequency(c) != 0) ++c;
+                    }
+                    break;
+                }
+                case 4: {
+                    int c = scePowerGetGpuXbarClockFrequency();
+                    if (scePowerSetGpuXbarClockFrequency(c + 1) != 0) {
+                        c = 1;
+                        while (scePowerSetGpuXbarClockFrequency(c) != 0) ++c;
+                    }
+                    break;
+                }
             }
             break;
         }
