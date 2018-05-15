@@ -120,6 +120,7 @@ target_link_libraries(user
     SceNetCtl_stub_weak
     ScePower_stub_weak
     SceRtc_stub_weak
+    SceShellSvc_stub_weak
     ScePgf_stub_weak
     SceNpTrophy_stub_weak
 )

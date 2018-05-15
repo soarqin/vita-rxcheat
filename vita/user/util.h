@@ -6,6 +6,8 @@
 
 void util_init();
 void util_finish();
+void util_lock_power();
+void util_unlock_power();
 uint64_t util_gettick();
 void util_pause_main_thread();
 void util_resume_main_thread();

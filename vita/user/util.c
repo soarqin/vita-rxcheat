@@ -89,6 +89,8 @@ void util_init() {
     mempool_sema = sceKernelCreateSema("rcsvr_mempool_sema", 0, 1, 1, 0);
     util_set_alloc(kmalloc, krealloc, kcalloc, kfree);
 
+    sceShellUtilInitEvents(0);
+
     // init time tick
     resolution_of_tick = sceRtcGetTickResolution() / 1000U;
     SceRtcTick tick;
@@ -97,6 +99,19 @@ void util_init() {
 }
 
 void util_finish() {
+}
+
+static int power_lock_count = 0;
+
+void util_lock_power() {
+    if (power_lock_count++ == 0)
+        sceShellUtilLock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN);
+}
+
+void util_unlock_power() {
+    if (power_lock_count <= 0) return;
+    if (--power_lock_count == 0)
+        sceShellUtilUnlock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN);
 }
 
 uint64_t util_gettick() {

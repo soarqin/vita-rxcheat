@@ -156,6 +156,7 @@ static void menu_cancel() {
         case MENU_MODE_MAIN:
             util_resume_main_thread();
             menu_mode = MENU_MODE_CLOSE;
+            util_unlock_power();
             return;
         case MENU_MODE_CHEAT:
             if (!cheat_loaded()) break;
@@ -232,6 +233,7 @@ void ui_process(uint64_t tick) {
         switch (menu_mode) {
         case 0:
             if ((old_buttons & CHEAT_MENU_TRIGGER) == CHEAT_MENU_TRIGGER) {
+                util_lock_power();
                 util_pause_main_thread();
                 menu_mode = MENU_MODE_MAIN;
             }
