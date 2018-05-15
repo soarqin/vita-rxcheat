@@ -1,4 +1,4 @@
-1. (v0.10) Memory dumper
-2. (v0.10) Overclock
-3. (v0.10) Plugin multi language support
+1. (v0.10) Overclock
+2. (v0.10) Plugin multi language support
+3. (?) Fuzzy search
 4. (?) Better memory view editing style
