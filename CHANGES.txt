@@ -1,8 +1,8 @@
-v1.0:
+v0.10:
   1. try to pause game on in-game menu (not always working)
-  2. (TODO) dump memory
+  2. added dump memory to in-game menu
   3. (TODO) overclock
-  4. (TODO) plugin multi language support
+  4. (TODO) in-game menu multi-language support
 
 v0.9:
   1. rename to VITA RxCheat

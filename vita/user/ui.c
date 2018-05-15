@@ -30,7 +30,8 @@ enum {
     MENU_MODE_MAIN  = 1,
     MENU_MODE_CHEAT = 2,
     MENU_MODE_TROP  = 3,
-    MENU_MODE_MAX   = 4,
+    MENU_MODE_ADV   = 4,
+    MENU_MODE_MAX   = 5,
 
     MENU_SCROLL_MAX = 10,
     MENU_X_SELECTOR = 280,
@@ -55,6 +56,8 @@ static inline int menu_get_count() {
     switch (menu_mode) {
         case MENU_MODE_MAIN:
             return 3;
+        case MENU_MODE_ADV:
+            return 1;
         case MENU_MODE_CHEAT:
             return cheat_loaded() ? cheat_get_section_count(cheat_get_handle()) : 0;
         case MENU_MODE_TROP:
@@ -68,11 +71,20 @@ static inline void _show_menu(int standalone) {
     blit_clear(240, 135, 960 - 480, 544 - 270);
     switch (menu_mode) {
         case MENU_MODE_MAIN: {
-            const char *text[3] = {"Cheats", "Trophies", "Close"};
+            const char *text[3] = {"Cheats", "Trophies", "Advance"};
             int count = menu_get_count();
-            int menu_bot = count;
-            if (menu_bot > menu_top[menu_mode] + MENU_SCROLL_MAX) menu_bot = menu_top[menu_mode] + MENU_SCROLL_MAX;
             blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, "Main Menu");
+            blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], 0, CHAR_RIGHT);
+            for (int i = 0; i < count; ++i) {
+                blit_string(MENU_X_LEFT, MENU_Y_TOP + LINE_HEIGHT * i, 0, text[i]);
+            }
+            break;
+        }
+        case MENU_MODE_ADV: {
+            const char *text[1] = {"Dump Memory"};
+            if (mem_is_dumping()) text[0] = "Dump Memory - Dumping...";
+            int count = menu_get_count();
+            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, "Advance");
             blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], 0, CHAR_RIGHT);
             for (int i = 0; i < count; ++i) {
                 blit_string(MENU_X_LEFT, MENU_Y_TOP + LINE_HEIGHT * i, 0, text[i]);
@@ -156,20 +168,28 @@ static void menu_cancel() {
 static void menu_run() {    
     switch(menu_mode) {
         case MENU_MODE_MAIN: {
-            int idx = menu_index[menu_mode];
-            switch(idx) {
+            switch(menu_index[menu_mode]) {
                 case 0:
                     menu_mode = MENU_MODE_CHEAT;
-                    log_debug("Enter cheat menu\n");
                     break;
                 case 1:
                     trophy_list(NULL, NULL);
                     menu_mode = MENU_MODE_TROP;
-                    log_debug("Enter trophy menu\n");
                     break;
                 case 2:
+                    menu_mode = MENU_MODE_ADV;
+                    break;
+                default:
                     menu_cancel();
                     return;
+            }
+            break;
+        }
+        case MENU_MODE_ADV: {
+            switch(menu_index[menu_mode]) {
+                case 0:
+                    if (!mem_is_dumping()) mem_dump();
+                    break;
             }
             break;
         }

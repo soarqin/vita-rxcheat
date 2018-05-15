@@ -30,6 +30,8 @@ typedef struct memlock_data {
 } memlock_data;
 
 int mem_list(memory_range *range, int size, int heap);
+void mem_dump();
+int mem_is_dumping();
 
 void mem_lockdata_clear();
 void mem_lockdata_begin();
