@@ -20,7 +20,7 @@ static inline int is_valid_filename(const char *filename) {
 }
 
 static SceUID ksceKernelStartPreloadedModules_patched(SceUID pid) {
-    if (refs[0] <= 0) return -1;
+    if (refs[0] == 0) return -1;
     int ret = TAI_CONTINUE(int, refs[0], pid);
     if (ret >= 0) {
         char titleid[32];
@@ -42,7 +42,7 @@ static SceUID ksceKernelStartPreloadedModules_patched(SceUID pid) {
 
 static int sceIoOpenForPidForDriver_patched(SceUID pid, const char *filename, int flag, SceIoMode mode) {
     int ret, state;
-    if (refs[1] <= 0) return -1;
+    if (refs[1] == 0) return -1;
     ENTER_SYSCALL(state);
     if ((ret = TAI_CONTINUE(int, refs[1], pid, filename, flag, mode)) < 0 && is_valid_filename(filename)) {
         ret = ksceIoOpen(filename, flag, mode);
@@ -58,7 +58,7 @@ typedef struct sceIoMkdirOpt {
 
 static int _sceIoMkdir_patched(const char *dirname, SceIoMode mode, sceIoMkdirOpt opt) {
     int ret, state;
-    if (refs[2] <= 0) return -1;
+    if (refs[2] == 0) return -1;
     ENTER_SYSCALL(state);
     if ((ret = TAI_CONTINUE(int, refs[2], dirname, mode, opt)) < 0) {
         char path[128];
@@ -77,7 +77,7 @@ typedef struct sceIoRmdirOpt {
 
 static int _sceIoRmdir_patched(const char *dirname, sceIoRmdirOpt* opt) {
     int ret, state;
-    if (refs[3] <= 0) return -1;
+    if (refs[3] == 0) return -1;
     ENTER_SYSCALL(state);
     if ((ret = TAI_CONTINUE(int, refs[3], dirname, opt)) < 0) {
         char path[128];
@@ -96,7 +96,7 @@ typedef struct sceIoRemoveOpt {
 
 static int _sceIoRemove_patched(const char *filename, sceIoRemoveOpt* opt) {
     int ret, state;
-    if (refs[4] <= 0) return -1;
+    if (refs[4] == 0) return -1;
     ENTER_SYSCALL(state);
     if ((ret = TAI_CONTINUE(int, refs[4], filename, opt)) < 0) {
         char path[128];

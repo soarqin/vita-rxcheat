@@ -36,7 +36,6 @@ static void _update_trophy_data(int index, SceNpTrophyDetails *detail, SceNpTrop
 }
 
 int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, const SceNpCommunicationId *commId, const SceNpCommunicationSignature *commSign, SceUInt64 options) {
-    if (refs[0] <= 0) return -1;
     int ret = TAI_CONTINUE(int, refs[0], c, commId, commSign, options);
     if (ret >= 0)
         context = *c;

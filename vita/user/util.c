@@ -4,7 +4,7 @@
 #include "debug.h"
 
 #include <vitasdk.h>
-#include <stdint.h>
+#include <taihen.h>
 
 static SceUID main_thread_id = 0;
 static int main_thread_priority = 0;
@@ -22,6 +22,7 @@ enum {
     SCE_KERNEL_CPU_MASK_USER_0 = (0x01 << SCE_KERNEL_CPU_MASK_SHIFT),
     SCE_KERNEL_CPU_MASK_USER_1 = (0x01 << (SCE_KERNEL_CPU_MASK_SHIFT + 1)),
     SCE_KERNEL_CPU_MASK_USER_2 = (0x01 << (SCE_KERNEL_CPU_MASK_SHIFT + 2)),
+    SCE_KERNEL_CPU_MASK_USER_ALL = SCE_KERNEL_CPU_MASK_USER_0 | SCE_KERNEL_CPU_MASK_USER_1 | SCE_KERNEL_CPU_MASK_USER_2,
 };
 
 int liballoc_lock() {
@@ -95,6 +96,9 @@ void util_init() {
     start_tick = tick.tick;
 }
 
+void util_finish() {
+}
+
 uint64_t util_gettick() {
     SceRtcTick tick;
     sceRtcGetCurrentTick(&tick);
@@ -105,8 +109,7 @@ static int pause_blocking_thread(SceSize args, void *argv) {
     while (1) {
         if (!main_thread_paused) break;
     }
-    sceKernelExitDeleteThread(0);
-    return 0;
+    return sceKernelExitDeleteThread(0);
 }
 
 int sceKernelChangeThreadCpuAffinityMask(SceUID threadId, int cpuAffinityMask);
@@ -138,15 +141,15 @@ void util_pause_main_thread() {
             main_thread_cpu_affinity = 0;
         }
     }
-    sceKernelChangeThreadPriority(0, 0x40);
+    sceKernelChangeThreadPriority(0, 0x42);
+    sceKernelChangeThreadPriority(main_thread_id, 0xBF);
+    sceKernelChangeThreadCpuAffinityMask(main_thread_id, SCE_KERNEL_CPU_MASK_USER_2);
     log_trace("pause_main_thread: %X %X %X\n", main_thread_id, main_thread_priority, main_thread_cpu_affinity);
     while(1) {
         main_thread_paused = 1;
         SceUID thid = sceKernelCreateThread("rcsvr_pause_blocking_thread", pause_blocking_thread, 0x40, 0x4000, 0, SCE_KERNEL_CPU_MASK_USER_2, NULL);
         if (thid >= 0) sceKernelStartThread(thid, 0, NULL);
-        sceKernelChangeThreadPriority(main_thread_id, 0xBF);
-        sceKernelChangeThreadCpuAffinityMask(main_thread_id, SCE_KERNEL_CPU_MASK_USER_2);
-        sceKernelGetThreadInfo(0x40010003, &info);
+        sceKernelGetThreadInfo(main_thread_id, &info);
         if (info.status != SCE_THREAD_RUNNING) break;
         main_thread_paused = 0;
         sceKernelDelayThread(1000);

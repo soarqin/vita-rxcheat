@@ -1,3 +1,4 @@
-1. Simple memory locking (v0.6)
-2. RAW code support (v0.7?)
-3. Better memory view editing style
+1. (v1.0) Memory dumper
+2. (v1.0) Overclock
+3. (v1.0) Plugin multi language support
+4. (v1.?) Better memory view editing style

@@ -1,3 +1,9 @@
+v1.0:
+  1. try to pause game on in-game menu (not always working)
+  2. (TODO) dump memory
+  3. (TODO) overclock
+  4. (TODO) plugin multi language support
+
 v0.9:
   1. rename to VITA RxCheat
   2. try use ux0:data/rcsvr/font.pgf first (for full-CJK support)

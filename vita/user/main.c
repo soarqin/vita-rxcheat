@@ -19,12 +19,10 @@ static tai_hook_ref_t refs[HOOKS_NUM] = {};
 
 static int running = 1;
 
-static uint64_t last_tick = 0ULL;
-
 static void main_net_init();
 
 int scePowerSetUsingWireless_patched(int enable) {
-    if (refs[0] <= 0) return -1;
+    if (refs[0] == 0) return -1;
     return TAI_CONTINUE(int, refs[0], 1);
 }
 
@@ -33,7 +31,7 @@ int scePowerSetConfigurationMode_patched(int mode) {
 }
 
 int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
-    if (refs[2] <= 0) return -1;
+    if (refs[2] == 0) return -1;
     switch(id) {
     case SCE_SYSMODULE_NET:
         if (net_loaded())
@@ -53,7 +51,7 @@ int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
 }
 
 int sceSysmoduleUnloadModule_patched(SceSysmoduleModuleId id) {
-    if (refs[3] <= 0) return -1;
+    if (refs[3] == 0) return -1;
     switch(id) {
     case SCE_SYSMODULE_NET:
     case SCE_SYSMODULE_PGF:
@@ -68,13 +66,13 @@ int sceSysmoduleUnloadModule_patched(SceSysmoduleModuleId id) {
 }
 
 int sceNetInit_patched(SceNetInitParam *param) {
-    if (refs[4] <= 0) return -1;
+    if (refs[4] == 0) return -1;
     if (net_loaded()) return 0;
     return TAI_CONTINUE(int, refs[4], param);
 }
 
 int sceNetCtlInit_patched() {
-    if (refs[5] <= 0) return -1;
+    if (refs[5] == 0) return -1;
     if (net_loaded()) return 0;
     return TAI_CONTINUE(int, refs[5]);
 }
@@ -97,7 +95,6 @@ static void main_net_init() {
 int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(10000000);
 
-    util_init();
     main_cheat_load();
     main_net_init();
 #ifdef RCSVR_DEBUG
@@ -115,9 +112,10 @@ int rcsvr_main_thread(SceSize args, void *argp) {
         ui_set_show_msg(15000, 3, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR, "L+R+" CHAR_LEFT "+SELECT to open in-game menu");
     while(running) {
         // checkInput();
+        static uint64_t last_tick = 0ULL;
         uint64_t curr_tick = util_gettick();
         ui_check_msg_timeout(curr_tick);
-        ui_check_input();
+        ui_process(curr_tick);
         net_kcp_process(curr_tick);
         if (curr_tick >= last_tick + 200) {
             mem_lockdata_process();
@@ -139,6 +137,7 @@ int module_start(SceSize argc, const void *args) {
     sceIoMkdir("ux0:data/rcsvr", 0777);
     sceIoMkdir("ux0:data/rcsvr/cheat", 0777);
 
+    util_init();
     trophy_init();
 
     hooks[0] = taiHookFunctionImport(&refs[0], TAI_MAIN_MODULE, 0x1082DA7F, 0x4D695C1F, scePowerSetUsingWireless_patched);
@@ -164,5 +163,6 @@ int module_stop(SceSize argc, const void *args) {
             taiHookRelease(hooks[i], refs[i]);
 
     trophy_finish();
+    util_finish();
     return SCE_KERNEL_STOP_SUCCESS;
 }

@@ -13,11 +13,11 @@
 #define CENTER(num) ((960/2)-(num*(16/2)))
 
 int blit_setup(void);
+int blit_set_frame_buf(const SceDisplayFrameBuf *param);
 void blit_set_color(uint32_t fg_col);
 void blit_clear(int sx, int sy, int w, int h);
-int blit_string(int sx, int sy, const char *msg);
-int blit_string_ctr(int sy, const char *msg);
-int blit_stringf(int sx, int sy, const char *msg, ...);
-int blit_set_frame_buf(const SceDisplayFrameBuf *param);
+int blit_string(int sx, int sy, int alpha, const char *msg);
+int blit_string_ctr(int sy, int alpha, const char *msg);
+int blit_stringf(int sx, int sy, int alpha, const char *msg, ...);
 
 #endif
