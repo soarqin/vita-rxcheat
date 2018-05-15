@@ -224,7 +224,7 @@ void ui_process(uint64_t tick) {
     if (sceCtrlPeekBufferPositive2(0, &pad_data, 1) > 0) {
         uint32_t cur_button = pad_data.buttons;
         if (old_buttons == cur_button) {
-            if (tick < last_tick + 100ULL) return;
+            if (tick < last_tick + 125ULL) return;
         } else {
             old_buttons = cur_button;
         }
