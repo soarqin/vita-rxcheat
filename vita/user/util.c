@@ -17,14 +17,6 @@ static int mempool_count = 0;
 static uint64_t start_tick = 0ULL;
 static uint64_t resolution_of_tick = 0ULL;
 
-enum {
-    SCE_KERNEL_CPU_MASK_SHIFT = 16,
-    SCE_KERNEL_CPU_MASK_USER_0 = (0x01 << SCE_KERNEL_CPU_MASK_SHIFT),
-    SCE_KERNEL_CPU_MASK_USER_1 = (0x01 << (SCE_KERNEL_CPU_MASK_SHIFT + 1)),
-    SCE_KERNEL_CPU_MASK_USER_2 = (0x01 << (SCE_KERNEL_CPU_MASK_SHIFT + 2)),
-    SCE_KERNEL_CPU_MASK_USER_ALL = SCE_KERNEL_CPU_MASK_USER_0 | SCE_KERNEL_CPU_MASK_USER_1 | SCE_KERNEL_CPU_MASK_USER_2,
-};
-
 int liballoc_lock() {
     return sceKernelWaitSema(mempool_sema, 1, NULL);
 }
@@ -156,13 +148,12 @@ void util_pause_main_thread() {
             main_thread_cpu_affinity = 0;
         }
     }
-    sceKernelChangeThreadPriority(0, 0x42);
     sceKernelChangeThreadPriority(main_thread_id, 0xBF);
-    sceKernelChangeThreadCpuAffinityMask(main_thread_id, SCE_KERNEL_CPU_MASK_USER_2);
+    sceKernelChangeThreadCpuAffinityMask(main_thread_id, SCE_KERNEL_CPU_MASK_USER_0);
     log_trace("pause_main_thread: %X %X %X\n", main_thread_id, main_thread_priority, main_thread_cpu_affinity);
     while(1) {
         main_thread_paused = 1;
-        SceUID thid = sceKernelCreateThread("rcsvr_pause_blocking_thread", pause_blocking_thread, 0x40, 0x4000, 0, SCE_KERNEL_CPU_MASK_USER_2, NULL);
+        SceUID thid = sceKernelCreateThread("rcsvr_pause_blocking_thread", pause_blocking_thread, 0x40, 0x4000, 0, SCE_KERNEL_CPU_MASK_USER_0, NULL);
         if (thid >= 0) sceKernelStartThread(thid, 0, NULL);
         sceKernelGetThreadInfo(main_thread_id, &info);
         if (info.status != SCE_THREAD_RUNNING) break;
@@ -185,6 +176,50 @@ int util_is_allocated(int id) {
     for (i = 0; i < mempool_count; ++i) {
         if (mempool_id[i] == id) return 1;
     }
+    return 0;
+}
+
+int util_readfile_by_line(const char *filename, int (*cb)(const char *name, void *arg), void *arg) {
+    const int BUF_SIZE = 256;
+    char buf[BUF_SIZE];
+    SceUID f = sceIoOpen(filename, SCE_O_RDONLY, 0666);
+    if (f < 0) return f;
+    int pos = 0;
+    while(1) {
+        int i = pos, n = sceIoRead(f, buf + pos, BUF_SIZE - pos), s = 0;
+        if (n <= 0) {
+            if (pos > s) {
+                buf[pos] = 0;
+                cb(buf + s, arg);
+            }
+            break;
+        }
+        n += pos;
+        while(1) {
+            while(i < n && buf[i] != '\r' && buf[i] != '\n' && buf[i] != 0) ++i;
+            if (i >= n) {
+                if (s == 0) {
+                    buf[n - 1] = 0;
+                    cb(buf, arg);
+                    pos = 0;
+                } else {
+                    memmove(buf, buf + s, n - s);
+                    pos = n - s;
+                }
+                break;
+            }
+            buf[i] = 0;
+            if (i > s) cb(buf + s, arg);
+            ++i;
+            while(i < n && (buf[i] == '\r' || buf[i] == '\n')) ++i;
+            if (i >= n) {
+                pos = 0;
+                break;
+            }
+            pos = s = i;
+        }
+    }
+    sceIoClose(f);
     return 0;
 }
 

@@ -151,6 +151,8 @@ static int _trophy_thread(SceSize args, void *argp) {
     if (ret < 0) {
         log_error("sceNpTrophyCreateHandle: %d\n", ret);
         cb_end(-1);
+        if (type == 0)
+            trophy_load_status = 0;
         return sceKernelExitDeleteThread(0);
     }
     switch(type) {
@@ -160,6 +162,7 @@ static int _trophy_thread(SceSize args, void *argp) {
             ret = sceNpTrophyGetGameInfo(context, handle, &detail0, NULL);
             if (ret < 0) {
                 if (cb_end) cb_end(-1);
+                trophy_load_status = 0;
                 break;
             }
             SceNpTrophyDetails detail;
@@ -261,7 +264,7 @@ void trophy_list(trophy_info_cb_t cb, trophy_info_cb_end_t cb_end) {
             trophy_req.type = 0;
             trophy_req.cb = cb;
             trophy_req.cb_end = cb_end;
-            SceUID thid = sceKernelCreateThread("rcsvr_trophy_thread", (SceKernelThreadEntry)_trophy_thread, 0x10000100, 0x10000, 0, 0, NULL);
+            SceUID thid = sceKernelCreateThread("rcsvr_trophy_thread", (SceKernelThreadEntry)_trophy_thread, 0x10000100, 0x10000, 0, SCE_KERNEL_CPU_MASK_USER_1 | SCE_KERNEL_CPU_MASK_USER_2, NULL);
             if (thid >= 0)
                 sceKernelStartThread(thid, 0, NULL);
             sceKernelWaitSema(trophySema, 1, NULL);
@@ -284,7 +287,7 @@ void trophy_unlock(int id, int hidden, trophy_info_cb_t cb, trophy_unlock_cb_t c
     trophy_req.hidden[0] = hidden ? 1 : 0;
     trophy_req.cb = cb;
     trophy_req.cb2 = cb2;
-    SceUID thid = sceKernelCreateThread("rcsvr_trophy_thread", (SceKernelThreadEntry)_trophy_thread, 0x10000100, 0x10000, 0, 0, NULL);
+    SceUID thid = sceKernelCreateThread("rcsvr_trophy_thread", (SceKernelThreadEntry)_trophy_thread, 0x10000100, 0x10000, 0, SCE_KERNEL_CPU_MASK_USER_1 | SCE_KERNEL_CPU_MASK_USER_2, NULL);
     if (thid >= 0)
         sceKernelStartThread(thid, 0, NULL);
     sceKernelWaitSema(trophySema, 1, NULL);
@@ -295,7 +298,7 @@ void trophy_unlock_all(uint32_t *hidden, trophy_info_cb_t cb, trophy_unlock_cb_t
     sceClibMemcpy(trophy_req.hidden, hidden, 4 * sizeof(uint32_t));
     trophy_req.cb = cb;
     trophy_req.cb2 = cb2;
-    SceUID thid = sceKernelCreateThread("rcsvr_trophy_thread", (SceKernelThreadEntry)_trophy_thread, 0x10000100, 0x10000, 0, 0, NULL);
+    SceUID thid = sceKernelCreateThread("rcsvr_trophy_thread", (SceKernelThreadEntry)_trophy_thread, 0x10000100, 0x10000, 0, SCE_KERNEL_CPU_MASK_USER_1 | SCE_KERNEL_CPU_MASK_USER_2, NULL);
     if (thid >= 0)
         sceKernelStartThread(thid, 0, NULL);
     sceKernelWaitSema(trophySema, 1, NULL);

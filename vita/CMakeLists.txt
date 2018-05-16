@@ -88,7 +88,9 @@ add_executable(user
     user/cheat.c user/cheat.h
     # ui
     user/ui.c user/ui.h
-    user/blit.c user/blit.h user/font_pgf.c
+    user/lang.c user/lang.h
+    user/blit.c user/blit.h
+    user/font_pgf.c user/font_pgf.h
     # util
     user/util.c user/util.h
     user/liballoc.c user/liballoc.h

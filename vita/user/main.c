@@ -5,6 +5,7 @@
 #include "util.h"
 #include "debug.h"
 #include "ui.h"
+#include "lang.h"
 #include "font_pgf.h"
 
 #include "../version.h"
@@ -103,6 +104,7 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelGetFreeMemorySize(&fmsi);
     log_trace("Free memory: %X %X %X\n", fmsi.size_user, fmsi.size_phycont, fmsi.size_cdram);
 #endif
+    lang_init();
     ui_init();
     mem_init();
 
@@ -124,6 +126,7 @@ int rcsvr_main_thread(SceSize args, void *argp) {
         }
     }
     mem_finish();
+    lang_finish();
     ui_finish();
     net_finish();
     cheat_free();
@@ -146,7 +149,7 @@ int module_start(SceSize argc, const void *args) {
     hooks[3] = taiHookFunctionImport(&refs[3], TAI_MAIN_MODULE, 0x03FCF19D, 0x31D87805, sceSysmoduleUnloadModule_patched);
 
     running = 1;
-    SceUID thid = sceKernelCreateThread("rcsvr_main_thread", (SceKernelThreadEntry)rcsvr_main_thread, 0x10000100, 0xF000, 0, 0, NULL);
+    SceUID thid = sceKernelCreateThread("rcsvr_main_thread", (SceKernelThreadEntry)rcsvr_main_thread, 0x10000100, 0x10000, 0, SCE_KERNEL_CPU_MASK_USER_1 | SCE_KERNEL_CPU_MASK_USER_2, NULL);
     if (thid >= 0)
         sceKernelStartThread(thid, 0, NULL);
 

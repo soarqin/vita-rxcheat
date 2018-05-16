@@ -62,7 +62,7 @@ static int _sceIoMkdir_patched(const char *dirname, SceIoMode mode, sceIoMkdirOp
     ENTER_SYSCALL(state);
     if ((ret = TAI_CONTINUE(int, refs[2], dirname, mode, opt)) < 0) {
         char path[128];
-        ksceKernelStrncpyUserToKernel(&path, (uintptr_t)dirname, sizeof(path));
+        ksceKernelStrncpyUserToKernel(path, (uintptr_t)dirname, sizeof(path));
         if (is_valid_filename(path))
             ret = ksceIoMkdir(path, mode);
     }
@@ -81,7 +81,7 @@ static int _sceIoRmdir_patched(const char *dirname, sceIoRmdirOpt* opt) {
     ENTER_SYSCALL(state);
     if ((ret = TAI_CONTINUE(int, refs[3], dirname, opt)) < 0) {
         char path[128];
-        ksceKernelStrncpyUserToKernel(&path, (uintptr_t)dirname, sizeof(path));
+        ksceKernelStrncpyUserToKernel(path, (uintptr_t)dirname, sizeof(path));
         if (is_valid_filename(path))
             ret = ksceIoRmdir(path);
     }
@@ -100,7 +100,7 @@ static int _sceIoRemove_patched(const char *filename, sceIoRemoveOpt* opt) {
     ENTER_SYSCALL(state);
     if ((ret = TAI_CONTINUE(int, refs[4], filename, opt)) < 0) {
         char path[128];
-        ksceKernelStrncpyUserToKernel(&path, (uintptr_t)filename, sizeof(path));
+        ksceKernelStrncpyUserToKernel(path, (uintptr_t)filename, sizeof(path));
         if (is_valid_filename(path))
             ret = ksceIoRemove(path);
     }

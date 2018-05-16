@@ -446,7 +446,7 @@ void mem_start_search(int type, int heap, const char *buf, int len, void (*cb)(c
     memory_req.cb = cb;
     memory_req.cb_start = cb_start;
     memory_req.cb_end = cb_end;
-    SceUID thid = sceKernelCreateThread("rcsvr_memory_thread", _memory_thread, 0x10000100, 0x8000, 0, 0, NULL);
+    SceUID thid = sceKernelCreateThread("rcsvr_memory_thread", _memory_thread, 0x10000100, 0x10000, 0, SCE_KERNEL_CPU_MASK_USER_1 | SCE_KERNEL_CPU_MASK_USER_2, NULL);
     if (thid >= 0)
         sceKernelStartThread(thid, 0, NULL);
     sceKernelWaitSema(searchSema, 1, NULL);
@@ -496,7 +496,7 @@ void mem_dump() {
     sceClibMemset((void*)&memory_req, 0, sizeof(memory_req));
     memory_req.op = 1;
     mem_dumping = 1;
-    SceUID thid = sceKernelCreateThread("rcsvr_memory_thread", _memory_thread, 0x10000100, 0x8000, 0, 0, NULL);
+    SceUID thid = sceKernelCreateThread("rcsvr_memory_thread", _memory_thread, 0x10000100, 0x10000, 0, SCE_KERNEL_CPU_MASK_USER_1 | SCE_KERNEL_CPU_MASK_USER_2, NULL);
     if (thid >= 0)
         sceKernelStartThread(thid, 0, NULL);
     sceKernelWaitSema(searchSema, 1, NULL);

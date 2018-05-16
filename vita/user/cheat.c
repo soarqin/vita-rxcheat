@@ -16,8 +16,6 @@ typedef struct cheat_data_t {
 
 static cheat_t *cheat = NULL;
 static cheat_data_t cheat_data;
-static int sec_count = 0;
-static const cheat_section_t *sections = NULL;
 
 enum {
     CO_SETBASEADDR = CO_EXTENSION,
@@ -109,63 +107,28 @@ int ext_call_cb(void *arg, int line, const cheat_code_t *code) {
     }
 }
 
-static int cheat_loadfile(const char *filename) {
-    const int BUF_SIZE = 128;
-    char buf[BUF_SIZE];
-    SceUID f = sceIoOpen(filename, SCE_O_RDONLY, 0666);
-    if (f < 0) return f;
-    if (cheat != NULL) {
-        cheat_free();
-    }
-    cheat_data.base_addr = 0U;
-    cheat = cheat_new2(CH_CWCHEAT, my_realloc, my_free, &cheat_data);
-    cheat_set_read_cb(cheat, read_cb);
-    cheat_set_write_cb(cheat, write_cb);
-    cheat_set_trans_cb(cheat, trans_cb);
-    cheat_set_copy_cb(cheat, copy_cb);
-    cheat_set_button_cb(cheat, input_cb);
-    cheat_set_ext_cb(cheat, ext_cb);
-    cheat_set_ext_call_cb(cheat, ext_call_cb);
-    {
-        int pos = 0;
-        while(1) {
-            int i = pos, n = sceIoRead(f, buf + pos, BUF_SIZE - pos), s = 0;
-            if (n <= 0) {
-                if (pos > s) {
-                    buf[pos] = 0;
-                    cheat_add(cheat, buf + s);
-                }
-                break;
-            }
-            n += pos;
-            while(1) {
-                while(i < n && buf[i] != '\r' && buf[i] != '\n' && buf[i] != 0) ++i;
-                if (i >= n) {
-                    if (s == 0) {
-                        buf[n - 1] = 0;
-                        cheat_add(cheat, buf);
-                        pos = 0;
-                    } else {
-                        memmove(buf, buf + s, n - s);
-                        pos = n - s;
-                    }
-                    break;
-                }
-                buf[i] = 0;
-                if (i > s) cheat_add(cheat, buf + s);
-                ++i;
-                while(i < n && buf[i] == '\r' && buf[i] == '\n') ++i;
-                if (i >= n) {
-                    pos = 0;
-                    break;
-                }
-                pos = s = i;
-            }
+static int readline_cb(const char *line, void *arg) {
+    if (*(int*)arg) {
+        if (cheat != NULL) {
+            cheat_free();
         }
+        cheat = cheat_new2(CH_CWCHEAT, my_realloc, my_free, &cheat_data);
+        cheat_set_read_cb(cheat, read_cb);
+        cheat_set_write_cb(cheat, write_cb);
+        cheat_set_trans_cb(cheat, trans_cb);
+        cheat_set_copy_cb(cheat, copy_cb);
+        cheat_set_button_cb(cheat, input_cb);
+        cheat_set_ext_cb(cheat, ext_cb);
+        cheat_set_ext_call_cb(cheat, ext_call_cb);
+        *(int*)arg = 0;
     }
-    sec_count = cheat_get_sections(cheat, &sections);
-    sceIoClose(f);
+    cheat_add(cheat, line);
     return 0;
+}
+
+static int cheat_loadfile(const char *filename) {
+    int first = 1;
+    return util_readfile_by_line(filename, readline_cb, &first);
 }
 
 int cheat_load(const char *titleid) {
@@ -183,8 +146,6 @@ int cheat_load(const char *titleid) {
 
 void cheat_free() {
     if (cheat == NULL) return;
-    sec_count = 0;
-    sections = NULL;
     cheat_finish(cheat);
     cheat = NULL;
 }

@@ -92,6 +92,35 @@ void rcsvrMemcpy(void *dst, const void *src, int size) {
     EXIT_SYSCALL(state);
 }
 
+SceUID rcsvrIoDopen(const char *dirname) {
+    uint32_t state;
+    ENTER_SYSCALL(state);
+    char path[128];
+    ksceKernelStrncpyUserToKernel(path, (uintptr_t)dirname, sizeof(path));
+    SceUID ret = ksceIoDopen(path);
+    EXIT_SYSCALL(state);
+    return ret;
+}
+
+int rcsvrIoDread(SceUID fd, SceIoDirent *dir) {
+    uint32_t state;
+    SceIoDirent out;
+    ENTER_SYSCALL(state);
+    int ret = ksceIoDread(fd, &out);
+    if (ret >= 0)
+        ksceKernelMemcpyKernelToUser((uintptr_t)dir, &out, sizeof(SceIoDirent));
+    EXIT_SYSCALL(state);
+    return ret;
+}
+
+int rcsvrIoDclose(SceUID fd) {
+    uint32_t state;
+    ENTER_SYSCALL(state);
+    int ret = ksceIoDclose(fd);
+    EXIT_SYSCALL(state);
+    return ret;
+}
+
 void kernel_api_init() {
     int ret;
     if (kernel_api_inited) return;

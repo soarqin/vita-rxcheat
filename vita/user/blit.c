@@ -128,12 +128,11 @@ static inline void blit_stringw_solid(int sx, int sy, const wchar_info *wci) {
     while (pwci->wch != 0) {
         const uint8_t *lines = pwci->lines;
         uint32_t *loffset = offset + (18 - (int)pwci->t) * bufferwidth + pwci->l;
-        int i, j;
         int hw = (pwci->w + 1) / 2;
-        for (j = 0; j < pwci->h; ++j) {
+        for (int j = 0; j < pwci->h; ++j) {
             uint32_t *soffset = loffset;
             const uint8_t *ll = lines;
-            for (i = 0; i < hw; ++i) {
+            for (int i = 0; i < hw; ++i) {
                 uint8_t c = *ll++;
                 soffset[0] = realcolor[c & 0x0F];
                 soffset[1] = realcolor[c >> 4];

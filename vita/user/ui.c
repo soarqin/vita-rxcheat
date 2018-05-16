@@ -31,7 +31,7 @@ enum {
     MENU_MODE_CHEAT = 2,
     MENU_MODE_TROP  = 3,
     MENU_MODE_ADV   = 4,
-    MENU_MODE_MAX   = 5,
+    MENU_MODE_COUNT = 5,
 
     MENU_SCROLL_MAX = 10,
     MENU_X_SELECTOR = 280,
@@ -44,8 +44,8 @@ static uint64_t msg_deadline = 0ULL;
 static SceUID msgMutex = -1;
 
 static int menu_mode = MENU_MODE_CLOSE;
-static int menu_index[MENU_MODE_MAX] = {};
-static int menu_top[MENU_MODE_MAX] = {};
+static int menu_index[MENU_MODE_COUNT] = {};
+static int menu_top[MENU_MODE_COUNT] = {};
 
 uint32_t old_buttons = 0;
 uint32_t enter_button = SCE_CTRL_CIRCLE, cancel_button = SCE_CTRL_CROSS;
@@ -57,7 +57,7 @@ static inline int menu_get_count() {
         case MENU_MODE_MAIN:
             return 3;
         case MENU_MODE_ADV:
-            return 5;
+            return 2;
         case MENU_MODE_CHEAT:
             return cheat_loaded() ? cheat_get_section_count(cheat_get_handle()) : 0;
         case MENU_MODE_TROP:
@@ -68,7 +68,7 @@ static inline int menu_get_count() {
 
 static inline void _show_menu(int standalone) {
     if (standalone) blit_setup();
-    blit_clear(240, 135, 960 - 480, 544 - 270);
+    blit_clear(200, 125, 960 - 400, 544 - 250);
     switch (menu_mode) {
         case MENU_MODE_MAIN: {
             const char *text[3] = {"Cheats", "Trophies", "Advance"};
@@ -81,7 +81,7 @@ static inline void _show_menu(int standalone) {
             break;
         }
         case MENU_MODE_ADV: {
-            const char *text[5] = {"Dump Memory", "CPU CLOCKS", "BUS CLOCKS", "GPU CLOCKS", "GPU XBAR CLOCKS"};
+            const char *text[5] = {"Dump Memory", "Change CLOCKS"};
             if (mem_is_dumping()) text[0] = "Dump Memory - Dumping...";
             int count = menu_get_count();
             blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, "Advance");
@@ -141,12 +141,12 @@ static inline void _show_menu(int standalone) {
                         const trophy_info *ti = &trops[i];
                         if (ti->unlocked)
                             blit_string(MENU_X_LEFT + 2, y, 0, CHAR_CIRCLE);
-                        if(ti->grade) blit_string(MENU_X_LEFT + 22, y, 0, gradeName[ti->grade]);
-                        blit_string(MENU_X_LEFT + 44, y, 0, ti->unlocked || !ti->hidden ? ti->name : "[HIDDEN]");
+                        if(ti->grade) blit_string(MENU_X_LEFT + 26, y, 0, gradeName[ti->grade]);
+                        blit_string(MENU_X_LEFT + 54, y, 0, ti->unlocked || !ti->hidden ? ti->name : "[HIDDEN]");
                     }
                     if (mi >= 0 && mi < count) {
                         const trophy_info *ti = &trops[mi];
-                        if (ti->unlocked || !ti->hidden) blit_string(MENU_X_LEFT - 40, MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX + 1), 0, ti->desc);
+                        if (ti->unlocked || !ti->hidden) blit_string_ctr(MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX + 1), 0, ti->desc);
                     }
                     break;
                 }
@@ -174,85 +174,90 @@ static void menu_cancel() {
     menu_mode = MENU_MODE_MAIN;
 }
 
-static void menu_run() {    
-    switch(menu_mode) {
-        case MENU_MODE_MAIN: {
-            switch(menu_index[menu_mode]) {
-                case 0:
-                    menu_mode = MENU_MODE_CHEAT;
-                    break;
-                case 1:
-                    trophy_list(NULL, NULL);
-                    menu_mode = MENU_MODE_TROP;
-                    break;
-                case 2:
-                    menu_mode = MENU_MODE_ADV;
-                    break;
-                default:
-                    menu_cancel();
-                    return;
-            }
+// 0 - decrease   1 - increase
+static inline void clocks_toggle(int direction) {
+    static int clocks[5][4] = {
+        {111, 111, 111, 111},
+        {266, 166, 111, 111},
+        {333, 222, 111, 111},
+        {366, 222, 166, 111},
+        {444, 222, 222, 166},
+    };
+    int c = scePowerGetArmClockFrequency();
+    for (int i = 4; i >= 0; --i) {
+        if (c >= clocks[i][0]) {
+            int n = direction ? ((i + 1) % 5) : ((i + 4) % 5);
+            scePowerSetArmClockFrequency(clocks[n][0]);
+            scePowerSetBusClockFrequency(clocks[n][1]);
+            scePowerSetGpuClockFrequency(clocks[n][2]);
+            scePowerSetGpuXbarClockFrequency(clocks[n][3]);
             break;
         }
-        case MENU_MODE_ADV: {
-            switch(menu_index[menu_mode]) {
-                case 0:
-                    if (!mem_is_dumping()) mem_dump();
-                    break;
-                case 1: {
-                    int c = scePowerGetArmClockFrequency();
-                    if (scePowerSetArmClockFrequency(c + 1) != 0) {
-                        c = 1;
-                        while (scePowerSetArmClockFrequency(c) != 0) ++c;
-                    }
-                    break;
+    }
+}
+
+// 0 - CIRCLE pressed  1 - LEFT pressed  2 - RIGHT pressed
+static void menu_run(int type) {
+    switch(type) {
+    case 0:
+        switch(menu_mode) {
+            case MENU_MODE_MAIN: {
+                switch(menu_index[menu_mode]) {
+                    case 0:
+                        menu_mode = MENU_MODE_CHEAT;
+                        break;
+                    case 1:
+                        trophy_list(NULL, NULL);
+                        menu_mode = MENU_MODE_TROP;
+                        break;
+                    case 2:
+                        menu_mode = MENU_MODE_ADV;
+                        break;
+                    default:
+                        menu_cancel();
+                        return;
                 }
-                case 2: {
-                    int c = scePowerGetBusClockFrequency();
-                    if (scePowerSetBusClockFrequency(c + 1) != 0) {
-                        c = 1;
-                        while (scePowerSetBusClockFrequency(c) != 0) ++c;
-                    }
-                    break;
-                }
-                case 3: {
-                    int c = scePowerGetGpuClockFrequency();
-                    if (scePowerSetGpuClockFrequency(c + 1) != 0) {
-                        c = 1;
-                        while (scePowerSetGpuClockFrequency(c) != 0) ++c;
-                    }
-                    break;
-                }
-                case 4: {
-                    int c = scePowerGetGpuXbarClockFrequency();
-                    if (scePowerSetGpuXbarClockFrequency(c + 1) != 0) {
-                        c = 1;
-                        while (scePowerSetGpuXbarClockFrequency(c) != 0) ++c;
-                    }
-                    break;
-                }
+                break;
             }
-            break;
+            case MENU_MODE_ADV: {
+                switch(menu_index[menu_mode]) {
+                    case 0:
+                        if (!mem_is_dumping()) mem_dump();
+                        break;
+                    case 1:
+                        clocks_toggle(1);
+                        break;
+                }
+                break;
+            }
+            case MENU_MODE_CHEAT: {
+                if (!cheat_loaded()) break;
+                cheat_t *ch = cheat_get_handle();
+                int count = cheat_get_section_count(ch);
+                if (menu_index[menu_mode] >= 0 && menu_index[menu_mode] < count) {
+                    cheat_section_toggle(ch, menu_index[menu_mode], !cheat_get_section(ch, menu_index[menu_mode])->enabled);
+                }
+                break;
+            }
+            case MENU_MODE_TROP: {
+                const trophy_info *trops;
+                int count = trophy_get_info(&trops);
+                int mi = menu_index[menu_mode];
+                if (mi >= 0 && mi < count) {
+                    const trophy_info *ti = &trops[mi];
+                    if (!ti->unlocked && ti->grade != 1)
+                        trophy_unlock(ti->id, ti->hidden, NULL, NULL);
+                }
+                break;
+            }
         }
-        case MENU_MODE_CHEAT: {
-            if (!cheat_loaded()) break;
-            cheat_t *ch = cheat_get_handle();
-            int count = cheat_get_section_count(ch);
-            if (menu_index[menu_mode] >= 0 && menu_index[menu_mode] < count) {
-                cheat_section_toggle(ch, menu_index[menu_mode], !cheat_get_section(ch, menu_index[menu_mode])->enabled);
-            }
-            break;
-        }
-        case MENU_MODE_TROP: {
-            const trophy_info *trops;
-            int count = trophy_get_info(&trops);
-            int mi = menu_index[menu_mode];
-            if (mi >= 0 && mi < count) {
-                const trophy_info *ti = &trops[mi];
-                if (!ti->unlocked)
-                    trophy_unlock(ti->id, ti->hidden, NULL, NULL);
-            }
-            break;
+        break;
+    case 1:
+    case 2:
+        switch(menu_mode) {
+            case MENU_MODE_ADV:
+                clocks_toggle(type == 2);
+                break;
         }
     }
 }
@@ -284,7 +289,15 @@ void ui_process(uint64_t tick) {
                 break;
             }
             if ((old_buttons & enter_button) == enter_button) {
-                menu_run();
+                menu_run(0);
+                break;
+            }
+            if ((old_buttons & SCE_CTRL_LEFT) == SCE_CTRL_LEFT) {
+                menu_run(1);
+                break;
+            }
+            if ((old_buttons & SCE_CTRL_RIGHT) == SCE_CTRL_RIGHT) {
+                menu_run(2);
                 break;
             }
             if ((old_buttons & SCE_CTRL_UP) == SCE_CTRL_UP) {
@@ -320,14 +333,14 @@ int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
     if (refs[0] == 0) return -1;
     if (msg_deadline || menu_mode != MENU_MODE_CLOSE) {
         sceKernelLockMutex(msgMutex, 1, NULL);
-        if (blit_set_frame_buf(param) < 0)
-            return TAI_CONTINUE(int, refs[0], param, sync);
-        if (msg_deadline) {
-            for (int i = 0; i < MSG_MAX && show_msg[i][0] != 0; ++i) {
-                blit_string_ctr(MSG_Y_TOP + LINE_HEIGHT * i, 1, show_msg[i]);
+        if (blit_set_frame_buf(param) == 0) {
+            if (msg_deadline) {
+                for (int i = 0; i < MSG_MAX && show_msg[i][0] != 0; ++i) {
+                    blit_string_ctr(MSG_Y_TOP + LINE_HEIGHT * i, 1, show_msg[i]);
+                }
             }
+            if (menu_mode != MENU_MODE_CLOSE) _show_menu(0);
         }
-        if (menu_mode != MENU_MODE_CLOSE) _show_menu(0);
         sceKernelUnlockMutex(msgMutex, 1);
     }
     return TAI_CONTINUE(int, refs[0], param, sync);

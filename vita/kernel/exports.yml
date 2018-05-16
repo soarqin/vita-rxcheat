@@ -12,3 +12,6 @@ rcsvr:
             functions:
                 - rcsvrMemcpyForce
                 - rcsvrMemcpy
+                - rcsvrIoDopen
+                - rcsvrIoDread
+                - rcsvrIoDclose
