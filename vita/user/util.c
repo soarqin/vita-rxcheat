@@ -200,7 +200,8 @@ int util_readfile_by_line(const char *filename, int (*cb)(const char *name, void
             if (i >= n) {
                 if (s == 0) {
                     buf[n - 1] = 0;
-                    cb(buf, arg);
+                    if (cb(buf, arg) < 0)
+                        goto closefile;
                     pos = 0;
                 } else {
                     memmove(buf, buf + s, n - s);
@@ -209,7 +210,10 @@ int util_readfile_by_line(const char *filename, int (*cb)(const char *name, void
                 break;
             }
             buf[i] = 0;
-            if (i > s) cb(buf + s, arg);
+            if (i > s) {
+                if (cb(buf + s, arg) < 0)
+                    goto closefile;
+            }
             ++i;
             while(i < n && (buf[i] == '\r' || buf[i] == '\n')) ++i;
             if (i >= n) {
@@ -219,6 +223,7 @@ int util_readfile_by_line(const char *filename, int (*cb)(const char *name, void
             pos = s = i;
         }
     }
+closefile:
     sceIoClose(f);
     return 0;
 }
