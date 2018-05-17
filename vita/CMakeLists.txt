@@ -78,6 +78,7 @@ vita_create_stubs(kernel-stubs kernel kernel/exports.yml KERNEL)
 
 add_executable(user
     user/main.c
+    user/config.c user/config.h
     # network
     user/net.c user/net.h
     # memory search

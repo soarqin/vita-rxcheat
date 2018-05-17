@@ -1,8 +1,9 @@
 v0.10:
   1. try to pause game on in-game menu (not always working)
   2. added dump memory to in-game menu
-  3. (TODO) overclock
-  4. (TODO) in-game menu multi-language support
+  3. added verclock to in-game menu
+  4. in-game menu multi-language support
+  5. does not allow suspend VITA on in-game menu to avoid dead-lock
 
 v0.9:
   1. rename to VITA RxCheat

@@ -1,3 +1,4 @@
+#include "config.h"
 #include "net.h"
 #include "mem.h"
 #include "trophy.h"
@@ -109,9 +110,9 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     mem_init();
 
     if (cheat_loaded())
-        ui_set_show_msg(15000, 4, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR, "L+R+" CHAR_LEFT "+SELECT to open in-game menu", "Cheat codes loaded");
+        ui_set_show_msg(15000, 4, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR, LS(DESC0), LS(DESC1));
     else
-        ui_set_show_msg(15000, 3, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR, "L+R+" CHAR_LEFT "+SELECT to open in-game menu");
+        ui_set_show_msg(15000, 3, PLUGIN_NAME " v" VERSION_STR, "by " PLUGIN_AUTHOR, LS(DESC0));
     while(running) {
         // checkInput();
         static uint64_t last_tick = 0ULL;

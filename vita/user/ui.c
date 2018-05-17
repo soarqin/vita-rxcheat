@@ -1,5 +1,7 @@
 #include "ui.h"
 
+#include "config.h"
+#include "lang.h"
 #include "blit.h"
 #include "font_pgf.h"
 #include "util.h"
@@ -57,7 +59,7 @@ static inline int menu_get_count() {
         case MENU_MODE_MAIN:
             return 3;
         case MENU_MODE_ADV:
-            return 2;
+            return 3;
         case MENU_MODE_CHEAT:
             return cheat_loaded() ? cheat_get_section_count(cheat_get_handle()) : 0;
         case MENU_MODE_TROP:
@@ -71,9 +73,9 @@ static inline void _show_menu(int standalone) {
     blit_clear(200, 125, 960 - 400, 544 - 250);
     switch (menu_mode) {
         case MENU_MODE_MAIN: {
-            const char *text[3] = {"Cheats", "Trophies", "Advance"};
+            const char *text[3] = {LS(CHEATS), LS(TROPHIES), LS(ADVANCE)};
             int count = menu_get_count();
-            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, "Main Menu");
+            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(MAINMENU));
             blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], 0, CHAR_RIGHT);
             for (int i = 0; i < count; ++i) {
                 blit_string(MENU_X_LEFT, MENU_Y_TOP + LINE_HEIGHT * i, 0, text[i]);
@@ -81,16 +83,18 @@ static inline void _show_menu(int standalone) {
             break;
         }
         case MENU_MODE_ADV: {
-            const char *text[5] = {"Dump Memory", "Change CLOCKS"};
-            if (mem_is_dumping()) text[0] = "Dump Memory - Dumping...";
+            const char *text[3] = {LS(LANGUAGE), LS(DUMP), LS(CHCLOCKS)};
+            if (mem_is_dumping()) text[0] = LS(DUMPING);
             int count = menu_get_count();
-            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, "Advance");
+            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(ADVANCE));
             blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], 0, CHAR_RIGHT);
             for (int i = 0; i < count; ++i) {
                 blit_string(MENU_X_LEFT, MENU_Y_TOP + LINE_HEIGHT * i, 0, text[i]);
             }
-            blit_string(MENU_X_LEFT - 40, MENU_Y_TOP + LINE_HEIGHT * MENU_SCROLL_MAX, 0,
-                "CPU/BUS/GPU/XBAR CLOCKS(MHz):");
+            char curlang[64];
+            sceClibSnprintf(curlang, 64, LS(CURLANG), lang_get_name(lang_get_index()));
+            blit_string(MENU_X_LEFT - 40, MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX - 1), 0, curlang);
+            blit_string(MENU_X_LEFT - 40, MENU_Y_TOP + LINE_HEIGHT * MENU_SCROLL_MAX, 0, LS(CLOCKS));
             blit_stringf(MENU_X_LEFT - 40, MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX + 1), 0,
                 "%d / %d / %d / %d",
                 scePowerGetArmClockFrequency(),
@@ -100,9 +104,9 @@ static inline void _show_menu(int standalone) {
             break;
         }
         case MENU_MODE_CHEAT: {
-            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, "Cheats");
+            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(CHEATS));
             if (!cheat_loaded()) {
-                blit_string(MENU_X_LEFT, MENU_Y_TOP, 0, "Cheat codes not found!");
+                blit_string(MENU_X_LEFT, MENU_Y_TOP, 0, LS(CHEAT_NOT_FOUND));
                 break;
             }
             const cheat_section_t *secs;
@@ -120,15 +124,15 @@ static inline void _show_menu(int standalone) {
             break;
         }
         case MENU_MODE_TROP: {
-            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, "Trophies");
+            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(TROPHIES));
             switch (trophy_get_status()) {
                 case 0:
                     break;
                 case 1:
-                    blit_string(MENU_X_LEFT, MENU_Y_TOP, 0, "Loading trophies, be patient...");
+                    blit_string(MENU_X_LEFT, MENU_Y_TOP, 0, LS(TROPHIES_READING));
                     break;
                 case 2: {
-                    const char *gradeName[5] = {"", "|P|", "|G|", "|S|", "|B|"};
+                    const char *gradeName[5] = {"", LS(GRADE_P), LS(GRADE_G), LS(GRADE_S), LS(GRADE_B)};
                     const trophy_info *trops;
                     int count = trophy_get_info(&trops);
                     int menu_bot = count;
@@ -142,7 +146,7 @@ static inline void _show_menu(int standalone) {
                         if (ti->unlocked)
                             blit_string(MENU_X_LEFT + 2, y, 0, CHAR_CIRCLE);
                         if(ti->grade) blit_string(MENU_X_LEFT + 26, y, 0, gradeName[ti->grade]);
-                        blit_string(MENU_X_LEFT + 54, y, 0, ti->unlocked || !ti->hidden ? ti->name : "[HIDDEN]");
+                        blit_string(MENU_X_LEFT + 54, y, 0, ti->unlocked || !ti->hidden ? ti->name : LS(HIDDEN));
                     }
                     if (mi >= 0 && mi < count) {
                         const trophy_info *ti = &trops[mi];
@@ -172,6 +176,15 @@ static void menu_cancel() {
             break;
     }
     menu_mode = MENU_MODE_MAIN;
+}
+
+// 0 - decrease   1 - increase
+static inline void language_toggle(int direction) {
+    int count = lang_get_count();
+    if (count == 0) return;
+    int n = lang_get_index();
+    n = (direction ? (n + 1) : (n + count - 1)) % count;
+    lang_set(n);
 }
 
 // 0 - decrease   1 - increase
@@ -222,9 +235,12 @@ static void menu_run(int type) {
             case MENU_MODE_ADV: {
                 switch(menu_index[menu_mode]) {
                     case 0:
-                        if (!mem_is_dumping()) mem_dump();
+                        language_toggle(1);
                         break;
                     case 1:
+                        if (!mem_is_dumping()) mem_dump();
+                        break;
+                    case 2:
                         clocks_toggle(1);
                         break;
                 }
@@ -256,7 +272,14 @@ static void menu_run(int type) {
     case 2:
         switch(menu_mode) {
             case MENU_MODE_ADV:
-                clocks_toggle(type == 2);
+                switch(menu_index[menu_mode]) {
+                    case 0:
+                        language_toggle(type == 2);
+                        break;
+                    case 2:
+                        clocks_toggle(type == 2);
+                        break;
+                }
                 break;
         }
     }
