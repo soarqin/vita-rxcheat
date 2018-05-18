@@ -1,7 +1,7 @@
 v0.11:
   1. fixed trophy listing for special games like WoFF
   2. added a lite version which strips all network functions
-  3. (TODO) better floating number search
+  3. better floating number search
   4. (TODO) fuzzy search
 
 v0.10:

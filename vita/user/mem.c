@@ -8,7 +8,8 @@
 #include <vitasdk.h>
 #include <stdlib.h>
 
-typedef enum {
+/* search types */
+enum {
     st_none = 0,
     st_u32 = 1,
     st_u16 = 2,
@@ -22,7 +23,7 @@ typedef enum {
     st_double = 10,
     st_autouint = 21,
     st_autoint = 22,
-} search_type;
+};
 
 #define LOCK_COUNT_MAX 0x80
 #define MEM_RANGE_MAX (256)
@@ -34,7 +35,7 @@ static memory_range mem_ranges[MEM_RANGE_MAX];
 static memory_range *staticmem = mem_ranges, *stackmem = mem_ranges + STATIC_MEM_MAX, *heapmem = mem_ranges + STATIC_MEM_MAX + STACK_MEM_MAX;
 static int static_cnt = 0, stack_cnt = 0, heap_cnt = 0;
 static int mem_loaded = 0, heap_loaded = 0;
-static int stype = 0, last_sidx = 0;
+static int search_type = 0, last_sidx = 0;
 static SceUID searchMutex = -1, searchSema = -1;
 static memlock_data lockdata[LOCK_COUNT_MAX];
 static int lock_count = 0, mem_lock_ready = 0;
@@ -191,18 +192,58 @@ static void single_search(SceUID outfile, memory_range *mr, const void *data, in
     uint8_t *cend = curr + mr->size - size + 1;
     uint32_t addr[0x100];
     int addr_count = 0;
-    int step = size;
-    if (step > 1) step &= ~1;
-    if (step > 4) step = 4;
-    log_debug("Searching from 0x%08X, size %d\n", curr, mr->size);
-    for (; curr < cend; curr += step) {
-        if (memcmp(data, (void*)curr, size) == 0) {
-            log_debug("Found at %08X\n", curr);
-            addr[addr_count++] = ((uint32_t)curr - mr->start) | (mr->index << 24);
-            if (addr_count == 0x100) {
-                cb(addr, addr_count, size);
-                sceIoWrite(outfile, addr, 0x100 * 4);
-                addr_count = 0;
+    log_debug("Searching type %d from 0x%08X, size %d\n", search_type, curr, mr->size);
+    switch(search_type) {
+        case st_float: {
+            float cmin = *(float*)data - 1.f;
+            float cmax = *(float*)data + 1.f;
+            log_trace("Searching float between %g and %g\n", cmin, cmax);
+            for (; curr < cend; curr += 4) {
+                float c = *(float*)curr;
+                if (c > cmin && c < cmax) {
+                    log_debug("Found at %08X\n", curr);
+                    addr[addr_count++] = ((uint32_t)curr - mr->start) | (mr->index << 24);
+                    if (addr_count == 0x100) {
+                        cb(addr, addr_count, size);
+                        sceIoWrite(outfile, addr, 0x100 * 4);
+                        addr_count = 0;
+                    }
+                }
+            }
+            break;
+        }
+        case st_double: {
+            double cmin = *(double*)data - 1.f;
+            double cmax = *(double*)data + 1.f;
+            log_debug("Searching double between %g and %g\n", cmin, cmax);
+            for (; curr < cend; curr += 4) {
+                double c = *(double*)curr;
+                if (c > cmin && c < cmax) {
+                    log_debug("Found at %08X\n", curr);
+                    addr[addr_count++] = ((uint32_t)curr - mr->start) | (mr->index << 24);
+                    if (addr_count == 0x100) {
+                        cb(addr, addr_count, size);
+                        sceIoWrite(outfile, addr, 0x100 * 4);
+                        addr_count = 0;
+                    }
+                }
+            }
+            break;
+        }
+        default: {
+            int step = size;
+            if (step > 1) step &= ~1;
+            if (step > 4) step = 4;
+            for (; curr < cend; curr += step) {
+                if (memcmp(data, (void*)curr, size) == 0) {
+                    log_debug("Found at %08X\n", curr);
+                    addr[addr_count++] = ((uint32_t)curr - mr->start) | (mr->index << 24);
+                    if (addr_count == 0x100) {
+                        cb(addr, addr_count, size);
+                        sceIoWrite(outfile, addr, 0x100 * 4);
+                        addr_count = 0;
+                    }
+                }
             }
         }
     }
@@ -225,14 +266,47 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
             uint32_t raddr = mem_convert(old[i], NULL);
             log_debug("Check %08X\n", raddr);
             if ((old[i] >> 24) >= STATIC_MEM_MAX + STACK_MEM_MAX && sceKernelFindMemBlockByAddr((const void*)raddr, 0) < 0) continue;
-            if (memcmp((void*)raddr, data, size) == 0) {
-                log_debug("Found at %08X\n", raddr);
-                addr[addr_count++] = old[i];
-                if (addr_count == 0x100) {
-                    cb(addr, addr_count, size);
-                    sceIoWrite(outfile, addr, 0x100 * 4);
-                    addr_count = 0;
+            switch(search_type) {
+                case st_float: {
+                    float cmin = *(float*)data - 1.f;
+                    float cmax = *(float*)data + 1.f;
+                    float c = *(float*)raddr;
+                    if (c > cmin && c < cmax) {
+                        log_debug("Found at %08X\n", raddr);
+                        addr[addr_count++] = old[i];
+                        if (addr_count == 0x100) {
+                            cb(addr, addr_count, size);
+                            sceIoWrite(outfile, addr, 0x100 * 4);
+                            addr_count = 0;
+                        }
+                    }
+                    break;
                 }
+                case st_double: {
+                    double cmin = *(double*)data - 1.f;
+                    double cmax = *(double*)data + 1.f;
+                    double c = *(double*)raddr;
+                    if (c > cmin && c < cmax) {
+                        log_debug("Found at %08X\n", raddr);
+                        addr[addr_count++] = old[i];
+                        if (addr_count == 0x100) {
+                            cb(addr, addr_count, size);
+                            sceIoWrite(outfile, addr, 0x100 * 4);
+                            addr_count = 0;
+                        }
+                    }
+                    break;
+                }
+                default:
+                    if (memcmp((void*)raddr, data, size) == 0) {
+                        log_debug("Found at %08X\n", raddr);
+                        addr[addr_count++] = old[i];
+                        if (addr_count == 0x100) {
+                            cb(addr, addr_count, size);
+                            sceIoWrite(outfile, addr, 0x100 * 4);
+                            addr_count = 0;
+                        }
+                    }
             }
         }
         if (n < 0x100) break;
@@ -246,8 +320,9 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
 void mem_search(int type, int heap, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen)) {
     int size = mem_get_type_size(type, data);
     if (size > len) return;
-    if (stype != type) {
+    if (search_type != type) {
         mem_reload();
+        search_type = type;
         SceUID f = -1;
         char outfile[256];
         sceClibSnprintf(outfile, 256, "ux0:data/rcsvr/temp/%d", last_sidx);
@@ -266,7 +341,6 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
             }
         }
         sceIoClose(f);
-        stype = type;
     } else {
         SceUID f = -1;
         char infile[256];
@@ -293,7 +367,7 @@ void mem_search_reset() {
     sceIoRemove("ux0:data/rcsvr/temp/0");
     sceIoRemove("ux0:data/rcsvr/temp/1");
     last_sidx = 0;
-    stype = st_none;
+    search_type = st_none;
 }
 
 void mem_set(uint32_t addr, const void *data, int size) {
