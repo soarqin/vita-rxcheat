@@ -27,7 +27,7 @@ void Command::startFuzzySearch(uint32_t st) {
 }
 
 void Command::nextFuzzySearch(int direction) {
-    startFuzzySearch(((direction + 3) << 8) | searchType_);
+    startFuzzySearch(0x1000 | ((direction + 1) << 8) | searchType_);
 }
 
 void Command::modifyMemory(uint8_t st, uint32_t offset, const void *data) {

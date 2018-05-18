@@ -20,9 +20,9 @@ static int trophy_load_status = 0; // 0 - not loaded  1 - loading  2 - loaded
 static int trophy_count = 0;
 static trophy_info *trophies = NULL;
 
-static SceNpCommunicationId          g_commId;
-static SceNpCommunicationPassphrase  g_commPassphrase;
-static SceNpCommunicationSignature   g_commSignature;
+static SceNpCommunicationId         *g_commId = NULL;
+static SceNpCommunicationPassphrase *g_commPassphrase = NULL;
+static SceNpCommunicationSignature  *g_commSignature = NULL;
 static SceUInt32                     g_sdkVersion = 0;
 
 static void _update_trophy_data(int index, SceNpTrophyDetails *detail, SceNpTrophyData *data) {
@@ -44,7 +44,6 @@ int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, const SceNpCommunica
     int ret = TAI_CONTINUE(int, refs[0], c, commId, commSign, options);
     if (ret >= 0)
         context = *c;
-    log_trace("sceNpTrophyCreateContext_patched: %d %X %X %X\n", ret, *c, commId, commSign);
     return ret;
 }
 
@@ -67,12 +66,21 @@ int sceNpInit_patched(const SceNpCommunicationConfig *commConf, void *opt) {
     int ret = TAI_CONTINUE(int, refs[2], commConf, opt);
     log_trace("sceNpInit: %d %X\n", ret, commConf);
     if (commConf && context < 0) {
-        if (commConf->commId)
-            sceClibMemcpy(&g_commId, commConf->commId, sizeof(SceNpCommunicationId));
-        if (commConf->commPassphrase)
-            sceClibMemcpy(&g_commPassphrase, commConf->commPassphrase, sizeof(SceNpCommunicationPassphrase));
-        if (commConf->commSignature)
-            sceClibMemcpy(&g_commSignature, commConf->commSignature, sizeof(SceNpCommunicationSignature));
+        if (g_commId) { my_free(g_commId); g_commId = NULL; }
+        if (g_commPassphrase) { my_free(g_commPassphrase); g_commPassphrase = NULL; }
+        if (g_commSignature) { my_free(g_commSignature); g_commSignature = NULL; }
+        if (commConf->commId) {
+            g_commId = my_alloc(sizeof(SceNpCommunicationId));
+            sceClibMemcpy(g_commId, commConf->commId, sizeof(SceNpCommunicationId));
+        }
+        if (commConf->commPassphrase) {
+            g_commPassphrase = my_alloc(sizeof(SceNpCommunicationPassphrase));
+            sceClibMemcpy(g_commPassphrase, commConf->commPassphrase, sizeof(SceNpCommunicationPassphrase));
+        }
+        if (commConf->commSignature) {
+            g_commSignature = my_alloc(sizeof(SceNpCommunicationSignature));
+            sceClibMemcpy(g_commSignature, commConf->commSignature, sizeof(SceNpCommunicationSignature));
+        }
     }
     return ret;
 }
@@ -130,6 +138,9 @@ void trophy_finish() {
         trophies = NULL;
     }
     sceKernelUnlockMutex(trophyMutex, 1);
+    if (g_commId) { my_free(g_commId); g_commId = NULL; }
+    if (g_commPassphrase) { my_free(g_commPassphrase); g_commPassphrase = NULL; }
+    if (g_commSignature) { my_free(g_commSignature); g_commSignature = NULL; }
     if (trophySema >= 0) {
         sceKernelDeleteSema(trophySema);
         trophySema = -1;
@@ -168,6 +179,67 @@ typedef struct {
 
 static trophy_request trophy_req;
 
+static inline int try_init_np_trophy() {
+    SceNpCommunicationConfig config = {g_commId, g_commPassphrase, g_commSignature};
+    int ret = sceNpInit(&config, NULL);
+    if (ret < 0) {
+        log_error("sceNpInit: %X\n", ret);
+        return ret;
+    }
+    ret = sceNpTrophyInit(NULL);
+    if (ret < 0) {
+        log_error("sceNpTrophyInit: %X\n", ret);
+        return ret;
+    }
+    if (hooks[1] > 0) taiHookRelease(hooks[1], refs[1]);
+    ret = sceNpTrophyCreateContext(&context, NULL, NULL, 0);
+    hooks[1] = taiHookFunctionExport(
+        &refs[1],
+        "SceNpTrophy",
+        0x4332C10D,
+        0xB397AA24,
+        sceNpTrophyUnlockTrophy_patched);
+    if (ret < 0) {
+        log_error("sceNpTrophyCreateContext: %X\n", ret);
+        return ret;
+    }
+    SceNpTrophySetupDialogParam param;
+    sceClibMemset(&param, 0x0, sizeof(SceNpTrophySetupDialogParam));
+    _sceCommonDialogSetMagicNumber( &param.commonParam );
+    param.sdkVersion = g_sdkVersion == 0 ? 0x03550011U : g_sdkVersion;
+    param.context = context;
+    param.options = 0;
+    ret = sceNpTrophySetupDialogInit(&param);
+    if (ret < 0) {
+        log_error("sceNpTrophySetupDialogInit: %X\n", ret);
+        return ret;
+    }
+    SceDisplayFrameBuf dispparam;
+    dispparam.size = sizeof(SceDisplayFrameBuf);
+    sceDisplayGetFrameBuf(&dispparam, SCE_DISPLAY_SETBUF_IMMEDIATE);
+    while (sceNpTrophySetupDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING) {
+        SceCommonDialogUpdateParam  updateParam;
+
+        memset(&updateParam, 0, sizeof(updateParam));
+        updateParam.renderTarget.colorFormat    = dispparam.pixelformat;
+        updateParam.renderTarget.surfaceType    = SCE_GXM_COLOR_SURFACE_LINEAR;
+        updateParam.renderTarget.width          = dispparam.width;
+        updateParam.renderTarget.height         = dispparam.height;
+        updateParam.renderTarget.strideInPixels = dispparam.pitch;
+
+        updateParam.renderTarget.colorSurfaceData = dispparam.base;
+        sceCommonDialogUpdate(&updateParam);
+        sceKernelDelayThread(20000);
+    }
+    SceNpTrophySetupDialogResult sres;
+    ret = sceNpTrophySetupDialogGetResult(&sres);
+    if (ret < 0 || sres.result != SCE_COMMON_DIALOG_RESULT_OK) {
+        log_error("sceNpTrophySetupDialogGetResult: %X %d\n", ret, sres.result);
+        return ret;
+    }
+    return 0;
+}
+
 static int _trophy_thread(SceSize args, void *argp) {
     sceKernelLockMutex(trophyMutex, 1, NULL);
     int type = trophy_req.type;
@@ -185,75 +257,14 @@ static int _trophy_thread(SceSize args, void *argp) {
     SceNpTrophyHandle handle;
     int ret = sceNpTrophyCreateHandle(&handle);
     if (ret < 0) {
-        log_error("sceNpTrophyCreateHandle 1st try: %X\n", ret);
-        if (ret == 0x80551601) {
-            do {
-                SceNpCommunicationConfig config = {&g_commId, &g_commPassphrase, &g_commSignature};
-                ret = sceNpInit(&config, NULL);
-                if (ret < 0) {
-                    log_error("sceNpInit: %X\n", ret);
-                    break;
-                }
-                ret = sceNpTrophyInit(NULL);
-                if (ret < 0) {
-                    log_error("sceNpTrophyInit: %X\n", ret);
-                    break;
-                }
-                if (hooks[1] > 0) taiHookRelease(hooks[1], refs[1]);
-                ret = sceNpTrophyCreateContext(&context, NULL, NULL, 0);
-                hooks[1] = taiHookFunctionExport(
-                    &refs[1],
-                    "SceNpTrophy",
-                    0x4332C10D,
-                    0xB397AA24,
-                    sceNpTrophyUnlockTrophy_patched);
-                if (ret < 0) {
-                    log_error("sceNpTrophyCreateContext: %X\n", ret);
-                    break;
-                }
-                SceNpTrophySetupDialogParam param;
-                sceClibMemset(&param, 0x0, sizeof(SceNpTrophySetupDialogParam));
-                _sceCommonDialogSetMagicNumber( &param.commonParam );
-                param.sdkVersion = g_sdkVersion == 0 ? 0x03550011U : g_sdkVersion;
-                param.context = context;
-                param.options = 0;
-                ret = sceNpTrophySetupDialogInit(&param);
-                if (ret < 0) {
-                    log_error("sceNpTrophySetupDialogInit: %X\n", ret);
-                    break;
-                }
-                SceGxmSyncObject *sync;
-                SceDisplayFrameBuf dispparam;
-                dispparam.size = sizeof(SceDisplayFrameBuf);
-                sceDisplayGetFrameBuf(&dispparam, SCE_DISPLAY_SETBUF_IMMEDIATE);
-                sceGxmSyncObjectCreate(&sync);
-                while (sceNpTrophySetupDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING) {
-                    SceCommonDialogUpdateParam  updateParam;
-
-                    memset(&updateParam, 0, sizeof(updateParam));
-                    updateParam.renderTarget.colorFormat    = dispparam.pixelformat;
-                    updateParam.renderTarget.surfaceType    = SCE_GXM_COLOR_SURFACE_LINEAR;
-                    updateParam.renderTarget.width          = dispparam.width;
-                    updateParam.renderTarget.height         = dispparam.height;
-                    updateParam.renderTarget.strideInPixels = dispparam.pitch;
-
-                    updateParam.renderTarget.colorSurfaceData = dispparam.base;
-                    updateParam.displaySyncObject             = sync;
-                    sceCommonDialogUpdate(&updateParam);
-                    sceKernelDelayThread(20000);
-                }
-                sceGxmSyncObjectDestroy(sync);
-                SceNpTrophySetupDialogResult sres;
-                ret = sceNpTrophySetupDialogGetResult(&sres);
-                if (ret < 0 || sres.result != SCE_COMMON_DIALOG_RESULT_OK) {
-                    log_error("sceNpTrophySetupDialogGetResult: %X %d\n", ret, sres.result);
-                    break;
-                }
-                ret = sceNpTrophyCreateHandle(&handle);
-                if (ret < 0) {
-                    log_error("sceNpTrophyCreateHandle 2nd try: %X\n", ret);
-                }
-            } while(0);
+        log_error("sceNpTrophyCreateHandle: %X\n", ret);
+        while (ret == 0x80551601) {
+            ret = try_init_np_trophy();
+            if (ret < 0) break;
+            ret = sceNpTrophyCreateHandle(&handle);
+            if (ret < 0)
+                log_error("sceNpTrophyCreateHandle 2nd try: %X\n", ret);
+            break;
         }
         if (ret < 0) {
             if (cb_end) cb_end(-1);
