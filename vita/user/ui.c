@@ -43,7 +43,7 @@ enum {
 
 static char show_msg[MSG_MAX][80] = {};
 static uint64_t msg_deadline = 0ULL;
-static SceUID msgMutex = -1;
+static SceUID drawMutex = -1;
 
 static int menu_mode = MENU_MODE_CLOSE;
 static int menu_index[MENU_MODE_COUNT] = {};
@@ -347,24 +347,26 @@ void ui_process(uint64_t tick) {
         }
     }
     if (menu_mode == MENU_MODE_CLOSE) return;
-    sceKernelLockMutex(msgMutex, 1, NULL);
+    sceKernelLockMutex(drawMutex, 1, NULL);
     _show_menu(1);
-    sceKernelUnlockMutex(msgMutex, 1);
+    sceKernelUnlockMutex(drawMutex, 1);
 }
 
 int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
     if (refs[0] == 0) return -1;
-    if (msg_deadline || menu_mode != MENU_MODE_CLOSE) {
-        sceKernelLockMutex(msgMutex, 1, NULL);
+    if (menu_mode != MENU_MODE_CLOSE) {
+        sceKernelLockMutex(drawMutex, 1, NULL);
+        if (blit_set_frame_buf(param) == 0)
+            _show_menu(0);
+        sceKernelUnlockMutex(drawMutex, 1);
+    } else if (msg_deadline) {
+        sceKernelLockMutex(drawMutex, 1, NULL);
         if (blit_set_frame_buf(param) == 0) {
-            if (msg_deadline) {
-                for (int i = 0; i < MSG_MAX && show_msg[i][0] != 0; ++i) {
-                    blit_string_ctr(MSG_Y_TOP + LINE_HEIGHT * i, 1, show_msg[i]);
-                }
+            for (int i = 0; i < MSG_MAX && show_msg[i][0] != 0; ++i) {
+                blit_string_ctr(MSG_Y_TOP + LINE_HEIGHT * i, 1, show_msg[i]);
             }
-            if (menu_mode != MENU_MODE_CLOSE) _show_menu(0);
         }
-        sceKernelUnlockMutex(msgMutex, 1);
+        sceKernelUnlockMutex(drawMutex, 1);
     }
     return TAI_CONTINUE(int, refs[0], param, sync);
 }
@@ -379,7 +381,7 @@ void ui_init() {
         enter_button = SCE_CTRL_CROSS;
         cancel_button = SCE_CTRL_CIRCLE;
     }
-    msgMutex = sceKernelCreateMutex("rcsvr_msg_mutex", 0, 0, 0);
+    drawMutex = sceKernelCreateMutex("rcsvr_draw_mutex", 0, 0, 0);
     font_pgf_init();
     blit_set_color(0xffffffff);
 
@@ -393,16 +395,16 @@ void ui_finish() {
             taiHookRelease(hooks[i], refs[i]);
 
     font_pgf_finish();
-    if (msgMutex >= 0) {
-        sceKernelDeleteMutex(msgMutex);
-        msgMutex = -1;
+    if (drawMutex >= 0) {
+        sceKernelDeleteMutex(drawMutex);
+        drawMutex = -1;
     }
 }
 
 void ui_set_show_msg(uint64_t millisec, int count, ...) {
     va_list arg_ptr;
     int i;
-    sceKernelLockMutex(msgMutex, 1, NULL);
+    sceKernelLockMutex(drawMutex, 1, NULL);
     msg_deadline = millisec + util_gettick();
     va_start(arg_ptr, count);
     if (count > MSG_MAX) count = MSG_MAX;
@@ -411,7 +413,7 @@ void ui_set_show_msg(uint64_t millisec, int count, ...) {
         show_msg[i][79] = 0;
     }
     va_end(arg_ptr);
-    sceKernelUnlockMutex(msgMutex, 1);
+    sceKernelUnlockMutex(drawMutex, 1);
 }
 
 void ui_clear_show_msg() {

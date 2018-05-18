@@ -125,6 +125,9 @@ target_link_libraries(user
     SceRtc_stub_weak
     SceShellSvc_stub_weak
     ScePgf_stub_weak
+    SceGxm_stub_weak
+    SceCommonDialog_stub_weak
+    SceNpManager_stub_weak
     SceNpTrophy_stub_weak
 )
 

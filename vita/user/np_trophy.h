@@ -3,12 +3,15 @@
 
 #include <psp2/types.h>
 #include <psp2/rtc.h>
+#include <psp2/common_dialog.h>
+#include <psp2/kernel/clib.h>
 
 typedef SceInt32 SceNpTrophyHandle;
 typedef SceInt32 SceNpTrophyContext;
 typedef SceInt32 SceNpTrophyId;
 
 enum {
+    SCE_NP_COMMUNICATION_PASSPHRASE_SIZE= 128,
     SCE_NP_COMMUNICATION_SIGNATURE_SIZE = 160,
     SCE_NP_TROPHY_GAME_TITLE_MAX_SIZE   = 128,
     SCE_NP_TROPHY_GAME_DESCR_MAX_SIZE   = 1024,
@@ -22,9 +25,17 @@ enum {
 
 /* SceNpCommunicationId is defined in VitaSDK already */
 typedef struct SceNpCommunicationId SceNpCommunicationId;
+typedef struct SceNpCommunicationPassphrase {
+	SceUChar8 data[SCE_NP_COMMUNICATION_PASSPHRASE_SIZE];
+} SceNpCommunicationPassphrase;
 typedef struct SceNpCommunicationSignature {
     SceUChar8 data[SCE_NP_COMMUNICATION_SIGNATURE_SIZE];
 } SceNpCommunicationSignature;
+typedef struct SceNpCommunicationConfig {
+    const SceNpCommunicationId         *commId;
+    const SceNpCommunicationPassphrase *commPassphrase;
+    const SceNpCommunicationSignature  *commSignature;
+} SceNpCommunicationConfig;
 
 typedef enum SceNpTrophyGrade {
     SCE_NP_TROPHY_GRADE_UNKNOWN        = 0,
@@ -101,6 +112,7 @@ typedef struct SceNpTrophyFlagArray {
     SceUInt32 flag_bits[SCE_NP_TROPHY_FLAG_SETSIZE >> SCE_NP_TROPHY_FLAG_BITS_SHIFT];
 } SceNpTrophyFlagArray;
 
+extern int sceNpInit(const SceNpCommunicationConfig *commConf, void *opt);
 extern int sceNpTrophyInit(void *opt);
 extern int sceNpTrophyTerm(void);
 extern int sceNpTrophyCreateHandle(SceNpTrophyHandle *handle);
@@ -116,5 +128,21 @@ extern int sceNpTrophyGetTrophyInfo(SceNpTrophyContext context, SceNpTrophyHandl
 extern int sceNpTrophyGetGameIcon(SceNpTrophyContext context, SceNpTrophyHandle handle, void *buffer, SceSize *size);
 extern int sceNpTrophyGetGroupIcon(SceNpTrophyContext context, SceNpTrophyHandle handle, SceInt32 groupId, void *buffer, SceSize *size);
 extern int sceNpTrophyGetTrophyIcon(SceNpTrophyContext context, SceNpTrophyHandle handle, SceNpTrophyId trophyId, void *buffer, SceSize *size);
+
+typedef struct SceNpTrophySetupDialogParam {
+    SceUInt32 sdkVersion;
+    SceCommonDialogParam commonParam;
+    SceNpTrophyContext context;
+    SceUInt32 options;
+    SceUInt8 reserved[128];
+} SceNpTrophySetupDialogParam;
+typedef struct SceNpTrophySetupDialogResult {
+    int result;
+    SceUInt8 reserved[128];
+} SceNpTrophySetupDialogResult;
+
+extern int sceNpTrophySetupDialogInit(SceNpTrophySetupDialogParam *param);
+extern SceCommonDialogStatus sceNpTrophySetupDialogGetStatus(void);
+extern int sceNpTrophySetupDialogGetResult(SceNpTrophySetupDialogResult *result);
 
 #endif

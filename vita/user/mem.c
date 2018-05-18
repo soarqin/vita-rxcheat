@@ -191,8 +191,11 @@ static void single_search(SceUID outfile, memory_range *mr, const void *data, in
     uint8_t *cend = curr + mr->size - size + 1;
     uint32_t addr[0x100];
     int addr_count = 0;
+    int step = size;
+    if (step > 1) step &= ~1;
+    if (step > 4) step = 4;
     log_debug("Searching from 0x%08X, size %d\n", curr, mr->size);
-    for (; curr < cend; curr += size) {
+    for (; curr < cend; curr += step) {
         if (memcmp(data, (void*)curr, size) == 0) {
             log_debug("Found at %08X\n", curr);
             addr[addr_count++] = ((uint32_t)curr - mr->start) | (mr->index << 24);

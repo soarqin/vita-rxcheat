@@ -8,7 +8,7 @@
 #include <vitasdk.h>
 #include <taihen.h>
 
-#define HOOKS_NUM 2
+#define HOOKS_NUM 4
 
 static SceUID hooks[HOOKS_NUM] = {};
 static tai_hook_ref_t refs[HOOKS_NUM] = {};
@@ -19,6 +19,11 @@ static int trophy_unlocking = 0;
 static int trophy_load_status = 0; // 0 - not loaded  1 - loading  2 - loaded
 static int trophy_count = 0;
 static trophy_info *trophies = NULL;
+
+static SceNpCommunicationId          g_commId;
+static SceNpCommunicationPassphrase  g_commPassphrase;
+static SceNpCommunicationSignature   g_commSignature;
+static SceUInt32                     g_sdkVersion = 0;
 
 static void _update_trophy_data(int index, SceNpTrophyDetails *detail, SceNpTrophyData *data) {
     if (trophy_load_status == 0) return;
@@ -39,6 +44,7 @@ int sceNpTrophyCreateContext_patched(SceNpTrophyContext *c, const SceNpCommunica
     int ret = TAI_CONTINUE(int, refs[0], c, commId, commSign, options);
     if (ret >= 0)
         context = *c;
+    log_trace("sceNpTrophyCreateContext_patched: %d %X %X %X\n", ret, *c, commId, commSign);
     return ret;
 }
 
@@ -55,6 +61,25 @@ int sceNpTrophyUnlockTrophy_patched(SceNpTrophyContext c, SceNpTrophyHandle hand
     _update_trophy_data(trophyId, &detail, &data);
 
     return ret;
+}
+
+int sceNpInit_patched(const SceNpCommunicationConfig *commConf, void *opt) {
+    int ret = TAI_CONTINUE(int, refs[2], commConf, opt);
+    log_trace("sceNpInit: %d %X\n", ret, commConf);
+    if (commConf && context < 0) {
+        if (commConf->commId)
+            sceClibMemcpy(&g_commId, commConf->commId, sizeof(SceNpCommunicationId));
+        if (commConf->commPassphrase)
+            sceClibMemcpy(&g_commPassphrase, commConf->commPassphrase, sizeof(SceNpCommunicationPassphrase));
+        if (commConf->commSignature)
+            sceClibMemcpy(&g_commSignature, commConf->commSignature, sizeof(SceNpCommunicationSignature));
+    }
+    return ret;
+}
+
+int sceNpTrophySetupDialogInit_patched(SceNpTrophySetupDialogParam *param) {
+    g_sdkVersion = param->sdkVersion;
+    return TAI_CONTINUE(int, refs[3], param);
 }
 
 void trophy_init() {
@@ -76,7 +101,18 @@ void trophy_init() {
         0x4332C10D,
         0xB397AA24,
         sceNpTrophyUnlockTrophy_patched);
-    log_trace("Hook sceNpTrophyCreateContext: %X %X\n", hooks[0], refs[0]);
+    hooks[2] = taiHookFunctionImport(
+        &refs[2],
+        TAI_MAIN_MODULE,
+        0xD8835093,
+        0x04D9F484,
+        sceNpInit_patched);
+    hooks[3] = taiHookFunctionImport(
+        &refs[3],
+        TAI_MAIN_MODULE,
+        0xE537816C,
+        0x9E2C02C9,
+        sceNpTrophySetupDialogInit_patched);
 }
 
 void trophy_finish() {
@@ -149,11 +185,82 @@ static int _trophy_thread(SceSize args, void *argp) {
     SceNpTrophyHandle handle;
     int ret = sceNpTrophyCreateHandle(&handle);
     if (ret < 0) {
-        log_error("sceNpTrophyCreateHandle: %d\n", ret);
-        cb_end(-1);
-        if (type == 0)
-            trophy_load_status = 0;
-        return sceKernelExitDeleteThread(0);
+        log_error("sceNpTrophyCreateHandle 1st try: %X\n", ret);
+        if (ret == 0x80551601) {
+            do {
+                SceNpCommunicationConfig config = {&g_commId, &g_commPassphrase, &g_commSignature};
+                ret = sceNpInit(&config, NULL);
+                if (ret < 0) {
+                    log_error("sceNpInit: %X\n", ret);
+                    break;
+                }
+                ret = sceNpTrophyInit(NULL);
+                if (ret < 0) {
+                    log_error("sceNpTrophyInit: %X\n", ret);
+                    break;
+                }
+                if (hooks[1] > 0) taiHookRelease(hooks[1], refs[1]);
+                ret = sceNpTrophyCreateContext(&context, NULL, NULL, 0);
+                hooks[1] = taiHookFunctionExport(
+                    &refs[1],
+                    "SceNpTrophy",
+                    0x4332C10D,
+                    0xB397AA24,
+                    sceNpTrophyUnlockTrophy_patched);
+                if (ret < 0) {
+                    log_error("sceNpTrophyCreateContext: %X\n", ret);
+                    break;
+                }
+                SceNpTrophySetupDialogParam param;
+                sceClibMemset(&param, 0x0, sizeof(SceNpTrophySetupDialogParam));
+                _sceCommonDialogSetMagicNumber( &param.commonParam );
+                param.sdkVersion = g_sdkVersion == 0 ? 0x03550011U : g_sdkVersion;
+                param.context = context;
+                param.options = 0;
+                ret = sceNpTrophySetupDialogInit(&param);
+                if (ret < 0) {
+                    log_error("sceNpTrophySetupDialogInit: %X\n", ret);
+                    break;
+                }
+                SceGxmSyncObject *sync;
+                SceDisplayFrameBuf dispparam;
+                dispparam.size = sizeof(SceDisplayFrameBuf);
+                sceDisplayGetFrameBuf(&dispparam, SCE_DISPLAY_SETBUF_IMMEDIATE);
+                sceGxmSyncObjectCreate(&sync);
+                while (sceNpTrophySetupDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING) {
+                    SceCommonDialogUpdateParam  updateParam;
+
+                    memset(&updateParam, 0, sizeof(updateParam));
+                    updateParam.renderTarget.colorFormat    = dispparam.pixelformat;
+                    updateParam.renderTarget.surfaceType    = SCE_GXM_COLOR_SURFACE_LINEAR;
+                    updateParam.renderTarget.width          = dispparam.width;
+                    updateParam.renderTarget.height         = dispparam.height;
+                    updateParam.renderTarget.strideInPixels = dispparam.pitch;
+
+                    updateParam.renderTarget.colorSurfaceData = dispparam.base;
+                    updateParam.displaySyncObject             = sync;
+                    sceCommonDialogUpdate(&updateParam);
+                    sceKernelDelayThread(20000);
+                }
+                sceGxmSyncObjectDestroy(sync);
+                SceNpTrophySetupDialogResult sres;
+                ret = sceNpTrophySetupDialogGetResult(&sres);
+                if (ret < 0 || sres.result != SCE_COMMON_DIALOG_RESULT_OK) {
+                    log_error("sceNpTrophySetupDialogGetResult: %X %d\n", ret, sres.result);
+                    break;
+                }
+                ret = sceNpTrophyCreateHandle(&handle);
+                if (ret < 0) {
+                    log_error("sceNpTrophyCreateHandle 2nd try: %X\n", ret);
+                }
+            } while(0);
+        }
+        if (ret < 0) {
+            if (cb_end) cb_end(-1);
+            if (type == 0)
+                trophy_load_status = 0;
+            return sceKernelExitDeleteThread(0);
+        }
     }
     switch(type) {
     case 0: {
@@ -161,6 +268,7 @@ static int _trophy_thread(SceSize args, void *argp) {
             detail0.size = sizeof(SceNpTrophyGameDetails);
             ret = sceNpTrophyGetGameInfo(context, handle, &detail0, NULL);
             if (ret < 0) {
+                log_error("sceNpTrophyGetGameInfo: %X\n", ret);
                 if (cb_end) cb_end(-1);
                 trophy_load_status = 0;
                 break;
@@ -180,7 +288,10 @@ static int _trophy_thread(SceSize args, void *argp) {
             sceKernelUnlockMutex(trophyMutex, 1);
             for (int i = 0; i < detail0.numTrophies; ++i) {
                 int ret = sceNpTrophyGetTrophyInfo(context, handle, i, &detail, &data);
-                if (ret < 0) continue;
+                if (ret < 0) {
+                    log_error("sceNpTrophyGetTrophyInfo: %d %X\n", i, ret);
+                    continue;
+                }
                 if (cb) cb(detail.trophyId, detail.trophyGrade, detail.hidden, data.unlocked, detail.name, detail.description);
                 _update_trophy_data(i, &detail, &data);
             }
@@ -194,14 +305,20 @@ static int _trophy_thread(SceSize args, void *argp) {
             int ret = sceNpTrophyUnlockTrophy(context, handle, id, &platid);
             trophy_unlocking = 0;
             if (cb2) cb2(ret, id, platid);
-            if (ret < 0) break;
+            if (ret < 0) {
+                log_error("sceNpTrophyUnlockTrophy: %d %X\n", id, ret);
+                break;
+            }
             if (hidden[0]) {
                 SceNpTrophyDetails detail;
                 SceNpTrophyData data;
                 detail.size = sizeof(SceNpTrophyDetails);
                 data.size = sizeof(SceNpTrophyData);
                 ret = sceNpTrophyGetTrophyInfo(context, handle, id, &detail, &data);
-                if (ret < 0) break;
+                if (ret < 0) {
+                    log_error("sceNpTrophyGetTrophyInfo: %d %X\n", id, ret);
+                    break;
+                }
                 if (cb) cb(detail.trophyId, detail.trophyGrade, detail.hidden, data.unlocked, detail.name, detail.description);
                 _update_trophy_data(id, &detail, &data);
             } else {
@@ -217,6 +334,7 @@ static int _trophy_thread(SceSize args, void *argp) {
             int count;
             int ret = sceNpTrophyGetTrophyUnlockState(context, handle, &a, &count);
             if (ret < 0) {
+                log_error("sceNpTrophyGetTrophyUnlockState: %X\n", ret);
                 if (cb2) cb2(ret, 0, 0);
                 break;
             }
@@ -224,6 +342,7 @@ static int _trophy_thread(SceSize args, void *argp) {
             detail0.size = sizeof(SceNpTrophyGameDetails);
             ret = sceNpTrophyGetGameInfo(context, handle, &detail0, NULL);
             if (ret < 0) {
+                log_error("sceNpTrophyGetGameInfo: %X\n", ret);
                 if (cb2) cb2(ret, 0, 0);
                 break;
             }
@@ -233,7 +352,10 @@ static int _trophy_thread(SceSize args, void *argp) {
                 ret = sceNpTrophyUnlockTrophy(context, handle, i, &platid);
                 trophy_unlocking = 0;
                 if (cb2) cb2(ret, i, platid);
-                if (ret < 0) continue;
+                if (ret < 0) {
+                    log_error("sceNpTrophyUnlockTrophy: %d %X\n", i, ret);
+                    continue;
+                }
                 if (!(hidden[i >> 5] & (1U << (i & 0x1F)))) {
                     if (trophy_load_status != 0 && id < trophy_count) {
                         trophies[id].unlocked = 1;
@@ -245,7 +367,10 @@ static int _trophy_thread(SceSize args, void *argp) {
                 detail.size = sizeof(SceNpTrophyDetails);
                 data.size = sizeof(SceNpTrophyData);
                 int ret = sceNpTrophyGetTrophyInfo(context, handle, i, &detail, &data);
-                if (ret < 0) continue;
+                if (ret < 0) {
+                    log_error("sceNpTrophyGetTrophyInfo: %d %X\n", i, ret);
+                    continue;
+                }
                 if (cb) cb(detail.trophyId, detail.trophyGrade, detail.hidden, data.unlocked, detail.name, detail.description);
                 _update_trophy_data(i, &detail, &data);
             }

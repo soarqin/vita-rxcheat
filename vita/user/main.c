@@ -97,6 +97,7 @@ static void main_net_init() {
 int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(10000000);
 
+    config_load();
     main_cheat_load();
     main_net_init();
 #ifdef RCSVR_DEBUG
