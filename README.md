@@ -9,22 +9,19 @@ Installation
         *KERNEL
         ux0:tai/rcsvr.skprx
 
-2. Copy tai/rcsvr.suprx to ux0:tai/
-
+2. Copy tai/rcsvr.suprx(Full version) or tai/rcsvr_lt.suprx(Lite version) to ux0:tai/
 
 HOW-TO use client sofware
 -------------------------
-1. Ensure the IP address of your PSVITA/PSTV can be accessed from your PC, start any game on PSVITA, run rcclient on PC after "VITA RxCheat" shown up, click Autoconnect button
-2. If step 3 is not connecting, you can get PSVITA IP address in Network Settings or VitaShell (Press SELECT in FTP MODE), input in the client and click Connect button
-3. Now your can search memory or unlock trophies as well
-
-
+1. You need full version of plugin(rcsvr.suprx) installed
+2. Ensure the IP address of your PSVITA/PSTV can be accessed from your PC, start any game on PSVITA, run rcclient on PC after "VITA RxCheat" shown up, click Autoconnect button
+3. If step 3 is not connecting, you can get PSVITA IP address in Network Settings or VitaShell (Press SELECT in FTP MODE), input in the client and click Connect button
+4. Now your can search memory or unlock trophies as well
 
 HOW-TO use in-game menu
 -----------------------
 1. After "VITA RxCheat" shown up, follow instruction to call up menu by pressing L+R+LEFT+SELECT
 2. You can enable/disable cheats(if CwCheat codes are loaded) and unlock trophies here
-
 
 HOW-TO use CwCheat codes
 ------------------------
@@ -41,7 +38,6 @@ HOW-TO use CwCheat codes
 
 2. Boot the game with certain TITLE_ID, the CwCheat codes will be loaded and you can see tips with "VITA RxCheat" message
 3. Press L+R+LEFT+SELECT to call up CwCheat menu and enable/disable sections (enabled sections are prefixed by a CIRCLE)
-
 
 Credits
 -------

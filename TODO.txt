@@ -1,4 +1,3 @@
-1. (v0.10) Overclock
-2. (v0.10) Plugin multi language support
-3. (?) Fuzzy search
-4. (?) Better memory view editing style
+1. (v0.11) Fuzzy search
+2. (?) Better memory view editing style
+3. (?) Search functions on in-game menu
