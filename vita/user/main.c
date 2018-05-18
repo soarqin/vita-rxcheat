@@ -1,5 +1,9 @@
 #include "config.h"
+
+#ifndef RCSVR_LITE
 #include "net.h"
+#endif
+
 #include "mem.h"
 #include "trophy.h"
 #include "cheat.h"
@@ -14,14 +18,20 @@
 #include <vitasdk.h>
 #include <taihen.h>
 
+#ifndef RCSVR_LITE
 #define HOOKS_NUM      6
+#else
+#define HOOKS_NUM      4
+#endif
 
 static SceUID hooks[HOOKS_NUM] = {};
 static tai_hook_ref_t refs[HOOKS_NUM] = {};
 
 static int running = 1;
 
+#ifndef RCSVR_LITE
 static void main_net_init();
+#endif
 
 int scePowerSetUsingWireless_patched(int enable) {
     if (refs[0] == 0) return -1;
@@ -35,10 +45,12 @@ int scePowerSetConfigurationMode_patched(int mode) {
 int sceSysmoduleLoadModule_patched(SceSysmoduleModuleId id) {
     if (refs[2] == 0) return -1;
     switch(id) {
+#ifndef RCSVR_LITE
     case SCE_SYSMODULE_NET:
         if (net_loaded())
             return 0;
         break;
+#endif
     case SCE_SYSMODULE_PGF:
         if (font_pgf_loaded())
             return 0;
@@ -67,6 +79,7 @@ int sceSysmoduleUnloadModule_patched(SceSysmoduleModuleId id) {
     return ret;
 }
 
+#ifndef RCSVR_LITE
 int sceNetInit_patched(SceNetInitParam *param) {
     if (refs[4] == 0) return -1;
     if (net_loaded()) return 0;
@@ -79,12 +92,6 @@ int sceNetCtlInit_patched() {
     return TAI_CONTINUE(int, refs[5]);
 }
 
-static void main_cheat_load() {
-    char titleid[16];
-    sceAppMgrAppParamGetString(0, 12, titleid, 16);
-    cheat_load(titleid);
-}
-
 static void main_net_init() {
     if (net_init() == 0) {
         debug_init(TRACE); // DEBUG
@@ -93,13 +100,25 @@ static void main_net_init() {
         hooks[5] = taiHookFunctionImport(&refs[5], TAI_MAIN_MODULE, 0x6BF8B2A2, 0x495CA1DB, sceNetCtlInit_patched);
     }
 }
+#endif
+
+static void main_cheat_load() {
+    char titleid[16];
+    sceAppMgrAppParamGetString(0, 12, titleid, 16);
+    cheat_load(titleid);
+}
 
 int rcsvr_main_thread(SceSize args, void *argp) {
     sceKernelDelayThread(10000000);
 
+#ifdef RCSVR_LITE
+    debug_init(TRACE);
+#endif
     config_load();
     main_cheat_load();
+#ifndef RCSVR_LITE
     main_net_init();
+#endif
 #ifdef RCSVR_DEBUG
     SceKernelFreeMemorySizeInfo fmsi;
     fmsi.size = sizeof(fmsi);
@@ -118,19 +137,25 @@ int rcsvr_main_thread(SceSize args, void *argp) {
         // checkInput();
         static uint64_t last_tick = 0ULL;
         uint64_t curr_tick = util_gettick();
-        ui_check_msg_timeout(curr_tick);
-        ui_process(curr_tick);
-        net_kcp_process(curr_tick);
         if (curr_tick >= last_tick + 200) {
             mem_lockdata_process();
             cheat_process();
             last_tick = curr_tick;
         }
+        ui_check_msg_timeout(curr_tick);
+        ui_process(curr_tick);
+#ifndef RCSVR_LITE
+        net_kcp_process(curr_tick);
+#else
+        sceKernelDelayThread(50000);
+#endif
     }
     mem_finish();
     lang_finish();
     ui_finish();
+#ifndef RCSVR_LITE
     net_finish();
+#endif
     cheat_free();
 
     return sceKernelExitDeleteThread(0);

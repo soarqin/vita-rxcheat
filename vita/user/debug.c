@@ -56,10 +56,14 @@ void debug_printf(int level, const char* format, ...) {
     sceClibVsnprintf(msgbuf, left, format, args);
     buffer[buffer_size - 1] = 0;
     va_end(args);
+#ifndef RCSVR_LITE
     if (is_file)
+#endif
         sceIoWrite(debug_fd, buffer, strlen(buffer));
+#ifndef RCSVR_LITE
     else
         sceNetSend(debug_fd, buffer, strlen(buffer), 0);
+#endif
 }
 
 void debug_set_loglevel(int level) {
@@ -68,6 +72,7 @@ void debug_set_loglevel(int level) {
 
 void debug_init(int level) {
     if (debug_fd >= 0) return;
+#ifndef RCSVR_LITE
     if (level > 0) {
         struct SceNetSockaddrIn sockaddr;
         debug_set_loglevel(level);
@@ -84,6 +89,10 @@ void debug_init(int level) {
         is_file = 0;
     } else {
         debug_set_loglevel(-level);
+#else
+    {
+        debug_set_loglevel(level < 0 ? -level : level);
+#endif
         debug_fd = sceIoOpen("ux0:temp/rcsvr.log", SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 0666);
         is_file = 1;
     }

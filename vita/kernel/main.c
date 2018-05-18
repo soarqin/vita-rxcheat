@@ -34,7 +34,8 @@ static SceUID ksceKernelStartPreloadedModules_patched(SceUID pid) {
             if (cnt > 0 && (pad_data.buttons & (SCE_CTRL_L1 | SCE_CTRL_LTRIGGER))) {
                 return ret;
             }
-            ksceKernelLoadStartModuleForPid(pid, "ux0:/tai/rcsvr.suprx", 0, NULL, 0, NULL, &result);
+            if (ksceKernelLoadStartModuleForPid(pid, "ux0:/tai/rcsvr.suprx", 0, NULL, 0, NULL, &result) < 0)
+                ksceKernelLoadStartModuleForPid(pid, "ux0:/tai/rcsvr_lt.suprx", 0, NULL, 0, NULL, &result);
         }
     }
     return ret;

@@ -76,11 +76,9 @@ set_target_properties(kernel PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-s
 vita_create_self(rcsvr.skprx kernel UNSAFE CONFIG kernel/exports.yml)
 vita_create_stubs(kernel-stubs kernel kernel/exports.yml KERNEL)
 
-add_executable(user
+set(USER_SRC
     user/main.c
     user/config.c user/config.h
-    # network
-    user/net.c user/net.h
     # memory search
     user/mem.c user/mem.h
     # trophy
@@ -101,9 +99,20 @@ add_executable(user
     ../kcp/ikcp.c ../kcp/ikcp.h
 )
 
-target_include_directories(user PRIVATE . PRIVATE ../kcp)
+add_executable(user
+    ${USER_SRC}
+    # network
+    user/net.c user/net.h
+)
 
-target_link_libraries(user
+add_executable(user-lite
+    ${USER_SRC}
+)
+
+target_include_directories(user PRIVATE . PRIVATE ../kcp)
+target_include_directories(user-lite PRIVATE . PRIVATE ../kcp)
+
+set(USER_LINK_LIBS
     ${CMAKE_BINARY_DIR}/kernel-stubs/librcsvr_stub_weak.a
     cheat
     taihen_stub
@@ -119,8 +128,6 @@ target_link_libraries(user
     SceCtrl_stub_weak
     SceDisplay_stub_weak
     SceIofilemgr_stub_weak
-    SceNet_stub_weak
-    SceNetCtl_stub_weak
     ScePower_stub_weak
     SceRtc_stub_weak
     SceShellSvc_stub_weak
@@ -131,13 +138,27 @@ target_link_libraries(user
     SceNpTrophy_stub_weak
 )
 
+target_link_libraries(user
+    ${USER_LINK_LIBS}
+    SceNet_stub_weak
+    SceNetCtl_stub_weak
+)
+
+target_link_libraries(user-lite
+    ${USER_LINK_LIBS}
+)
+
 set_target_properties(user PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-std=gnu11 -DNDEBUG ${DEBUG_DEFS}")
 add_dependencies(user kernel-stubs)
+set_target_properties(user-lite PROPERTIES LINK_FLAGS "-nostdlib" COMPILE_FLAGS "-std=gnu11 -DRCSVR_LITE -DNDEBUG ${DEBUG_DEFS}")
+add_dependencies(user-lite kernel-stubs)
 
 vita_create_self(rcsvr.suprx user UNSAFE CONFIG user/exports.yml)
+vita_create_self(rcsvr_lt.suprx user-lite UNSAFE CONFIG user/exports.yml)
 
 add_custom_target(dist ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/dist
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/rcsvr.skprx ${CMAKE_BINARY_DIR}/dist/
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/rcsvr.suprx ${CMAKE_BINARY_DIR}/dist/
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/rcsvr_lt.suprx ${CMAKE_BINARY_DIR}/dist/
 )
-add_dependencies(dist rcsvr.suprx rcsvr.skprx)
+add_dependencies(dist rcsvr.skprx rcsvr.suprx rcsvr_lt.suprx)
