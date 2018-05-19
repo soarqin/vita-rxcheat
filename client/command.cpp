@@ -21,13 +21,13 @@ void Command::nextSearch(void *data) {
     startSearch(searchType_ | 0x200, false, data);
 }
 
-void Command::startFuzzySearch(uint32_t st) {
+void Command::startFuzzySearch(uint32_t st, bool heap) {
     searchType_ = st & 0xFF;
-    sendCommand(0x1000 | st, NULL, 0);
+    sendCommand(0x1000 | (heap ? 0x100 : 0) | st, NULL, 0);
 }
 
-void Command::nextFuzzySearch(int direction) {
-    startFuzzySearch(0x1000 | ((direction + 1) << 8) | searchType_);
+void Command::nextFuzzySearch(bool direction) {
+    sendCommand(0x1200 | (direction ? 0x100 : 0) | searchType_, NULL, 0);
 }
 
 void Command::modifyMemory(uint8_t st, uint32_t offset, const void *data) {

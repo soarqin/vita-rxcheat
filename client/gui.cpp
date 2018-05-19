@@ -132,7 +132,7 @@ Gui::Gui() {
         loadTable(client_->titleId().c_str());
     });
     client_->setOnDisconnected([&]() {
-        saveTable(client_->titleId().c_str());
+        onDisconnected();
     });
     cmd_ = new Command(*client_);
     handler_ = new Handler(*this);
@@ -333,11 +333,7 @@ inline void Gui::connectPanel() {
         ImGui::Text("%s - %s", client_->titleId().c_str(), client_->title().c_str());
         langPanel();
         if (ImGui::Button(LS(DISCONNECT), ImVec2(100.f, 0.f))) {
-            saveTable(client_->titleId().c_str());
-            searchResults_.clear();
-            searchStatus_ = 0;
-            trophies_.clear();
-            trophyStatus_ = 0;
+            onDisconnected();
             client_->disconnect();
         }
     } else {
@@ -406,22 +402,49 @@ const uint8_t comboItemType[] = {
 inline void Gui::searchPanel() {
     if (searchStatus_ == 1) {
         ImGui::Button(LS(SEARCHING), ImVec2(100.f, 0.f));
-    } else {
-        if (ImGui::Button(LS(NEW_SEARCH), ImVec2(100.f, 0.f)) && typeComboIndex_ >= 0) {
-            char output[8];
-            Command::getRawData(output, comboItemType[typeComboIndex_], searchVal_, searchHex_);
-            cmd_->startSearch(comboItemType[typeComboIndex_], heapSearch_, output);
-        }
-        if ((searchStatus_ == 2 || searchStatus_ == 3) && (ImGui::SameLine(), ImGui::Button(LS(NEXT_SEARCH), ImVec2(70.f, 0.f)) && typeComboIndex_ >= 0)) {
-            char output[8];
-            Command::getRawData(output, searchResultType_, searchVal_, searchHex_);
-            cmd_->nextSearch(output);
+    } else if (typeComboIndex_ >= 0) {
+        if (fuzzySearch_) {
+            if (searchStatus_ == 2 || searchStatus_ == 3) {
+                ImGui::SameLine();
+                if (ImGui::Button(LS(LESS_FUZZY))) {
+                    cmd_->nextFuzzySearch(false);
+                }
+                ImGui::SameLine();
+                if (ImGui::Button(LS(GREATOR_FUZZY))) {
+                    cmd_->nextFuzzySearch(true);
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(LS(CANCEL_FUZZY))) {
+                fuzzySearch_ = false;
+                searchStatus_ = 0;
+                searchResults_.clear();
+                searchResultIdx_ = -1;
+            }
+        } else {
+            if (ImGui::Button(LS(NEW_SEARCH), ImVec2(100.f, 0.f))) {
+                char output[8];
+                Command::getRawData(output, comboItemType[typeComboIndex_], searchVal_, searchHex_);
+                cmd_->startSearch(comboItemType[typeComboIndex_], heapSearch_, output);
+            }
+            uint8_t t = comboItemType[typeComboIndex_];
+            if (t != Command::st_u64 && t != Command::st_i64 && t != Command::st_double) {
+                ImGui::SameLine();
+                if (ImGui::Button(LS(NEW_FUZZY), ImVec2(100.f, 0.f)) && typeComboIndex_ >= 0) {
+                    cmd_->startFuzzySearch(comboItemType[typeComboIndex_], heapSearch_);
+                }
+            }
+            if ((searchStatus_ == 2 || searchStatus_ == 3) && (ImGui::SameLine(), ImGui::Button(LS(NEXT_SEARCH), ImVec2(70.f, 0.f)))) {
+                char output[8];
+                Command::getRawData(output, searchResultType_, searchVal_, searchHex_);
+                cmd_->nextSearch(output);
+            }
+            ImGui::SameLine(); ImGui::Text(LS(VALUE)); ImGui::SameLine();
+            ImGui::PushItemWidth(120.f);
+            ImGui::InputText("##Value", searchVal_, 31, searchHex_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
+            ImGui::PopItemWidth();
         }
     }
-    ImGui::SameLine(); ImGui::Text(LS(VALUE)); ImGui::SameLine();
-    ImGui::PushItemWidth(120.f);
-    ImGui::InputText("##Value", searchVal_, 31, searchHex_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
-    ImGui::PopItemWidth();
     ImGui::SameLine();
     ImGui::PushItemWidth(100.f);
     if (ImGui::BeginCombo("##Type", LS(DATATYPE_FIRST + typeComboIndex_))) {
@@ -432,8 +455,6 @@ inline void Gui::searchPanel() {
                     typeComboIndex_ = i;
                     if (searchResultType_ != comboItemType[i] || searchResults_.empty()) {
                         searchStatus_ = 0;
-                    } else {
-                        searchStatus_ = 2;
                     }
                 }
             }
@@ -1080,6 +1101,15 @@ void Gui::reloadFonts() {
         }
         if (!found) f->AddFontDefault();
     }
+}
+
+void Gui::onDisconnected() {
+    saveTable(client_->titleId().c_str());
+    searchResults_.clear();
+    searchStatus_ = 0;
+    fuzzySearch_ = false;
+    trophies_.clear();
+    trophyStatus_ = 0;
 }
 
 void Gui::MemoryItem::formatValue(bool hex) {

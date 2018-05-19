@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+typedef void (*mem_search_cb)(const uint32_t *addr, int count, int datalen);
+typedef void (*mem_search_start_cb)(int type);
+typedef void (*mem_search_end_cb)(int err);
+
 void mem_init();
 void mem_finish();
 
@@ -11,10 +15,12 @@ void mem_check_reload();
 uint32_t mem_convert(uint32_t addr, int *read_only);
 void mem_reload();
 
-void mem_search(int type, int heap, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen));
+void mem_search(int type, int heap, const void *data, int len, mem_search_cb cb);
 void mem_search_reset();
 void mem_set(uint32_t addr, const void *data, int size);
-void mem_start_search(int type, int heap, const char *buf, int len, void (*cb)(const uint32_t *addr, int count, int datalen), void (*cb_start)(int type), void (*cb_end)(int err));
+void mem_start_search(int type, int heap, const char *buf, int len, mem_search_cb cb, mem_search_start_cb cb_start, mem_search_end_cb cb_end);
+void mem_start_fuzzy_search(int type, int heap, mem_search_start_cb cb_start, mem_search_end_cb cb_end);
+void mem_next_fuzzy_search(int direction, mem_search_cb cb, mem_search_start_cb cb_start, mem_search_end_cb cb_end);
 int mem_read(uint32_t addr, void *data, int size);
 
 typedef struct memory_range {

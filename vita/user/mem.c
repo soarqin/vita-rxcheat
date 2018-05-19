@@ -187,7 +187,7 @@ static void reload_heaps() {
     for (i = 0; i < heap_cnt; ++i) heapmem[i].index = i + STATIC_MEM_MAX + STACK_MEM_MAX;
 }
 
-static void single_search(SceUID outfile, memory_range *mr, const void *data, int size, void (*cb)(const uint32_t *addr, int count, int datalen)) {
+static void single_search(SceUID outfile, memory_range *mr, const void *data, int size, mem_search_cb cb) {
     uint8_t *curr = (uint8_t*)mr->start;
     uint8_t *cend = curr + mr->size - size + 1;
     uint32_t addr[0x100];
@@ -253,7 +253,7 @@ static void single_search(SceUID outfile, memory_range *mr, const void *data, in
     }
 }
 
-static void next_search(SceUID infile, SceUID outfile, const void *data, int size, void (*cb)(const uint32_t *addr, int count, int datalen)) {
+static void next_search(SceUID infile, SceUID outfile, const void *data, int size, mem_search_cb cb) {
     uint32_t old[0x100];
     uint32_t addr[0x100];
     int addr_count = 0;
@@ -317,7 +317,7 @@ static void next_search(SceUID infile, SceUID outfile, const void *data, int siz
     }
 }
 
-void mem_search(int type, int heap, const void *data, int len, void (*cb)(const uint32_t *addr, int count, int datalen)) {
+void mem_search(int type, int heap, const void *data, int len, mem_search_cb cb) {
     int size = mem_get_type_size(type, data);
     if (size > len) return;
     if (search_type != type) {
@@ -361,6 +361,183 @@ void mem_search(int type, int heap, const void *data, int len, void (*cb)(const 
         sceIoClose(f);
         sceIoRemove(infile);
     }
+}
+
+void mem_fuzzy_first_search(int type, int heap) {
+    mem_reload();
+    search_type = 0x100 | type;
+    uint32_t datasize = mem_get_type_size(type, NULL);
+    SceUID f = -1;
+    char outfile[256];
+    sceClibSnprintf(outfile, 256, "ux0:data/rcsvr/temp/%d", last_sidx);
+    f = sceIoOpen(outfile, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0644);
+    uint32_t magic = 0xFFFFFFFFU;
+    sceIoWrite(f, &magic, 4);
+    for (int i = 0; i < static_cnt; ++i) {
+        uint32_t off = staticmem[i].start;
+        uint32_t end = off + staticmem[i].size;
+        while (off < end) {
+            uint32_t size = off + 0x10000 <= end ? 0x10000 : ((end - off) & ~(datasize - 1));
+            uint16_t len = (uint16_t)(size - 1);
+            sceIoWrite(f, &off, 4);
+            sceIoWrite(f, &len, 2);
+            sceIoWrite(f, (void*)(uintptr_t)off, size);
+            off += 0x10000;
+        }
+    }
+    for (int i = 0; i < stack_cnt; ++i) {
+        uint32_t off = stackmem[i].start;
+        uint32_t end = off + stackmem[i].size;
+        while (off < end) {
+            uint32_t size = off + 0x10000 <= end ? 0x10000 : ((end - off) & ~(datasize - 1));
+            uint16_t len = (uint16_t)(size - 1);
+            sceIoWrite(f, &off, 4);
+            sceIoWrite(f, &len, 2);
+            sceIoWrite(f, (void*)(uintptr_t)off, size);
+            off += 0x10000;
+        }
+    }
+    if (heap) {
+        reload_heaps();
+        for (int i = 0; i < heap_cnt; ++i) {
+            uint32_t off = heapmem[i].start;
+            uint32_t end = off + heapmem[i].size;
+            while (off < end) {
+                uint32_t size = off + 0x10000 <= end ? 0x10000 : ((end - off) & ~(datasize - 1));
+                uint16_t len = (uint16_t)(size - 1);
+                sceIoWrite(f, &off, 4);
+                sceIoWrite(f, &len, 2);
+                sceIoWrite(f, (void*)(uintptr_t)off, size);
+                off += 0x10000;
+            }
+        }
+    }
+    sceIoClose(f);
+}
+
+int mem_fuzzy_next_search(int direction, mem_search_cb cb) {
+    uint32_t datasize = mem_get_type_size(search_type & 0xFF, NULL);
+    char infilename[256];
+    sceClibSnprintf(infilename, 256, "ux0:data/rcsvr/temp/%d", last_sidx);
+    SceUID infile = sceIoOpen(infilename, SCE_O_RDONLY, 0644);
+    if (infile < 0) {
+        return -1;
+    }
+    uint32_t magic;
+    sceIoRead(infile, &magic, 4);
+    if (magic != 0xFFFFFFFFU) {
+        return -1;
+    }
+
+    last_sidx ^= 1;
+    char outfilename[256];
+    sceClibSnprintf(outfilename, 256, "ux0:data/rcsvr/temp/%d", last_sidx);
+    SceUID outfile = sceIoOpen(outfilename, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0644);
+    uint8_t *oldmem = (uint8_t*)my_alloc(0x10000);
+    uint32_t res_addr[0x100];
+    int res_count = 0;
+    while(1) {
+        uint32_t start;
+        uint16_t len;
+        if (sceIoRead(infile, &start, 4) < 4
+            || sceIoRead(infile, &len, 2) < 2) break;
+        int rlen = sceIoRead(infile, oldmem, len) & ~((uint32_t)datasize - 1);
+        uint32_t addrend = start + rlen;
+        uint8_t *poldmem = oldmem;
+        int cont = 0;
+        uint32_t laststart = 0;
+        for (uint32_t addr = start; addr < addrend; addr += datasize, poldmem += datasize) {
+            int match = 0;
+            if (direction) {
+                switch(search_type) {
+                    case st_i32: case st_autoint:
+                        match = *(int32_t*)addr > *(int32_t*)poldmem;
+                        break;
+                    case st_u32: case st_autouint:
+                        match = *(uint32_t*)addr > *(uint32_t*)poldmem;
+                        break;
+                    case st_i16:
+                        match = *(int16_t*)addr > *(int16_t*)poldmem;
+                        break;
+                    case st_u16:
+                        match = *(uint16_t*)addr > *(uint16_t*)poldmem;
+                        break;
+                    case st_i8:
+                        match = *(int8_t*)addr > *(int8_t*)poldmem;
+                        break;
+                    case st_u8:
+                        match = *(uint8_t*)addr > *(uint8_t*)poldmem;
+                        break;
+                    case st_float:
+                        match = *(float*)addr > *(float*)poldmem;
+                        break;
+                    default: continue;
+                }
+            } else {
+                switch(search_type) {
+                    case st_i32: case st_autoint:
+                        match = *(int32_t*)addr < *(int32_t*)poldmem;
+                        break;
+                    case st_u32: case st_autouint:
+                        match = *(uint32_t*)addr < *(uint32_t*)poldmem;
+                        break;
+                    case st_i16:
+                        match = *(int16_t*)addr < *(int16_t*)poldmem;
+                        break;
+                    case st_u16:
+                        match = *(uint16_t*)addr < *(uint16_t*)poldmem;
+                        break;
+                    case st_i8:
+                        match = *(int8_t*)addr < *(int8_t*)poldmem;
+                        break;
+                    case st_u8:
+                        match = *(uint8_t*)addr < *(uint8_t*)poldmem;
+                        break;
+                    case st_float:
+                        match = *(float*)addr < *(float*)poldmem;
+                        break;
+                    default: continue;
+                }
+            }
+            if (match) {
+                if (cont == 0) {
+                    cont = 1;
+                    laststart = addr;
+                }
+                res_addr[res_count++] = addr;
+                if (res_count == 0x100) {
+                    cb(res_addr, res_count, datasize);
+                    res_count = 0;
+                }
+            } else {
+                if (cont == 1) {
+                    uint16_t lastlen = addr - laststart;
+                    sceIoWrite(outfile, &laststart, 4);
+                    sceIoWrite(outfile, &lastlen, 2);
+                    sceIoWrite(outfile, (const void*)(uintptr_t)laststart, lastlen);
+                    cont = 0;
+                    laststart = 0;
+                }
+            }
+        }
+        if (cont == 1) {
+            uint16_t lastlen = addrend - laststart;
+            sceIoWrite(outfile, &laststart, 4);
+            sceIoWrite(outfile, &lastlen, 2);
+            sceIoWrite(outfile, (const void*)(uintptr_t)laststart, lastlen);
+            cont = 0;
+            laststart = 0;
+        }
+    }
+    if (res_count > 0) {
+        cb(res_addr, res_count, datasize);
+        res_count = 0;
+    }
+    my_free(oldmem);
+    sceIoClose(outfile);
+    sceIoClose(infile);
+    sceIoRemove(infilename);
+    return 0;
 }
 
 void mem_search_reset() {
@@ -469,9 +646,9 @@ typedef struct {
     int heap;
     char buf[8];
     int len;
-    void (*cb)(const uint32_t *addr, int count, int datalen);
-    void (*cb_start)(int type);
-    void (*cb_end)(int err);
+    mem_search_cb cb;
+    mem_search_start_cb cb_start;
+    mem_search_end_cb cb_end;
 } memory_request;
 
 volatile memory_request memory_req;
@@ -487,12 +664,9 @@ static int _memory_thread(SceSize args, void *argp) {
     sceClibMemcpy(buf, (const char*)memory_req.buf, 8);
     int len = memory_req.len;
     int heap = memory_req.heap;
-    void (*cb)(const uint32_t *addr, int count, int datalen);
-    void (*cb_start)(int type);
-    void (*cb_end)();
-    cb = memory_req.cb;
-    cb_start = memory_req.cb_start;
-    cb_end = memory_req.cb_end;
+    mem_search_cb cb = memory_req.cb;
+    mem_search_start_cb cb_start = memory_req.cb_start;
+    mem_search_end_cb cb_end = memory_req.cb_end;
     sceKernelSignalSema(searchSema, 1);
     switch(op) {
         case 0:
@@ -502,6 +676,18 @@ static int _memory_thread(SceSize args, void *argp) {
             sceKernelUnlockMutex(searchMutex, 1);
             break;
         case 1:
+            cb_start(type);
+            mem_fuzzy_first_search(type, heap);
+            cb_end(0);
+            sceKernelUnlockMutex(searchMutex, 1);
+            break;
+        case 2:
+        case 3:
+            cb_start(search_type & 0xFF);
+            cb_end(mem_fuzzy_next_search(op == 3, cb));
+            sceKernelUnlockMutex(searchMutex, 1);
+            break;
+        case 4:
             mem_do_dump();
             mem_dumping = 0;
             sceKernelUnlockMutex(searchMutex, 1);
@@ -513,13 +699,37 @@ static int _memory_thread(SceSize args, void *argp) {
     return sceKernelExitDeleteThread(0);
 }
 
-void mem_start_search(int type, int heap, const char *buf, int len, void (*cb)(const uint32_t *addr, int count, int datalen), void (*cb_start)(int type), void (*cb_end)(int err)) {
+void mem_start_search(int type, int heap, const char *buf, int len, mem_search_cb cb, mem_search_start_cb cb_start, mem_search_end_cb cb_end) {
     memory_req.op = 0;
     memory_req.type = type;
     memory_req.heap = heap;
     sceClibMemset((char*)memory_req.buf, 0, 8);
     sceClibMemcpy((char*)memory_req.buf, buf, len);
     memory_req.len = len;
+    memory_req.cb = cb;
+    memory_req.cb_start = cb_start;
+    memory_req.cb_end = cb_end;
+    SceUID thid = sceKernelCreateThread("rcsvr_memory_thread", _memory_thread, 0x10000100, 0x10000, 0, SCE_KERNEL_CPU_MASK_USER_1 | SCE_KERNEL_CPU_MASK_USER_2, NULL);
+    if (thid >= 0)
+        sceKernelStartThread(thid, 0, NULL);
+    sceKernelWaitSema(searchSema, 1, NULL);
+}
+
+void mem_start_fuzzy_search(int type, int heap, mem_search_start_cb cb_start, mem_search_end_cb cb_end) {
+    memory_req.op = 1;
+    memory_req.type = type;
+    memory_req.heap = heap;
+    memory_req.cb_start = cb_start;
+    memory_req.cb_end = cb_end;
+    SceUID thid = sceKernelCreateThread("rcsvr_memory_thread", _memory_thread, 0x10000100, 0x10000, 0, SCE_KERNEL_CPU_MASK_USER_1 | SCE_KERNEL_CPU_MASK_USER_2, NULL);
+    if (thid >= 0)
+        sceKernelStartThread(thid, 0, NULL);
+    sceKernelWaitSema(searchSema, 1, NULL);
+}
+
+void mem_next_fuzzy_search(int direction, mem_search_cb cb, mem_search_start_cb cb_start, mem_search_end_cb cb_end) {
+    if (direction != 0 && direction != 1) return;
+    memory_req.op = direction + 2;
     memory_req.cb = cb;
     memory_req.cb_start = cb_start;
     memory_req.cb_end = cb_end;
@@ -571,7 +781,7 @@ int mem_list(memory_range *range, int size, int heap) {
 
 void mem_dump() {
     sceClibMemset((void*)&memory_req, 0, sizeof(memory_req));
-    memory_req.op = 1;
+    memory_req.op = 4;
     mem_dumping = 1;
     SceUID thid = sceKernelCreateThread("rcsvr_memory_thread", _memory_thread, 0x10000100, 0x10000, 0, SCE_KERNEL_CPU_MASK_USER_1 | SCE_KERNEL_CPU_MASK_USER_2, NULL);
     if (thid >= 0)
@@ -644,6 +854,7 @@ void mem_lockdata_process() {
 int mem_get_type_size(int type, const void *data) {
     switch(type) {
         case st_autoint: {
+            if (!data) return 4;
             int64_t val = *(int64_t*)data;
             if (val >= 0x80000000LL || val < -0x80000000LL) return 8;
             if (val >= 0x8000LL || val < -0x8000LL) return 4;
@@ -651,7 +862,8 @@ int mem_get_type_size(int type, const void *data) {
             return 1;
         }
         case st_autouint: {
-            int64_t val = *(int64_t*)data;
+            if (!data) return 4;
+            uint64_t val = *(int64_t*)data;
             if (val >= 0x100000000ULL) return 8;
             if (val >= 0x10000ULL) return 4;
             if (val >= 0x100ULL) return 2;

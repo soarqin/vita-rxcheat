@@ -191,6 +191,34 @@ static void _kcp_search_cb(const uint32_t *data, int size, int data_len) {
     }
 }
 
+static void _kcp_fuzzy_search_start(int type) {
+    ui_set_show_msg(3600000, 1, "Searching...");
+    _kcp_send_cmd(0x1000 | type, NULL, 0);
+    total_count = 0;
+}
+
+static void _kcp_fuzzy_search_end(int err) {
+    ui_clear_show_msg();
+    if (err == 0)
+        _kcp_send_cmd(total_count > 100 ? 0x1300 : 0x1200, NULL, 0);
+    else
+        _kcp_send_cmd(0x1301, NULL, 0);
+}
+
+static void _kcp_fuzzy_search_cb(const uint32_t *data, int size, int data_len) {
+    total_count += size;
+    if (total_count <= 0x40) {
+        int i;
+        uint32_t buf[0xC0] = {0};
+        for (i = 0; i < size; ++i) {
+            buf[i * 3] = data[i];
+            uint32_t addr = mem_convert(data[i], NULL);
+            sceClibMemcpy(&buf[i * 3 + 1], (const void*)addr, data_len);
+        }
+        _kcp_send_cmd(0x1100, &buf, size * 4 * 3);
+    }
+}
+
 static void _kcp_trophy_list_end(int err) {
     if (err == 0)
         _kcp_send_cmd(0x8001, NULL, 0);
@@ -258,6 +286,7 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
         } else {
             _kcp_send_cmd(0x0A00, data, r * sizeof(memory_range));
         }
+        break;
     }
     case 0x0C: {
         char data[0x104];
@@ -284,6 +313,15 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
         _kcp_send_cmd(0x0D00, data, (ptr - data) * 4);
         break;
     }
+    case 0x10:
+    case 0x11:
+        mem_search_reset();
+        mem_start_fuzzy_search(type, op == 0x11, _kcp_fuzzy_search_start, _kcp_fuzzy_search_end);
+        break;
+    case 0x12:
+    case 0x13:
+        mem_next_fuzzy_search(op == 0x13, _kcp_fuzzy_search_cb, _kcp_fuzzy_search_start, _kcp_fuzzy_search_end);
+        break;
     case 0x20: {
         mem_lockdata_begin();
         break;

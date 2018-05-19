@@ -66,6 +66,8 @@ private:
 
     void reloadFonts();
 
+    void onDisconnected();
+
 private:
     UdpClient *client_;
     Command *cmd_;
@@ -105,6 +107,7 @@ private:
     };
     std::vector<MemoryItem> searchResults_;
     int searchStatus_ = 0;
+    bool fuzzySearch_ = false;
     uint8_t searchResultType_ = 0;
     char searchVal_[32] = "";
     int typeComboIndex_ = 0;

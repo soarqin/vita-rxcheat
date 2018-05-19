@@ -34,6 +34,10 @@ strings:
   DOUBLE: double
   NEW_SEARCH: New search
   NEXT_SEARCH: Next
+  LANG_NEW_FUZZY: New fuzzy search
+  LANG_LESS_FUZZY: LESS than before
+  LANG_GREATER_FUZZY: GREATER than before
+  LANG_CANCEL_FUZZY: Abandon
   VALUE: "Value:"
   HEX: HEX
   HEAP: HEAP

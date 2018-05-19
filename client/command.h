@@ -28,8 +28,8 @@ public:
     inline Command(UdpClient &cl): client_(cl) {}
     void startSearch(uint32_t st, bool heap, void *data);
     void nextSearch(void *data);
-    void startFuzzySearch(uint32_t st);
-    void nextFuzzySearch(int direction);
+    void startFuzzySearch(uint32_t st, bool heap);
+    void nextFuzzySearch(bool direction);
     void modifyMemory(uint8_t st, uint32_t offset, const void *data);
     static int getTypeSize(uint8_t type, const void* data);
     static void formatTypeData(char *output, uint8_t type, const void *data, bool hex);
