@@ -14,8 +14,6 @@ static SceUID mempool_sema = 0;
 static SceUID mempool_id[16];
 static void *mempool_start[16];
 static int mempool_count = 0;
-static uint64_t start_tick = 0ULL;
-static uint64_t resolution_of_tick = 0ULL;
 
 int liballoc_lock() {
     return sceKernelWaitSema(mempool_sema, 1, NULL);
@@ -82,12 +80,6 @@ void util_init() {
     util_set_alloc(kmalloc, krealloc, kcalloc, kfree);
 
     sceShellUtilInitEvents(0);
-
-    // init time tick
-    resolution_of_tick = sceRtcGetTickResolution() / 1000U;
-    SceRtcTick tick;
-    sceRtcGetCurrentTick(&tick);
-    start_tick = tick.tick;
 }
 
 void util_finish() {
@@ -107,9 +99,7 @@ void util_unlock_power() {
 }
 
 uint64_t util_gettick() {
-    SceRtcTick tick;
-    sceRtcGetCurrentTick(&tick);
-    return (tick.tick - start_tick) / resolution_of_tick;
+    return sceKernelGetProcessTimeWide() / 1000ULL;
 }
 
 static int pause_blocking_thread(SceSize args, void *argv) {

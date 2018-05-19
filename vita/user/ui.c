@@ -412,6 +412,8 @@ void ui_set_show_msg(uint64_t millisec, int count, ...) {
         sceClibStrncpy(show_msg[i], va_arg(arg_ptr, const char*), 79);
         show_msg[i][79] = 0;
     }
+    if (i < MSG_MAX)
+        show_msg[i][0] = 0;
     va_end(arg_ptr);
     sceKernelUnlockMutex(drawMutex, 1);
 }
