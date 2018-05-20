@@ -1,8 +1,9 @@
 v0.11:
-  1. fixed trophy listing for special games like WoFF
-  2. added a lite version which strips all network functions
+  1. added a lite version which strips all network functions
+  2. fixed trophy listing for special games, e.g. WoFF
   3. better floating number search
-  4. (TODO) fuzzy search
+  4. fuzzy search
+  5. fixed compatible problem with some games
 
 v0.10:
   1. try to pause game on in-game menu (not always working)

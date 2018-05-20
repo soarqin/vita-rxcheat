@@ -1,3 +1,2 @@
-1. (v0.11) Fuzzy search
-2. (?) Better memory view editing style
-3. (?) Search functions on in-game menu
+1. (?) Better memory view editing style
+2. (?) Search functions on in-game menu
