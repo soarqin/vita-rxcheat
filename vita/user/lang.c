@@ -31,6 +31,9 @@ const char *default_lang[] = {
     "Current language: %s",
     "CPU/BUS/GPU/XBAR CLOCKS(MHz):",
     "Change language",
+    "Searching...",
+    "Unlocked trophy",
+    "Unlocked platinum trophy",
 };
 
 static char *lang_string = NULL;

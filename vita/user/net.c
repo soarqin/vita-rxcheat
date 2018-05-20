@@ -4,6 +4,7 @@
 #include "mem.h"
 #include "trophy.h"
 #include "ui.h"
+#include "lang.h"
 #include "debug.h"
 #include "util.h"
 
@@ -164,7 +165,7 @@ void _kcp_send_cmd(int op, const void *buf, int len) {
 }
 
 static void _kcp_search_start(int type) {
-    ui_set_show_msg(3600000, 1, "Searching...");
+    ui_set_show_msg(3600000, 1, LS(SEARCHING));
     _kcp_send_cmd(type, NULL, 0);
     total_count = 0;
 }
@@ -192,7 +193,7 @@ static void _kcp_search_cb(const uint32_t *data, int size, int data_len) {
 }
 
 static void _kcp_fuzzy_search_start(int type) {
-    ui_set_show_msg(3600000, 1, "Searching...");
+    ui_set_show_msg(3600000, 1, LS(SEARCHING));
     _kcp_send_cmd(0x1000 | type, NULL, 0);
     total_count = 0;
 }
@@ -245,9 +246,9 @@ static void _kcp_trophy_unlock(int ret, int id, int platid) {
         _kcp_send_cmd(0x8110, NULL, 0);
     } else {
         if (platid < 0)
-            ui_set_show_msg(5000, 1, "Unlocked trophy");
+            ui_set_show_msg(5000, 1, LS(UNLOCKED));
         else
-            ui_set_show_msg(5000, 1, "Unlocked platinum trophy");
+            ui_set_show_msg(5000, 1, LS(UNLOCKED_PLAT));
         int buf[2];
         buf[0] = id;
         buf[1] = platid;
