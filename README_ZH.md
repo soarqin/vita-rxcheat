@@ -4,12 +4,11 @@ VITA RxCheat 是一个在PC上通过网络连接到PSVTIA以修改游戏内存�
 
 安装说明
 ------------
-
 1. 将 tai/rcsvr.skprx 复制到你的 taiHEN 插件目录，修改插件的 config.txt 文件，把 rcsvr.skprx 添加到 *KERNEL 加载列表里，举例，如果你把文件复制为 ux0:tai/rcsvr.skprx，那么在 config.txt 里添加两行：
-
-        *KERNEL
-        ux0:tai/rcsvr.skprx
-
+```
+*KERNEL
+ux0:tai/rcsvr.skprx
+```
 2. 将 tai/rcsvr.suprx(完整版本) 或 tai/rcsvr_lt.suprx(轻简版本) 复制到 ux0:tai/
 
 使用客户端连接

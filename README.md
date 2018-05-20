@@ -5,10 +5,10 @@ VITA RxCheat is a plugin for 3.60/3.65 taiHEN used to run CwCheat codes or unloc
 Installation
 ------------
 1. Copy tai/rcsvr.skprx to your taiHEN plugin folder, modify tai plugin config.txt, add rcsvr.skprx to *KERNEL section, e.g. if you copy it to ux0:tai/rcsvr.skprx, add 2 lines in config.txt as following:
-
-        *KERNEL
-        ux0:tai/rcsvr.skprx
-
+```
+*KERNEL
+ux0:tai/rcsvr.skprx
+```
 2. Copy tai/rcsvr.suprx(Full version) or tai/rcsvr_lt.suprx(Lite version) to ux0:tai/
 
 HOW-TO use client sofware
