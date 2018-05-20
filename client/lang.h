@@ -40,7 +40,7 @@ public:
         LANG_NEXT_SEARCH,
         LANG_NEW_FUZZY,
         LANG_LESS_FUZZY,
-        LANG_GREATOR_FUZZY,
+        LANG_GREATER_FUZZY,
         LANG_CANCEL_FUZZY,
         LANG_VALUE,
         LANG_HEX,

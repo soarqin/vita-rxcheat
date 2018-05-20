@@ -71,7 +71,7 @@ bool Lang::load(const std::string &name) {
             C(NEXT_SEARCH)
             C(NEW_FUZZY)
             C(LESS_FUZZY)
-            C(GREATOR_FUZZY)
+            C(GREATER_FUZZY)
             C(CANCEL_FUZZY)
             C(VALUE)
             C(HEX)

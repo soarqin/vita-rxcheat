@@ -35,6 +35,10 @@ strings:
   DOUBLE: 双精度浮点数
   NEW_SEARCH: 重新开始搜索
   NEXT_SEARCH: 继续搜索
+  NEW_FUZZY: 开始模糊搜索
+  LESS_FUZZY: 数值变小
+  GREATER_FUZZY: 数值变大
+  CANCEL_FUZZY: 放弃模糊搜索
   VALUE: "数值:"
   HEX: 十六进制
   HEAP: 搜索堆

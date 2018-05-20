@@ -265,9 +265,10 @@ void Gui::searchResult(const SearchVal *vals, int count) {
 }
 
 void Gui::searchEnd(int ret) {
-    if (ret == 0 && searchResults_.empty())
+    if (ret == 0 && searchResults_.empty()) {
+        fuzzySearch_ = false;
         searchStatus_ = 0;
-    else
+    } else
         searchStatus_ = 2 + ret;
 }
 
@@ -405,16 +406,15 @@ inline void Gui::searchPanel() {
     } else if (typeComboIndex_ >= 0) {
         if (fuzzySearch_) {
             if (searchStatus_ == 2 || searchStatus_ == 3) {
-                ImGui::SameLine();
                 if (ImGui::Button(LS(LESS_FUZZY))) {
                     cmd_->nextFuzzySearch(false);
                 }
                 ImGui::SameLine();
-                if (ImGui::Button(LS(GREATOR_FUZZY))) {
+                if (ImGui::Button(LS(GREATER_FUZZY))) {
                     cmd_->nextFuzzySearch(true);
                 }
+                ImGui::SameLine();
             }
-            ImGui::SameLine();
             if (ImGui::Button(LS(CANCEL_FUZZY))) {
                 fuzzySearch_ = false;
                 searchStatus_ = 0;
@@ -427,13 +427,6 @@ inline void Gui::searchPanel() {
                 Command::getRawData(output, comboItemType[typeComboIndex_], searchVal_, searchHex_);
                 cmd_->startSearch(comboItemType[typeComboIndex_], heapSearch_, output);
             }
-            uint8_t t = comboItemType[typeComboIndex_];
-            if (t != Command::st_u64 && t != Command::st_i64 && t != Command::st_double) {
-                ImGui::SameLine();
-                if (ImGui::Button(LS(NEW_FUZZY), ImVec2(100.f, 0.f)) && typeComboIndex_ >= 0) {
-                    cmd_->startFuzzySearch(comboItemType[typeComboIndex_], heapSearch_);
-                }
-            }
             if ((searchStatus_ == 2 || searchStatus_ == 3) && (ImGui::SameLine(), ImGui::Button(LS(NEXT_SEARCH), ImVec2(70.f, 0.f)))) {
                 char output[8];
                 Command::getRawData(output, searchResultType_, searchVal_, searchHex_);
@@ -443,36 +436,43 @@ inline void Gui::searchPanel() {
             ImGui::PushItemWidth(120.f);
             ImGui::InputText("##Value", searchVal_, 31, searchHex_ ? ImGuiInputTextFlags_CharsHexadecimal : ImGuiInputTextFlags_CharsDecimal);
             ImGui::PopItemWidth();
-        }
-    }
-    ImGui::SameLine();
-    ImGui::PushItemWidth(100.f);
-    if (ImGui::BeginCombo("##Type", LS(DATATYPE_FIRST + typeComboIndex_))) {
-        for (int i = 0; i < sizeof(comboItemType) / sizeof(uint8_t); ++i) {
-            bool selected = typeComboIndex_ == i;
-            if (ImGui::Selectable(LS(DATATYPE_FIRST + i), selected)) {
-                if (typeComboIndex_ != i) {
-                    typeComboIndex_ = i;
-                    if (searchResultType_ != comboItemType[i] || searchResults_.empty()) {
-                        searchStatus_ = 0;
+            ImGui::SameLine();
+            ImGui::PushItemWidth(100.f);
+            if (ImGui::BeginCombo("##Type", LS(DATATYPE_FIRST + typeComboIndex_))) {
+                for (int i = 0; i < sizeof(comboItemType) / sizeof(uint8_t); ++i) {
+                    bool selected = typeComboIndex_ == i;
+                    if (ImGui::Selectable(LS(DATATYPE_FIRST + i), selected)) {
+                        if (typeComboIndex_ != i) {
+                            typeComboIndex_ = i;
+                            if (searchResultType_ != comboItemType[i] || searchResults_.empty()) {
+                                searchStatus_ = 0;
+                            }
+                        }
                     }
+                    if (selected) ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::PopItemWidth();
+            auto tt = comboItemType[typeComboIndex_];
+            if (tt != Command::st_float && tt != Command::st_double && (ImGui::SameLine(), ImGui::Checkbox(LS(HEX), &searchHex_))) {
+                char dst[8];
+                Command::getRawData(dst, tt, searchVal_, !searchHex_);
+                Command::formatTypeData(searchVal_, tt, dst, searchHex_);
+                for (auto &p: searchResults_)
+                    p.formatValue(searchHex_);
+            }
+            ImGui::SameLine();
+            ImGui::Checkbox(LS(HEAP), &heapSearch_);
+            uint8_t t = comboItemType[typeComboIndex_];
+            if (t != Command::st_u64 && t != Command::st_i64 && t != Command::st_double) {
+                if (ImGui::Button(LS(NEW_FUZZY))) {
+                    cmd_->startFuzzySearch(comboItemType[typeComboIndex_], heapSearch_);
+                    fuzzySearch_ = true;
                 }
             }
-            if (selected) ImGui::SetItemDefaultFocus();
         }
-        ImGui::EndCombo();
     }
-    ImGui::PopItemWidth();
-    auto tt = comboItemType[typeComboIndex_];
-    if (tt != Command::st_float && tt != Command::st_double && (ImGui::SameLine(), ImGui::Checkbox(LS(HEX), &searchHex_))) {
-        char dst[8];
-        Command::getRawData(dst, tt, searchVal_, !searchHex_);
-        Command::formatTypeData(searchVal_, tt, dst, searchHex_);
-        for (auto &p: searchResults_)
-            p.formatValue(searchHex_);
-    }
-    ImGui::SameLine();
-    ImGui::Checkbox(LS(HEAP), &heapSearch_);
 
     switch (searchStatus_) {
         case 2:

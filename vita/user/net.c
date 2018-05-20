@@ -172,7 +172,7 @@ static void _kcp_search_start(int type) {
 static void _kcp_search_end(int err) {
     ui_clear_show_msg();
     if (err == 0)
-        _kcp_send_cmd(total_count > 100 ? 0x30000 : 0x20000, NULL, 0);
+        _kcp_send_cmd(total_count > 0x40 ? 0x30000 : 0x20000, NULL, 0);
     else
         _kcp_send_cmd(0x30001, NULL, 0);
 }
@@ -199,8 +199,8 @@ static void _kcp_fuzzy_search_start(int type) {
 
 static void _kcp_fuzzy_search_end(int err) {
     ui_clear_show_msg();
-    if (err == 0)
-        _kcp_send_cmd(total_count > 100 ? 0x1300 : 0x1200, NULL, 0);
+    if (err >= 0)
+        _kcp_send_cmd((err > 0 || total_count > 0x40) ? 0x1300 : 0x1200, NULL, 0);
     else
         _kcp_send_cmd(0x1301, NULL, 0);
 }
