@@ -350,6 +350,7 @@ void ui_process(uint64_t tick) {
     sceKernelLockMutex(drawMutex, 1, NULL);
     _show_menu(1);
     sceKernelUnlockMutex(drawMutex, 1);
+    sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
 }
 
 int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
@@ -359,6 +360,7 @@ int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
         if (blit_set_frame_buf(param) == 0)
             _show_menu(0);
         sceKernelUnlockMutex(drawMutex, 1);
+        sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
     } else if (msg_deadline) {
         sceKernelLockMutex(drawMutex, 1, NULL);
         if (blit_set_frame_buf(param) == 0) {
@@ -367,6 +369,7 @@ int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
             }
         }
         sceKernelUnlockMutex(drawMutex, 1);
+        sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
     }
     return TAI_CONTINUE(int, refs[0], param, sync);
 }
