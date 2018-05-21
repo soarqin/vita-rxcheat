@@ -59,8 +59,9 @@ static int tai_force_memcpy(SceUID dst_pid, void *dst, const void *src, size_t s
     return ret;
 }
 
-void rcsvrMemcpyForce(void *dstp, const void *srcp, int size, int flush) {
+int rcsvrMemcpyForce(void *dstp, const void *srcp, int size, int flush) {
     uint32_t state;
+    int ret = 0;
     ENTER_SYSCALL(state);
     SceUID pid = ksceKernelGetProcessId();
     char buf[0x100];
@@ -69,27 +70,29 @@ void rcsvrMemcpyForce(void *dstp, const void *srcp, int size, int flush) {
     uintptr_t dst = (uintptr_t)dstp;
     while (len > 0) {
         if (len > 0x100) {
-            if (ksceKernelMemcpyUserToKernel(buf, src, 0x100) < 0) break;
-            if (tai_force_memcpy(pid, (void*)dst, buf, 0x100) < 0) break;
+            if (ksceKernelMemcpyUserToKernel(buf, src, 0x100) < 0) { ret = -1; break; }
+            if (tai_force_memcpy(pid, (void*)dst, buf, 0x100) < 0) { ret = -1; break; }
             if (flush) cache_flush(pid, dst, 0x100);
             len -= 0x100;
             src += 0x100;
             dst += 0x100;
         } else {
-            if (ksceKernelMemcpyUserToKernel(buf, src, len) < 0) break;
-            if (tai_force_memcpy(pid, (void*)dst, buf, len) < 0) break;
+            if (ksceKernelMemcpyUserToKernel(buf, src, len) < 0) { ret = -1; break; }
+            if (tai_force_memcpy(pid, (void*)dst, buf, len) < 0) { ret = -1; break; }
             if (flush) cache_flush(pid, dst, len);
             len = 0;
         }
     }
     EXIT_SYSCALL(state);
+    return ret;
 }
 
-void rcsvrMemcpy(void *dst, const void *src, int size) {
+int rcsvrMemcpy(void *dst, const void *src, int size) {
     uint32_t state;
     ENTER_SYSCALL(state);
-    ksceKernelMemcpyUserToUserForPid(ksceKernelGetProcessId(), dst, src, size);
+    int ret = ksceKernelMemcpyUserToUserForPid(ksceKernelGetProcessId(), dst, src, size);
     EXIT_SYSCALL(state);
+    return ret;
 }
 
 SceUID rcsvrIoDopen(const char *dirname) {

@@ -26,7 +26,7 @@ enum {
 };
 
 #define LOCK_COUNT_MAX 0x80
-#define MEM_RANGE_MAX (256)
+#define MEM_RANGE_MAX (128)
 #define STATIC_MEM_MAX (16)
 #define STACK_MEM_MAX (32)
 #define HEAP_MEM_MAX (MEM_RANGE_MAX-STATIC_MEM_MAX-STACK_MEM_MAX)
@@ -111,6 +111,9 @@ void mem_reload() {
                 memory_range *mr = &staticmem[static_cnt++];
                 mr->start = (uint32_t)info.segments[j].vaddr;
                 mr->size = info.segments[j].memsz;
+                if (j < 3 && mr->start + mr->size < (uint32_t)info.segments[j + 1].vaddr && mr->start + mr->size + 0x4000 > (uint32_t)info.segments[j + 1].vaddr) {
+                    mr->size = (uint32_t)info.segments[j + 1].vaddr - mr->start;
+                }
                 mr->flag = (info.segments[j].perms & 2) == 0 ? 1 : 0;
                 log_trace("    0x%08X 0x%08X 0x%08X 0x%08X\n", info.segments[j].vaddr, info.segments[j].memsz, info.segments[j].perms, info.segments[j].flags);
             }
@@ -562,6 +565,10 @@ void mem_search_reset() {
 }
 
 void mem_set(uint32_t addr, const void *data, int size) {
+    if (addr >= 0x80000000U && addr < 0xA0000000U) {
+        rcsvrMemcpyForce((void*)addr, data, size, 1);
+        return;
+    }
     int readonly;
     uint32_t raddr = mem_convert(addr, &readonly);
     if (raddr == 0) return;
@@ -756,6 +763,10 @@ void mem_next_fuzzy_search(int direction, mem_search_cb cb, mem_search_start_cb 
 int mem_read(uint32_t addr, void *data, int size) {
     if (!mem_loaded) {
         mem_reload();
+    }
+    if (addr >= 0x80000000U) {
+        if (rcsvrMemcpy(data, (void*)addr, size) < 0) return -1;
+        return size;
     }
     uint32_t raddr = mem_convert(addr, NULL);
     if (raddr == 0) return -1;

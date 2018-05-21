@@ -84,7 +84,7 @@ static inline void _show_menu(int standalone) {
         }
         case MENU_MODE_ADV: {
             const char *text[3] = {LS(LANGUAGE), LS(DUMP), LS(CHCLOCKS)};
-            if (mem_is_dumping()) text[0] = LS(DUMPING);
+            if (mem_is_dumping()) text[1] = LS(DUMPING);
             int count = menu_get_count();
             blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(ADVANCE));
             blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], 0, CHAR_RIGHT);
