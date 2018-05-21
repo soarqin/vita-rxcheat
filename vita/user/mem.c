@@ -777,6 +777,9 @@ int mem_read(uint32_t addr, void *data, int size) {
 }
 
 int mem_list(memory_range *range, int size, int heap) {
+    if (!mem_loaded)
+        mem_reload();
+    reload_heaps();
     int res = 0;
     int i;
     for (i = 0; i < static_cnt && res < size; ++i) {

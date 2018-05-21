@@ -225,6 +225,7 @@ void UdpClient::process() {
                     if (onConnected_) onConnected_(inet_ntoa(addr.sin_addr));
                     break;
                 case 'K':
+                    if (r <= 4) return;
                     ikcp_input(kcp_, buf + 4, r - 4);
                     break;
             }
@@ -271,7 +272,6 @@ bool UdpClient::_startConnect(void *addr) {
         fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
     }
 #endif
-    char res[256] = {0};
     packets_.push_back("C");
     connecting_ = true;
     return true;

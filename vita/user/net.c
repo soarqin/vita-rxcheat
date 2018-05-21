@@ -281,7 +281,7 @@ static void _process_kcp_packet(int cmd, const char *buf, int len) {
     }
     case 0x0A: {
         memory_range data[0x100];
-        int r = mem_list(data, 0x100, 0);
+        int r = mem_list(data, 0x100, 1);
         if (r <= 0) {
             _kcp_send_cmd(0x0A01, NULL, 0);
         } else {

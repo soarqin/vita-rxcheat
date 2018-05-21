@@ -96,7 +96,7 @@ set(USER_SRC
     # debug
     user/debug.c user/debug.h
     # kcp
-    ../kcp/ikcp.c ../kcp/ikcp.h
+    ../deps/kcp/ikcp.c ../deps/kcp/ikcp.h
 )
 
 add_executable(user
@@ -109,8 +109,8 @@ add_executable(user-lite
     ${USER_SRC}
 )
 
-target_include_directories(user PRIVATE . PRIVATE ../kcp)
-target_include_directories(user-lite PRIVATE . PRIVATE ../kcp)
+target_include_directories(user PRIVATE . PRIVATE ../deps/kcp)
+target_include_directories(user-lite PRIVATE . PRIVATE ../deps/kcp)
 
 set(USER_LINK_LIBS
     ${CMAKE_BINARY_DIR}/kernel-stubs/librcsvr_stub_weak.a
