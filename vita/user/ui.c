@@ -70,6 +70,12 @@ static inline int menu_get_count() {
 
 static inline void _show_menu(int standalone) {
     if (standalone) blit_setup();
+    if (msg_deadline) {
+        for (int i = 0; i < MSG_MAX && show_msg[i][0] != 0; ++i) {
+            blit_string_ctr(MSG_Y_TOP + LINE_HEIGHT * i, 1, show_msg[i]);
+        }
+    }
+    if (menu_mode == MENU_MODE_CLOSE) return;
     int centerx = blit_pwidth / 2, centery = blit_pheight / 2;
     if (centerx >= 280 && centery >= 145)
         blit_clear(centerx - 280, centery - 145, 560, 290);
@@ -350,7 +356,7 @@ void ui_process(uint64_t tick) {
             break;
         }
     }
-    if (menu_mode == MENU_MODE_CLOSE) return;
+    if (menu_mode == MENU_MODE_CLOSE && !msg_deadline) return;
     sceKernelLockMutex(drawMutex, 1, NULL);
     _show_menu(1);
     sceKernelUnlockMutex(drawMutex, 1);
@@ -359,19 +365,10 @@ void ui_process(uint64_t tick) {
 
 int sceDisplaySetFrameBuf_patched(const SceDisplayFrameBuf *param, int sync) {
     if (refs[0] == 0) return -1;
-    if (menu_mode != MENU_MODE_CLOSE) {
+    if (menu_mode != MENU_MODE_CLOSE || msg_deadline) {
         sceKernelLockMutex(drawMutex, 1, NULL);
         if (blit_set_frame_buf(param) == 0)
             _show_menu(0);
-        sceKernelUnlockMutex(drawMutex, 1);
-        sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
-    } else if (msg_deadline) {
-        sceKernelLockMutex(drawMutex, 1, NULL);
-        if (blit_set_frame_buf(param) == 0) {
-            for (int i = 0; i < MSG_MAX && show_msg[i][0] != 0; ++i) {
-                blit_string_ctr(MSG_Y_TOP + LINE_HEIGHT * i, 1, show_msg[i]);
-            }
-        }
         sceKernelUnlockMutex(drawMutex, 1);
         sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
     }
