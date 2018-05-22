@@ -123,6 +123,7 @@ set(USER_LINK_LIBS
     SceSysmodule_stub_weak
     SceKernelThreadMgr_stub_weak
     SceKernelModulemgr_stub_weak
+    SceProcessmgr_stub_weak
     SceAppMgr_stub_weak
     SceAppUtil_stub_weak
     SceCtrl_stub_weak

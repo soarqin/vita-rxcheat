@@ -19,6 +19,7 @@ static cheat_data_t cheat_data;
 
 enum {
     CO_SETBASEADDR = CO_EXTENSION,
+    CO_WRITEABSADDR,
 };
 
 int read_cb(void *arg, uint32_t addr, void *data, int len, int need_conv) {
@@ -86,12 +87,18 @@ static int input_cb(void *arg, uint32_t buttons) {
 int ext_cb(void *arg, cheat_code_t *code, const char *op, uint32_t val1, uint32_t val2) {
     switch (op[0]) {
         case 'B':
-            code->op = CO_SETBASEADDR;
-            code->type = CT_I32;
+            code->op    = CO_SETBASEADDR;
+            code->type  = CT_I32;
             code->extra = 0;
-            code->addr = val1;
+            code->addr  = val1;
             code->value = 0;
             return CR_OK;
+        case 'E':
+            code->op    = CO_WRITEABSADDR;
+            code->type  = CT_I32;
+            code->extra = 0;
+            code->addr  = val1;
+            code->value = val2;
         default:
             return CR_INVALID;
     }
@@ -102,6 +109,18 @@ int ext_call_cb(void *arg, int line, const cheat_code_t *code) {
         case CO_SETBASEADDR:
             ((cheat_data_t*)arg)->base_addr = code->addr;
             return CR_OK;
+        case CO_WRITEABSADDR: {
+            int readonly;
+            void *paddr = (void*)(uintptr_t)mem_convert(cheat_data.base_addr + code->addr, &readonly);
+            if (!paddr) return CR_OK;
+            uint32_t taddr = mem_convert(cheat_data.base_addr + code->value, NULL);
+            if (!taddr) return CR_OK;
+            if (readonly)
+                rcsvrMemcpyForce(paddr, &taddr, 4, 1);
+            else
+                rcsvrMemcpy(paddr, &taddr, 4);
+            return CR_OK;
+        }
         default:
             return CR_INVALID;
     }

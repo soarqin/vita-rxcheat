@@ -117,7 +117,7 @@ static inline void _show_menu(int standalone) {
             blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * (mi - mt), 0, CHAR_RIGHT);
             for (int i = mt; i < menu_bot; ++i) {
                 int y = MENU_Y_TOP + LINE_HEIGHT * (i - mt);
-                if (secs[i].enabled)
+                if (secs[i].status & 1)
                     blit_string(MENU_X_LEFT + 2, y, 0, CHAR_CIRCLE);
                 blit_string(MENU_X_LEFT + 22, y, 0, secs[i].name);
             }
@@ -251,7 +251,7 @@ static void menu_run(int type) {
                 cheat_t *ch = cheat_get_handle();
                 int count = cheat_get_section_count(ch);
                 if (menu_index[menu_mode] >= 0 && menu_index[menu_mode] < count) {
-                    cheat_section_toggle(ch, menu_index[menu_mode], !cheat_get_section(ch, menu_index[menu_mode])->enabled);
+                    cheat_section_toggle(ch, menu_index[menu_mode], !cheat_get_section(ch, menu_index[menu_mode])->status & 1);
                 }
                 break;
             }
