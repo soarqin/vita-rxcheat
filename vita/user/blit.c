@@ -14,7 +14,7 @@
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
-int pwidth, pheight, bufferwidth, pixelformat;
+int blit_pwidth, blit_pheight, bufferwidth, pixelformat;
 uint32_t* vram32;
 
 uint32_t alphas[16] = {
@@ -37,8 +37,8 @@ int blit_setup(void) {
     param.size = sizeof(SceDisplayFrameBuf);
     sceDisplayGetFrameBuf(&param, SCE_DISPLAY_SETBUF_IMMEDIATE);
 
-    pwidth = param.width;
-    pheight = param.height;
+    blit_pwidth = param.width;
+    blit_pheight = param.height;
     vram32 = param.base;
     bufferwidth = param.pitch;
     pixelformat = param.pixelformat;
@@ -49,8 +49,8 @@ int blit_setup(void) {
 }
 
 int blit_set_frame_buf(const SceDisplayFrameBuf *param) {
-    pwidth = param->width;
-    pheight = param->height;
+    blit_pwidth = param->width;
+    blit_pheight = param->height;
     vram32 = param->base;
     bufferwidth = param->pitch;
     pixelformat = param->pixelformat;
@@ -82,6 +82,10 @@ void blit_clear(int sx, int sy, int w, int h) {
         sceClibMemset(offset, 0, wr);
         offset += bufferwidth;
     }
+}
+
+void blit_clear_all() {
+    sceClibMemset(vram32, 0, bufferwidth * blit_pheight * 4);
 }
 
 static inline int utf8_to_ucs2(const char *utf8, uint16_t *character) {
@@ -175,7 +179,7 @@ int blit_string_ctr(int sy, int alpha, const char *msg) {
         rw += pwci->realw;
         ++pwci;
     }
-    int sx = pwidth / 2 - rw / 2;
+    int sx = blit_pwidth / 2 - rw / 2;
     pwci->wch = 0;
     alpha ? blit_stringw(sx, sy, wci) : blit_stringw_solid(sx, sy, wci);
 

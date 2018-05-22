@@ -36,9 +36,9 @@ enum {
     MENU_MODE_COUNT = 5,
 
     MENU_SCROLL_MAX = 10,
-    MENU_X_SELECTOR = 280,
-    MENU_X_LEFT     = 300,
-    MENU_Y_TOP      = 180,
+    MENU_X_LEFT     = -180,
+    MENU_X_SELECTOR = MENU_X_LEFT-20,
+    MENU_Y_TOP      = -90,
 };
 
 static char show_msg[MSG_MAX][80] = {};
@@ -70,15 +70,19 @@ static inline int menu_get_count() {
 
 static inline void _show_menu(int standalone) {
     if (standalone) blit_setup();
-    blit_clear(200, 125, 960 - 400, 544 - 250);
+    int centerx = blit_pwidth / 2, centery = blit_pheight / 2;
+    if (centerx >= 280 && centery >= 145)
+        blit_clear(centerx - 280, centery - 145, 560, 290);
+    else
+        blit_clear_all();
     switch (menu_mode) {
         case MENU_MODE_MAIN: {
             const char *text[3] = {LS(CHEATS), LS(TROPHIES), LS(ADVANCE)};
             int count = menu_get_count();
-            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(MAINMENU));
-            blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], 0, CHAR_RIGHT);
+            blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(MAINMENU));
+            blit_string(centerx + MENU_X_SELECTOR, centery + MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], 0, CHAR_RIGHT);
             for (int i = 0; i < count; ++i) {
-                blit_string(MENU_X_LEFT, MENU_Y_TOP + LINE_HEIGHT * i, 0, text[i]);
+                blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP + LINE_HEIGHT * i, 0, text[i]);
             }
             break;
         }
@@ -86,16 +90,16 @@ static inline void _show_menu(int standalone) {
             const char *text[3] = {LS(LANGUAGE), LS(DUMP), LS(CHCLOCKS)};
             if (mem_is_dumping()) text[1] = LS(DUMPING);
             int count = menu_get_count();
-            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(ADVANCE));
-            blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], 0, CHAR_RIGHT);
+            blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(ADVANCE));
+            blit_string(centerx + MENU_X_SELECTOR, centery + MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], 0, CHAR_RIGHT);
             for (int i = 0; i < count; ++i) {
-                blit_string(MENU_X_LEFT, MENU_Y_TOP + LINE_HEIGHT * i, 0, text[i]);
+                blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP + LINE_HEIGHT * i, 0, text[i]);
             }
             char curlang[64];
             sceClibSnprintf(curlang, 64, LS(CURLANG), lang_get_name(lang_get_index()));
-            blit_string(MENU_X_LEFT - 40, MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX - 1), 0, curlang);
-            blit_string(MENU_X_LEFT - 40, MENU_Y_TOP + LINE_HEIGHT * MENU_SCROLL_MAX, 0, LS(CLOCKS));
-            blit_stringf(MENU_X_LEFT - 40, MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX + 1), 0,
+            blit_string(centerx + MENU_X_LEFT - 40, centery + MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX - 1), 0, curlang);
+            blit_string(centerx + MENU_X_LEFT - 40, centery + MENU_Y_TOP + LINE_HEIGHT * MENU_SCROLL_MAX, 0, LS(CLOCKS));
+            blit_stringf(centerx + MENU_X_LEFT - 40, centery + MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX + 1), 0,
                 "%d / %d / %d / %d",
                 scePowerGetArmClockFrequency(),
                 scePowerGetBusClockFrequency(),
@@ -104,9 +108,9 @@ static inline void _show_menu(int standalone) {
             break;
         }
         case MENU_MODE_CHEAT: {
-            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(CHEATS));
+            blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(CHEATS));
             if (!cheat_loaded()) {
-                blit_string(MENU_X_LEFT, MENU_Y_TOP, 0, LS(CHEAT_NOT_FOUND));
+                blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP, 0, LS(CHEAT_NOT_FOUND));
                 break;
             }
             const cheat_section_t *secs;
@@ -114,22 +118,22 @@ static inline void _show_menu(int standalone) {
             int mt = menu_top[menu_mode];
             int mi = menu_index[menu_mode];
             if (menu_bot > mt + MENU_SCROLL_MAX) menu_bot = mt + MENU_SCROLL_MAX;
-            blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * (mi - mt), 0, CHAR_RIGHT);
+            blit_string(centerx + MENU_X_SELECTOR, centery + MENU_Y_TOP + LINE_HEIGHT * (mi - mt), 0, CHAR_RIGHT);
             for (int i = mt; i < menu_bot; ++i) {
-                int y = MENU_Y_TOP + LINE_HEIGHT * (i - mt);
+                int y = centery + MENU_Y_TOP + LINE_HEIGHT * (i - mt);
                 if (secs[i].status & 1)
-                    blit_string(MENU_X_LEFT + 2, y, 0, CHAR_CIRCLE);
-                blit_string(MENU_X_LEFT + 22, y, 0, secs[i].name);
+                    blit_string(centerx + MENU_X_LEFT + 2, y, 0, CHAR_CIRCLE);
+                blit_string(centerx + MENU_X_LEFT + 22, y, 0, secs[i].name);
             }
             break;
         }
         case MENU_MODE_TROP: {
-            blit_string(MENU_X_LEFT, MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(TROPHIES));
+            blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(TROPHIES));
             switch (trophy_get_status()) {
                 case 0:
                     break;
                 case 1:
-                    blit_string(MENU_X_LEFT, MENU_Y_TOP, 0, LS(TROPHIES_READING));
+                    blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP, 0, LS(TROPHIES_READING));
                     break;
                 case 2: {
                     const char *gradeName[5] = {"", LS(GRADE_P), LS(GRADE_G), LS(GRADE_S), LS(GRADE_B)};
@@ -139,18 +143,18 @@ static inline void _show_menu(int standalone) {
                     int mt = menu_top[menu_mode];
                     int mi = menu_index[menu_mode];
                     if (menu_bot > mt + MENU_SCROLL_MAX) menu_bot = mt + MENU_SCROLL_MAX;
-                    blit_string(MENU_X_SELECTOR, MENU_Y_TOP + LINE_HEIGHT * (mi - mt), 0, CHAR_RIGHT);
+                    blit_string(centerx + MENU_X_SELECTOR, centery + MENU_Y_TOP + LINE_HEIGHT * (mi - mt), 0, CHAR_RIGHT);
                     for (int i = mt; i < menu_bot; ++i) {
-                        int y = MENU_Y_TOP + LINE_HEIGHT * (i - menu_top[menu_mode]);
+                        int y = centery + MENU_Y_TOP + LINE_HEIGHT * (i - menu_top[menu_mode]);
                         const trophy_info *ti = &trops[i];
                         if (ti->unlocked)
-                            blit_string(MENU_X_LEFT + 2, y, 0, CHAR_CIRCLE);
-                        if(ti->grade) blit_string(MENU_X_LEFT + 26, y, 0, gradeName[ti->grade]);
-                        blit_string(MENU_X_LEFT + 54, y, 0, ti->unlocked || !ti->hidden ? ti->name : LS(HIDDEN));
+                            blit_string(centerx + MENU_X_LEFT + 2, y, 0, CHAR_CIRCLE);
+                        if(ti->grade) blit_string(centerx + MENU_X_LEFT + 26, y, 0, gradeName[ti->grade]);
+                        blit_string(centerx + MENU_X_LEFT + 54, y, 0, ti->unlocked || !ti->hidden ? ti->name : LS(HIDDEN));
                     }
                     if (mi >= 0 && mi < count) {
                         const trophy_info *ti = &trops[mi];
-                        if (ti->unlocked || !ti->hidden) blit_string_ctr(MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX + 1), 0, ti->desc);
+                        if (ti->unlocked || !ti->hidden) blit_string_ctr(centery + MENU_Y_TOP + LINE_HEIGHT * (MENU_SCROLL_MAX + 1), 0, ti->desc);
                     }
                     break;
                 }
