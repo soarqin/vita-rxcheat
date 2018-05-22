@@ -99,6 +99,7 @@ int ext_cb(void *arg, cheat_code_t *code, const char *op, uint32_t val1, uint32_
             code->extra = 0;
             code->addr  = val1;
             code->value = val2;
+            return CR_OK;
         default:
             return CR_INVALID;
     }
@@ -112,8 +113,10 @@ int ext_call_cb(void *arg, int line, const cheat_code_t *code) {
         case CO_WRITEABSADDR: {
             int readonly;
             void *paddr = (void*)(uintptr_t)mem_convert(cheat_data.base_addr + code->addr, &readonly);
+            log_trace("Write abs: %X -> %X\n", code->addr, paddr);
             if (!paddr) return CR_OK;
             uint32_t taddr = mem_convert(cheat_data.base_addr + code->value, NULL);
+            log_trace("Write abs to: %X -> %X\n", code->value, taddr);
             if (!taddr) return CR_OK;
             if (readonly)
                 rcsvrMemcpyForce(paddr, &taddr, 4, 1);

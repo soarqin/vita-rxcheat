@@ -111,11 +111,9 @@ void mem_reload() {
                 memory_range *mr = &staticmem[static_cnt++];
                 mr->start = (uint32_t)info.segments[j].vaddr;
                 mr->size = info.segments[j].memsz;
-                if (j < 3 && mr->start + mr->size < (uint32_t)info.segments[j + 1].vaddr && mr->start + mr->size + 0x4000 > (uint32_t)info.segments[j + 1].vaddr) {
-                    mr->size = (uint32_t)info.segments[j + 1].vaddr - mr->start;
-                }
                 mr->flag = (info.segments[j].perms & 2) == 0 ? 1 : 0;
-                log_trace("    0x%08X 0x%08X 0x%08X 0x%08X\n", info.segments[j].vaddr, info.segments[j].memsz, info.segments[j].perms, info.segments[j].flags);
+                mr->size = ((mr->start + mr->size + 0xFFFU) & ~0xFFFU) - mr->start;
+                log_trace("    0x%08X 0x%08X(0x%08X) 0x%08X 0x%08X\n", info.segments[j].vaddr, info.segments[j].memsz, mr->size, info.segments[j].perms, info.segments[j].flags);
             }
             ++idx;
         }

@@ -115,10 +115,10 @@ int rcsvr_main_thread(SceSize args, void *argp) {
     debug_init(TRACE);
 #endif
     config_load();
-    main_cheat_load();
 #ifndef RCSVR_LITE
     main_net_init();
 #endif
+    main_cheat_load();
 #ifdef RCSVR_DEBUG
     SceKernelFreeMemorySizeInfo fmsi;
     fmsi.size = sizeof(fmsi);

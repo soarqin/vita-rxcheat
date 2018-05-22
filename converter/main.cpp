@@ -28,7 +28,7 @@ protected:
 
 int main(int argc, char *argv[]) {
     MyClient c;
-    c.connect("192.168.137.80", 9527);
+    c.connect(argv[1], 9527);
     convertSetSource("test.psv");
     c.run();
     return 0;

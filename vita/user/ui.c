@@ -261,7 +261,7 @@ static void menu_run(int type) {
                 cheat_t *ch = cheat_get_handle();
                 int count = cheat_get_section_count(ch);
                 if (menu_index[menu_mode] >= 0 && menu_index[menu_mode] < count) {
-                    cheat_section_toggle(ch, menu_index[menu_mode], !cheat_get_section(ch, menu_index[menu_mode])->status & 1);
+                    cheat_section_toggle(ch, menu_index[menu_mode], !(cheat_get_section(ch, menu_index[menu_mode])->status & 1));
                 }
                 break;
             }
@@ -356,7 +356,7 @@ void ui_process(uint64_t tick) {
             break;
         }
     }
-    if (menu_mode == MENU_MODE_CLOSE && !msg_deadline) return;
+    if (menu_mode == MENU_MODE_CLOSE) return;
     sceKernelLockMutex(drawMutex, 1, NULL);
     _show_menu(1);
     sceKernelUnlockMutex(drawMutex, 1);
