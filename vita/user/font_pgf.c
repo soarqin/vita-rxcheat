@@ -114,6 +114,37 @@ static int my_seek(void *data, void *file, int offset) {
     return SCE_OK;
 }
 
+static int open_font_handle() {
+    unsigned int err;
+    if (font_handle != NULL) {
+        sceFontClose(font_handle);
+        font_handle = NULL;
+    }
+    font_handle = sceFontOpenUserFile(font_lib, "ux0:data/rcsvr/font.pgf", 0, &err);
+    if (err == SCE_OK) return 0;
+    log_trace("sceFontOpenUserFile: %08X, try use internal font\n", err);
+    SceFontStyle style = {0};
+    style.fontH = 10;
+    style.fontV = 10;
+    style.fontLanguage = SCE_FONT_LANGUAGE_DEFAULT;
+    int index = sceFontFindOptimumFont(font_lib, &style, &err);
+    if (err != SCE_OK) {
+        sceFontDoneLib(font_lib);
+        font_lib = NULL;
+        log_error("sceFontFindOptimumFont: %08X\n", err);
+        return -1;
+    }
+    log_trace("Found PGF font index: %d\n", index);
+    font_handle = sceFontOpen(font_lib, index, 0, &err);
+    if (err != SCE_OK) {
+        font_handle = NULL;
+        sceFontDoneLib(font_lib);
+        font_lib = NULL;
+        log_error("sceFontOpen: %08X\n", err);
+        return -1;
+    }
+    return 0;
+}
 
 void font_pgf_init() {
     if (font_lib != NULL) return;
@@ -129,30 +160,7 @@ void font_pgf_init() {
         log_error("sceFontNewLib: %08X\n", err);
         return;
     }
-    font_handle = sceFontOpenUserFile(font_lib, "ux0:data/rcsvr/font.pgf", 0, &err);
-    if (err != SCE_OK) {
-        log_trace("sceFontOpenUserFile: %08X\n", err);
-        SceFontStyle style = {0};
-        style.fontH = 10;
-        style.fontV = 10;
-        style.fontLanguage = SCE_FONT_LANGUAGE_DEFAULT;
-        int index = sceFontFindOptimumFont(font_lib, &style, &err);
-        if (err != SCE_OK) {
-            sceFontDoneLib(font_lib);
-            font_lib = NULL;
-            log_error("sceFontFindOptimumFont: %08X\n", err);
-            return;
-        }
-        log_trace("Found PGF font index: %d\n", index);
-        font_handle = sceFontOpen(font_lib, index, 0, &err);
-        if (err != SCE_OK) {
-            font_handle = NULL;
-            sceFontDoneLib(font_lib);
-            font_lib = NULL;
-            log_error("sceFontOpen: %08X\n", err);
-            return;
-        }
-    }
+    if (open_font_handle() < 0) return;
     font_data = (uint8_t*)my_alloc(512 * 2048);
     entries = (glyph_entry*)my_alloc(sizeof(glyph_entry) * 51 * 51 * 2);
 }
@@ -170,11 +178,14 @@ int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, int8_t
     }
     int ret = sceFontGetCharInfo(font_handle, code, &char_info);
     if (ret < 0) {
-        sceFontClose(font_handle);
-        font_handle = NULL;
-        sceFontDoneLib(font_lib);
-        font_lib = NULL;
-        log_error("sceFontGetCharInfo: %d\n", ret);
+        // Reopen font after power resume
+        if (open_font_handle() < 0 || (ret = sceFontGetCharInfo(font_handle, code, &char_info)) < 0) {
+            sceFontClose(font_handle);
+            font_handle = NULL;
+            sceFontDoneLib(font_lib);
+            font_lib = NULL;
+            log_error("sceFontGetCharInfo: %d\n", ret);
+        }
         return -1;
     }
     *realw = (int8_t)((char_info.sfp26AdvanceH + 32) / 64);

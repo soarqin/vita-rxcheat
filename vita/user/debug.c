@@ -59,7 +59,19 @@ void debug_printf(int level, const char* format, ...) {
 #ifndef RCSVR_LITE
     if (is_file)
 #endif
-        sceIoWrite(debug_fd, buffer, strlen(buffer));
+    {
+        int r = sceIoWrite(debug_fd, buffer, strlen(buffer));
+        if (r < 0) {
+            // Reopen file after power resume
+            if (debug_fd >= 0) {
+                sceIoClose(debug_fd);
+                debug_fd = -1;
+            }
+            debug_fd = sceIoOpen("ux0:temp/rcsvr.log", SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 0666);
+            if (debug_fd >= 0)
+                sceIoWrite(debug_fd, buffer, strlen(buffer));
+        }
+    }
 #ifndef RCSVR_LITE
     else
         sceNetSend(debug_fd, buffer, strlen(buffer), 0);
