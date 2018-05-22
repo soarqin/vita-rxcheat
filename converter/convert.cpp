@@ -42,28 +42,49 @@ static void processReset() {
     lines.clear();
 }
 
+static inline void addLine(uint32_t val1, uint32_t val2, const std::string &op = "L") {
+    std::ostringstream os;
+    os << "_" << op << " " << std::hex << std::uppercase
+        << std::setfill('0') << std::setw(8) << val1
+        << " "
+        << std::setfill('0') << std::setw(8) << val2;
+    lines.push_back(os.str());
+}
+
 static void processLine(uint16_t op, uint32_t val1, uint32_t val2) {
     if (sectype < 0) return;
-    std::string prefix = "_L ";
     switch (op >> 8) {
+        case 0x00:
+            addLine(convertMemoryToRange(val1), val2);
+            break;
+        case 0x01:
+            addLine(convertMemoryToRange(val1) | 0x10000000U, val2);
+            break;
+        case 0x02:
+            addLine(convertMemoryToRange(val1) | 0x20000000U, val2);
+            break;
+        case 0x50:
+        case 0x51:
+        case 0x52:
+            addLine(convertMemoryToRange(val1) | 0x50000000U, 1U << ((op >> 8) & 0x0F));
+            addLine(convertMemoryToRange(val2), 0);
+            return;
         case 0xA0:
             sectype |= 2;
             pcJumping = false;
-            val1 = convertMemoryToRange(val1);
+            addLine(convertMemoryToRange(val1), val2);
             break;
         case 0xA1:
             sectype |= 2;
             pcJumping = false;
-            val1 = convertMemoryToRange(val1) | 0x10000000U;
+            addLine(convertMemoryToRange(val1) | 0x10000000U, val2);
             break;
         case 0xA2:
             sectype |= 2;
-            val1 = convertMemoryToRange(val1) | 0x20000000U;
             if (pcJumping) {
                 if (val2 >= 80000000U && val2 < 0x90000000U) {
-                    prefix = "_E ";
-                    val1 &= 0x0FFFFFFFU;
-                    val2 = convertMemoryToRange(val2);
+                    addLine(convertMemoryToRange(val1), convertMemoryToRange(val2), "E");
+                    break;
                 } else {
                     pcJumping = false;
                 }
@@ -72,16 +93,11 @@ static void processLine(uint16_t op, uint32_t val1, uint32_t val2) {
                     pcJumping = true;
                 }
             }
+            addLine(convertMemoryToRange(val1) | 0x20000000U, val2);
             break;
         default:
-            return;
+            break;
     }
-    std::ostringstream os;
-    os << prefix << std::hex << std::uppercase
-        << std::setfill('0') << std::setw(8) << val1
-        << " "
-        << std::setfill('0') << std::setw(8) << val2;
-    lines.push_back(os.str());
 }
 
 static void writeSection(std::ostream &outfile) {
