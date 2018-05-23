@@ -1,3 +1,11 @@
+v0.11.1:
+  1. fixed problem that unable to render fonts after power resume
+  2. center ui display if screen resolution is not 960x544
+  3. reduced memory usage to support memory cosuming games (e.g. Assassin's
+     Creed: Chronicles)
+  4. align segment memory blocks for code hook
+  5. Added 'E' code for writing relative address in cheat codes
+
 v0.11:
   1. added a lite version which strips all network functions
   2. fixed trophy listing for special games, e.g. WoFF
