@@ -20,10 +20,10 @@ static int trophy_load_status = 0; // 0 - not loaded  1 - loading  2 - loaded
 static int trophy_count = 0;
 static trophy_info *trophies = NULL;
 
-static SceNpCommunicationId         *g_commId = NULL;
-static SceNpCommunicationPassphrase *g_commPassphrase = NULL;
-static SceNpCommunicationSignature  *g_commSignature = NULL;
-static SceUInt32                     g_sdkVersion = 0;
+static SceNpCommunicationId         g_commId = {};
+static SceNpCommunicationPassphrase g_commPassphrase = {};
+static SceNpCommunicationSignature  g_commSignature = {};
+static SceUInt32                    g_sdkVersion = 0;
 
 static void _update_trophy_data(int index, SceNpTrophyDetails *detail, SceNpTrophyData *data) {
     if (trophy_load_status == 0) return;
@@ -66,20 +66,14 @@ int sceNpInit_patched(const SceNpCommunicationConfig *commConf, void *opt) {
     int ret = TAI_CONTINUE(int, refs[2], commConf, opt);
     log_trace("sceNpInit: %d %X\n", ret, commConf);
     if (commConf && context < 0) {
-        if (g_commId) { my_free(g_commId); g_commId = NULL; }
-        if (g_commPassphrase) { my_free(g_commPassphrase); g_commPassphrase = NULL; }
-        if (g_commSignature) { my_free(g_commSignature); g_commSignature = NULL; }
         if (commConf->commId) {
-            g_commId = my_alloc(sizeof(SceNpCommunicationId));
-            sceClibMemcpy(g_commId, commConf->commId, sizeof(SceNpCommunicationId));
+            sceClibMemcpy(&g_commId, commConf->commId, sizeof(SceNpCommunicationId));
         }
         if (commConf->commPassphrase) {
-            g_commPassphrase = my_alloc(sizeof(SceNpCommunicationPassphrase));
-            sceClibMemcpy(g_commPassphrase, commConf->commPassphrase, sizeof(SceNpCommunicationPassphrase));
+            sceClibMemcpy(&g_commPassphrase, commConf->commPassphrase, sizeof(SceNpCommunicationPassphrase));
         }
         if (commConf->commSignature) {
-            g_commSignature = my_alloc(sizeof(SceNpCommunicationSignature));
-            sceClibMemcpy(g_commSignature, commConf->commSignature, sizeof(SceNpCommunicationSignature));
+            sceClibMemcpy(&g_commSignature, commConf->commSignature, sizeof(SceNpCommunicationSignature));
         }
     }
     return ret;
@@ -138,9 +132,6 @@ void trophy_finish() {
         trophies = NULL;
     }
     sceKernelUnlockMutex(trophyMutex, 1);
-    if (g_commId) { my_free(g_commId); g_commId = NULL; }
-    if (g_commPassphrase) { my_free(g_commPassphrase); g_commPassphrase = NULL; }
-    if (g_commSignature) { my_free(g_commSignature); g_commSignature = NULL; }
     if (trophySema >= 0) {
         sceKernelDeleteSema(trophySema);
         trophySema = -1;
@@ -180,7 +171,7 @@ typedef struct {
 static trophy_request trophy_req;
 
 static inline int try_init_np_trophy() {
-    SceNpCommunicationConfig config = {g_commId, g_commPassphrase, g_commSignature};
+    SceNpCommunicationConfig config = {&g_commId, &g_commPassphrase, &g_commSignature};
     int ret = sceNpInit(&config, NULL);
     if (ret < 0) {
         log_error("sceNpInit: %X\n", ret);

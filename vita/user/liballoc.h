@@ -46,12 +46,13 @@ extern int liballoc_unlock();
 
 /** This is the hook into the local system which allocates pages. It
  * accepts an integer parameter which is the number of pages
- * required.  The page size was set up in the liballoc_init function.
+ * required. The parameter can be to a larger number for system pages
+ * alignment.
  *
  * \return NULL if the pages were not allocated.
  * \return A pointer to the allocated memory.
  */
-extern void* liballoc_alloc(size_t);
+extern void* liballoc_alloc(size_t*);
 
 /** This frees previously allocated memory. The void* parameter passed
  * to the function is the exact same value returned from a previous

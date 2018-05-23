@@ -49,7 +49,7 @@ static inline uint16_t find_glyph(uint16_t code, int8_t *realw, int8_t *w, int8_
 }
 
 static inline uint16_t insert_glyph(uint16_t code, int8_t realw, int8_t w, int8_t h, int8_t l, int8_t t) {
-    if (entry_used >= 51 * 51 * 2) return 0;
+    if (entry_used >= 56 * 21) return 0;
     glyph_entry *ge = &entries[entry_used++];
     ge->code = code;
     ge->index = glyph_index_next++;
@@ -64,7 +64,7 @@ static inline uint16_t insert_glyph(uint16_t code, int8_t realw, int8_t w, int8_
 
 static inline void free_glyphs() {
     RB_INIT(&glyph_charmap);
-    sceClibMemset(entries, 0, sizeof(glyph_entry) * 51 * 51 * 2);
+    sceClibMemset(entries, 0, sizeof(glyph_entry) * 56 * 21);
     entry_used = 0;
 }
 
@@ -161,8 +161,8 @@ void font_pgf_init() {
         return;
     }
     if (open_font_handle() < 0) return;
-    font_data = (uint8_t*)my_alloc(512 * 2048);
-    entries = (glyph_entry*)my_alloc(sizeof(glyph_entry) * 51 * 51 * 2);
+    font_data = (uint8_t*)my_alloc(512 * 384);
+    entries = (glyph_entry*)my_alloc(sizeof(glyph_entry) * 56 * 21);
 }
 
 int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, int8_t *realw, int8_t *w, int8_t *h, int8_t *l, int8_t *t) {
@@ -170,8 +170,8 @@ int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, int8_t
     SceFontCharInfo char_info;
     uint16_t glyph_index = find_glyph(code, realw, w, h, l, t);
     if (glyph_index != 0xFFFF) {
-        int sx = (glyph_index % 51) * 10;
-        int sy = (glyph_index / 51) * 20;
+        int sx = (glyph_index % 56) * 9;
+        int sy = (glyph_index / 56) * 18;
         *lines = &font_data[512 * sy + sx];
         *pitch = 512;
         return 0;
@@ -196,8 +196,8 @@ int font_pgf_char_glyph(uint16_t code, const uint8_t **lines, int *pitch, int8_t
     glyph_index = insert_glyph(code, *realw, *w, *h, *l, *t);
     log_debug("insert_glyph: %04X %u %u %u %u %u\n", code, *realw, *w, *h, *l, *t);
     SceFontGlyphImage glyph_image;
-    int sx = (glyph_index % 51) * 10;
-    int sy = (glyph_index / 51) * 20;
+    int sx = (glyph_index % 56) * 9;
+    int sy = (glyph_index / 56) * 18;
     glyph_image.pixelFormat = SCE_FONT_PIXELFORMAT_4;
     glyph_image.xPos64 = (sx * 2) << 6;
     glyph_image.yPos64 = sy << 6;

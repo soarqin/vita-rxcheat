@@ -114,17 +114,13 @@ int rcsvr_main_thread(SceSize args, void *argp) {
 #ifdef RCSVR_LITE
     debug_init(TRACE);
 #endif
+    util_init();
     config_load();
 #ifndef RCSVR_LITE
     main_net_init();
 #endif
     main_cheat_load();
-#ifdef RCSVR_DEBUG
-    SceKernelFreeMemorySizeInfo fmsi;
-    fmsi.size = sizeof(fmsi);
-    sceKernelGetFreeMemorySize(&fmsi);
-    log_trace("Free memory: %X %X %X\n", fmsi.size_user, fmsi.size_phycont, fmsi.size_cdram);
-#endif
+
     lang_init();
     ui_init();
     mem_init();
@@ -167,7 +163,6 @@ int module_start(SceSize argc, const void *args) {
     sceIoMkdir("ux0:data/rcsvr", 0777);
     sceIoMkdir("ux0:data/rcsvr/cheat", 0777);
 
-    util_init();
     trophy_init();
 
     hooks[0] = taiHookFunctionImport(&refs[0], TAI_MAIN_MODULE, 0x1082DA7F, 0x4D695C1F, scePowerSetUsingWireless_patched);

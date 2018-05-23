@@ -12,9 +12,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define NET_SIZE       0x10000 // Size of net module buffer
+#define NET_SIZE       0x4000 // Size of net module buffer
 
-static void *net_buffer;
+static char net_buffer[NET_SIZE];
 
 static char vita_ip[32];
 static uint64_t vita_addr;
@@ -34,23 +34,12 @@ int net_init() {
     int ret = sceNetShowNetstat();
     if (ret == SCE_NET_ERROR_ENOTINIT) {
         SceNetInitParam initparam;
-        size_t sz = NET_SIZE;
-        while(sz >= 0x4000) {
-            net_buffer = my_alloc(sz);
-            if (net_buffer != NULL)
-                break;
-            sz >>= 1;
-        }
-        if (net_buffer == NULL) {
-            log_error("sceNetInit: Unable to allocate buffer\n");
-            return -1;
-        }
-        initparam.memory = (void*)net_buffer;
-        initparam.size = sz;
+        initparam.memory = net_buffer;
+        initparam.size = NET_SIZE;
         initparam.flags = 0;
         ret = sceNetInit(&initparam);
         if (ret < 0) {
-            log_error("sceNetInit: %X(buffer size) %08X\n", sz, ret);
+            log_error("sceNetInit: %08X\n", ret);
             return -1;
         }
     }
