@@ -20,10 +20,17 @@ void convertSetSource(const std::string &filename) {
         dstFilename = dstFilename.substr(0, off) + ".ini";
 }
 
+std::vector<MemoryRange> memoryRanges;
+
+struct CodeLine {
+    uint16_t op;
+    uint32_t val1;
+    uint32_t val2;
+};
 static int sectype = -1;
 static std::string secname;
+std::vector<CodeLine> rLines;
 static bool pcJumping = false;
-std::vector<MemoryRange> memoryRanges;
 std::vector<std::string> lines;
 
 static uint32_t convertMemoryToRange(uint32_t addr) {
@@ -51,57 +58,92 @@ static inline void addLine(uint32_t val1, uint32_t val2, const std::string &op =
     lines.push_back(os.str());
 }
 
-static void processLine(uint16_t op, uint32_t val1, uint32_t val2) {
+static void processLine(size_t &index) {
     if (sectype < 0) return;
-    switch (op >> 8) {
-        case 0x00:
-            addLine(convertMemoryToRange(val1), val2);
+    uint32_t op = rLines[index].op;
+    uint32_t skips = op & 0xFF;
+    uint32_t bits = (op >> 8) & 0xF;
+    op >>= 12;
+    uint32_t val1 = rLines[index].val1;
+    uint32_t val2 = rLines[index++].val2;
+    switch (op) {
+        case 0x0:
+            addLine(convertMemoryToRange(val1) | (bits << 28), val2);
             break;
-        case 0x01:
-            addLine(convertMemoryToRange(val1) | 0x10000000U, val2);
+        case 0x4:
+            if (bits < 2) {
+                addLine(convertMemoryToRange(val1) | 0x80000000U, ((uint32_t)rLines[index].op << 16) | (rLines[index].val1 & 0xFFFFU));
+                addLine((bits << 28) | (val2 & 0xFFFFU), rLines[index++].val2 & 0xFFFFU);
+            } else {
+                addLine(convertMemoryToRange(val1) | 0x40000000U, ((uint32_t)rLines[index].op << 16) | (rLines[index].val1 & 0xFFFFU));
+                addLine(val2, rLines[index++].val2);
+            }
             break;
-        case 0x02:
-            addLine(convertMemoryToRange(val1) | 0x20000000U, val2);
-            break;
-        case 0x50:
-        case 0x51:
-        case 0x52:
-            addLine(convertMemoryToRange(val1) | 0x50000000U, 1U << ((op >> 8) & 0x0F));
+        case 0x5:
+            addLine(convertMemoryToRange(val1) | 0x50000000U, 1U << bits);
             addLine(convertMemoryToRange(val2), 0);
             return;
-        case 0xA0:
+        case 0xA:
             sectype |= 2;
-            pcJumping = false;
-            addLine(convertMemoryToRange(val1), val2);
-            break;
-        case 0xA1:
-            sectype |= 2;
-            pcJumping = false;
-            addLine(convertMemoryToRange(val1) | 0x10000000U, val2);
-            break;
-        case 0xA2:
-            sectype |= 2;
-            if (pcJumping) {
-                if (val2 >= 80000000U && val2 < 0x90000000U) {
-                    addLine(convertMemoryToRange(val1), convertMemoryToRange(val2), "E");
-                    break;
+            if (bits < 2)
+                pcJumping = false;
+            else {
+                if (pcJumping) {
+                    if (val2 >= 80000000U && val2 < 0x90000000U) {
+                        addLine(convertMemoryToRange(val1), convertMemoryToRange(val2), "E");
+                        break;
+                    } else {
+                        pcJumping = false;
+                    }
                 } else {
-                    pcJumping = false;
-                }
-            } else {
-                if (val2 == 0xE51FF004) { // PC Jumping
-                    pcJumping = true;
+                    if (val2 == 0xE51FF004) { // PC Jumping
+                        pcJumping = true;
+                    }
                 }
             }
-            addLine(convertMemoryToRange(val1) | 0x20000000U, val2);
+            addLine(convertMemoryToRange(val1) | (bits << 28), val2);
             break;
+        case 0xC: {
+            switch (val1) {
+                case 1: // Convert LTRIGGER/RTRIGGER to L1/R1
+                    if (val2 & 0x100U)
+                        val2 = (val2 & ~0x100U) | 0x400U;
+                    if (val2 & 0x200U)
+                        val2 = (val2 & ~0x200U) | 0x800U;
+                case 2:
+                case 3:
+                case 4:
+                    addLine(0xD0000000U | skips, val2 | 0x10000000U);
+                    break;
+                default:
+                    break;
+            }
+            break;
+        }
+        case 0xD: {
+            uint32_t comp = bits / 3;
+            bits %= 3;
+            if (comp == 2 || comp == 3) comp = 5 - comp;
+            if (bits < 2)
+                addLine(0xE0000000U | ((1U - bits) << 24) | (skips << 16) | (val2 & 0xFFFFU), (comp << 28) | (convertMemoryToRange(val1)));
+            else {
+                addLine(0xE2000000U, (comp << 28) | (convertMemoryToRange(val1)));
+                addLine(skips, val2);
+            }
+            break;
+        }
         default:
             break;
     }
 }
 
 static void writeSection(std::ostream &outfile) {
+    size_t sz = rLines.size();
+    for (size_t i = 0; i < rLines.size();) {
+        processLine(i);
+    }
     pcJumping = false;
+    rLines.clear();
     if (lines.empty()) return;
     outfile << std::endl << "_C" << sectype << " " << secname << std::endl;
     for (auto &p: lines) {
@@ -161,7 +203,7 @@ void convertStart(const MemoryRange *mr, int count) {
                 }
                 uint32_t val2 = strtoul(line.substr(pos, 8).c_str(), NULL, 16);
                 std::cout << "Processing: " << std::hex << std::uppercase << op << " " << val1 << " " << val2 << std::endl;
-                processLine(op, val1, val2);
+                rLines.push_back(CodeLine {op, val1, val2});
                 break;
             }
             case '_':

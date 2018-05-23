@@ -29,7 +29,7 @@ protected:
 int main(int argc, char *argv[]) {
     MyClient c;
     c.connect(argv[1], 9527);
-    convertSetSource("test.psv");
+    convertSetSource(argv[2]);
     c.run();
     return 0;
 }
