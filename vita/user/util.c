@@ -6,13 +6,17 @@
 #include <vitasdk.h>
 #include <taihen.h>
 
+enum {
+    MEMPOOL_MAX = 8,
+};
+
 static SceUID main_thread_id = 0;
 static int main_thread_priority = 0;
 static int main_thread_cpu_affinity = 0;
 static volatile int main_thread_paused = 0;
 static SceUID mempool_sema = 0;
-static SceUID mempool_id[16];
-static void *mempool_start[16];
+static SceUID mempool_id[MEMPOOL_MAX];
+static void *mempool_start[MEMPOOL_MAX];
 static int mempool_count = 0;
 
 int liballoc_lock() {
@@ -29,7 +33,7 @@ void* liballoc_alloc(size_t *sz) {
     SceUID pool_id;
     void *pool_addr = NULL;
     int type[2], alloc_sz, i;
-    if (mempool_count >= 16) return NULL;
+    if (mempool_count >= MEMPOOL_MAX) return NULL;
     sceClibSnprintf(name, 16, "rcsvr_mem_%d", seq);
     SceKernelFreeMemorySizeInfo fmsi;
     fmsi.size = sizeof(fmsi);

@@ -10,6 +10,7 @@
 #include "util.h"
 #include "debug.h"
 #include "ui.h"
+#include "blit.h"
 #include "lang.h"
 #include "font_pgf.h"
 
@@ -123,6 +124,7 @@ int rcsvr_main_thread(SceSize args, void *argp) {
 
     lang_init();
     ui_init();
+    blit_init();
     mem_init();
 
     if (cheat_loaded())
@@ -147,8 +149,9 @@ int rcsvr_main_thread(SceSize args, void *argp) {
 #endif
     }
     mem_finish();
-    lang_finish();
+    blit_finish();
     ui_finish();
+    lang_finish();
 #ifndef RCSVR_LITE
     net_finish();
 #endif

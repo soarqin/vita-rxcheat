@@ -14,9 +14,12 @@
 
 extern int blit_pwidth, blit_pheight;
 
+void blit_init();
+void blit_finish();
 int blit_setup(void);
 int blit_set_frame_buf(const SceDisplayFrameBuf *param);
-void blit_set_color(uint32_t fg_col);
+void blit_set_color(uint8_t index, uint32_t fg_col);
+void blit_switch_color(uint8_t index);
 void blit_clear(int sx, int sy, int w, int h);
 void blit_clear_all();
 int blit_string(int sx, int sy, int alpha, const char *msg);

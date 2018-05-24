@@ -151,7 +151,7 @@ void font_pgf_init() {
     if (sceSysmoduleIsLoaded(SCE_SYSMODULE_PGF) != SCE_SYSMODULE_LOADED)
         sceSysmoduleLoadModule(SCE_SYSMODULE_PGF);
     SceFontNewLibParams params = {
-        NULL, 4, NULL, my_pgf_alloc, my_pgf_free, my_open, my_close, my_read, my_seek, NULL, NULL,
+        NULL, 1, NULL, my_pgf_alloc, my_pgf_free, my_open, my_close, my_read, my_seek, NULL, NULL,
     };
     unsigned int err;
     font_lib = sceFontNewLib(&params, &err);
@@ -161,6 +161,7 @@ void font_pgf_init() {
         return;
     }
     if (open_font_handle() < 0) return;
+    sceFontSetResolution(font_lib, 512.f, 512.f);
     font_data = (uint8_t*)my_alloc(512 * 384);
     entries = (glyph_entry*)my_alloc(sizeof(glyph_entry) * 56 * 21);
 }

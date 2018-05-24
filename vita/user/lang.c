@@ -34,6 +34,9 @@ const char *default_lang[] = {
     "Searching...",
     "Unlocked trophy",
     "Unlocked platinum trophy",
+    "ON",
+    "OFF",
+    "ONCE",
 };
 
 static char *lang_string = NULL;

@@ -37,7 +37,6 @@ enum {
 
     MENU_SCROLL_MAX = 10,
     MENU_X_LEFT     = -180,
-    MENU_X_SELECTOR = MENU_X_LEFT-20,
     MENU_Y_TOP      = -90,
 };
 
@@ -80,9 +79,12 @@ static inline void _show_menu(int standalone) {
             const char *text[3] = {LS(CHEATS), LS(TROPHIES), LS(ADVANCE)};
             int count = menu_get_count();
             blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(MAINMENU));
-            blit_string(centerx + MENU_X_SELECTOR, centery + MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], 0, CHAR_RIGHT);
+            int selected = menu_index[menu_mode];
             for (int i = 0; i < count; ++i) {
+                int selcolor = selected == i;
+                if (selcolor) blit_switch_color(1);
                 blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP + LINE_HEIGHT * i, 0, text[i]);
+                if (selcolor) blit_switch_color(0);
             }
             break;
         }
@@ -91,9 +93,12 @@ static inline void _show_menu(int standalone) {
             if (mem_is_dumping()) text[1] = LS(DUMPING);
             int count = menu_get_count();
             blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP - LINE_HEIGHT - 10, 0, LS(ADVANCE));
-            blit_string(centerx + MENU_X_SELECTOR, centery + MENU_Y_TOP + LINE_HEIGHT * menu_index[menu_mode], 0, CHAR_RIGHT);
+            int selected = menu_index[menu_mode];
             for (int i = 0; i < count; ++i) {
+                int selcolor = selected == i;
+                if (selcolor) blit_switch_color(1);
                 blit_string(centerx + MENU_X_LEFT, centery + MENU_Y_TOP + LINE_HEIGHT * i, 0, text[i]);
+                if (selcolor) blit_switch_color(0);
             }
             char curlang[64];
             sceClibSnprintf(curlang, 64, LS(CURLANG), lang_get_name(lang_get_index()));
@@ -118,12 +123,17 @@ static inline void _show_menu(int standalone) {
             int mt = menu_top[menu_mode];
             int mi = menu_index[menu_mode];
             if (menu_bot > mt + MENU_SCROLL_MAX) menu_bot = mt + MENU_SCROLL_MAX;
-            blit_string(centerx + MENU_X_SELECTOR, centery + MENU_Y_TOP + LINE_HEIGHT * (mi - mt), 0, CHAR_RIGHT);
+            int selected = mi - mt;
             for (int i = mt; i < menu_bot; ++i) {
                 int y = centery + MENU_Y_TOP + LINE_HEIGHT * (i - mt);
                 if (secs[i].status & 1)
-                    blit_string(centerx + MENU_X_LEFT + 2, y, 0, CHAR_CIRCLE);
-                blit_string(centerx + MENU_X_LEFT + 22, y, 0, secs[i].name);
+                    blit_string(centerx + MENU_X_LEFT + 20, y, 0, LS(CHEAT_ON));
+                if (secs[i].status & 2)
+                    blit_string(centerx + MENU_X_LEFT - 20, y, 0, LS(CHEAT_ONCE));
+                int selcolor = selected == i;
+                if (selcolor) blit_switch_color(1);
+                blit_string(centerx + MENU_X_LEFT + 45, y, 0, secs[i].name);
+                if (selcolor) blit_switch_color(0);
             }
             break;
         }
@@ -143,14 +153,17 @@ static inline void _show_menu(int standalone) {
                     int mt = menu_top[menu_mode];
                     int mi = menu_index[menu_mode];
                     if (menu_bot > mt + MENU_SCROLL_MAX) menu_bot = mt + MENU_SCROLL_MAX;
-                    blit_string(centerx + MENU_X_SELECTOR, centery + MENU_Y_TOP + LINE_HEIGHT * (mi - mt), 0, CHAR_RIGHT);
+                    int selected = mi - mt;
                     for (int i = mt; i < menu_bot; ++i) {
                         int y = centery + MENU_Y_TOP + LINE_HEIGHT * (i - menu_top[menu_mode]);
                         const trophy_info *ti = &trops[i];
                         if (ti->unlocked)
-                            blit_string(centerx + MENU_X_LEFT + 2, y, 0, CHAR_CIRCLE);
-                        if(ti->grade) blit_string(centerx + MENU_X_LEFT + 26, y, 0, gradeName[ti->grade]);
-                        blit_string(centerx + MENU_X_LEFT + 54, y, 0, ti->unlocked || !ti->hidden ? ti->name : LS(HIDDEN));
+                            blit_string(centerx + MENU_X_LEFT, y, 0, CHAR_CIRCLE);
+                        if(ti->grade) blit_string(centerx + MENU_X_LEFT + 24, y, 0, gradeName[ti->grade]);
+                        int selcolor = selected == i;
+                        if (selcolor) blit_switch_color(1);
+                        blit_string(centerx + MENU_X_LEFT + 52, y, 0, ti->unlocked || !ti->hidden ? ti->name : LS(HIDDEN));
+                        if (selcolor) blit_switch_color(0);
                     }
                     if (mi >= 0 && mi < count) {
                         const trophy_info *ti = &trops[mi];
@@ -388,7 +401,8 @@ void ui_init() {
     }
     drawMutex = sceKernelCreateMutex("rcsvr_draw_mutex", 0, 0, 0);
     font_pgf_init();
-    blit_set_color(0xffffffff);
+    blit_set_color(0, 0xffc0c0c0);
+    blit_set_color(1, 0xff40ffff);
 
     hooks[0] = taiHookFunctionImport(&refs[0], TAI_MAIN_MODULE, 0x4FAACD11, 0x7A410B64, sceDisplaySetFrameBuf_patched);
 }

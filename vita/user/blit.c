@@ -1,10 +1,7 @@
-/*
-    PSP VSH 24bpp text bliter
-*/
-
 #include "blit.h"
 
 #include "font_pgf.h"
+#include "util.h"
 
 #include <psp2/types.h>
 #include <psp2/display.h>
@@ -12,25 +9,42 @@
 
 #include <stdarg.h>
 
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-int blit_pwidth, blit_pheight, bufferwidth, pixelformat;
-uint32_t* vram32;
-
-uint32_t alphas[16] = {
-    0, 0x11, 0x22, 0x33,
-    0x44, 0x55, 0x66, 0x77,
-    0x89, 0x9A, 0xAB, 0xBC,
-    0xCD, 0xDE, 0xEF, 0x100,
+enum {
+    BLIT_COLOR_MAX = 4,
+    MSG_LEN_MAX = 64,
 };
-uint32_t fgcolor, realcolor[16];
+
 typedef struct wchar_info {
     const uint8_t *lines;
     int pitch;
     uint16_t wch;
     int8_t realw, w, h, l, t;
 } wchar_info;
-static wchar_info wci[128];
+
+int blit_pwidth, blit_pheight, bufferwidth, pixelformat;
+uint32_t* vram32;
+
+static const uint32_t alphas[16] = {
+    0, 0x11, 0x22, 0x33,
+    0x44, 0x55, 0x66, 0x77,
+    0x89, 0x9A, 0xAB, 0xBC,
+    0xCD, 0xDE, 0xEF, 0x100,
+};
+static uint32_t fgcolor[BLIT_COLOR_MAX] = {}, realcolor[BLIT_COLOR_MAX][16] = {};
+static uint32_t curr_color = 0, *curr_realcolor = realcolor[0];
+static uint8_t color_index = 0;
+static wchar_info *wci = NULL;
+
+void blit_init() {
+    wci = (wchar_info*)my_alloc(sizeof(wchar_info) * MSG_LEN_MAX);
+}
+
+void blit_finish() {
+    if (wci) {
+        my_free(wci);
+        wci = NULL;
+    }
+}
 
 int blit_setup(void) {
     SceDisplayFrameBuf param;
@@ -68,11 +82,20 @@ static inline uint32_t alpha_blend(uint32_t c1, uint32_t c2, uint32_t alpha) {
     return 0xFF000000U | cg | crb;
 }
 
-void blit_set_color(uint32_t fg_col) {
-    fgcolor = fg_col;
+void blit_set_color(uint8_t index, uint32_t fg_col) {
+    if (index >= BLIT_COLOR_MAX) return;
+    fgcolor[index] = fg_col;
+    if (color_index == index) curr_color = fg_col;
     for (int i = 0; i < 16; ++i) {
-        realcolor[i] = alpha_blend(fg_col, 0, alphas[i]);
+        realcolor[index][i] = alpha_blend(fg_col, 0, alphas[i]);
     }
+}
+
+void blit_switch_color(uint8_t index) {
+    if (index == color_index) return;
+    color_index = index;
+    curr_color = fgcolor[index];
+    curr_realcolor = realcolor[index];
 }
 
 void blit_clear(int sx, int sy, int w, int h) {
@@ -114,8 +137,8 @@ static inline void blit_stringw(int sx, int sy, const wchar_info *wci) {
             const uint8_t *ll = lines;
             for (i = 0; i < hw; ++i) {
                 uint8_t c = *ll++;
-                soffset[0] = alpha_blend(fgcolor, soffset[0], alphas[c & 0x0F]);
-                soffset[1] = alpha_blend(fgcolor, soffset[1], alphas[c >> 4]);
+                soffset[0] = alpha_blend(curr_color, soffset[0], alphas[c & 0x0F]);
+                soffset[1] = alpha_blend(curr_color, soffset[1], alphas[c >> 4]);
                 soffset += 2;
             }
             loffset += bufferwidth;
@@ -138,8 +161,8 @@ static inline void blit_stringw_solid(int sx, int sy, const wchar_info *wci) {
             const uint8_t *ll = lines;
             for (int i = 0; i < hw; ++i) {
                 uint8_t c = *ll++;
-                soffset[0] = realcolor[c & 0x0F];
-                soffset[1] = realcolor[c >> 4];
+                soffset[0] = curr_realcolor[c & 0x0F];
+                soffset[1] = curr_realcolor[c >> 4];
                 soffset += 2;
             }
             loffset += bufferwidth;
@@ -157,14 +180,15 @@ int blit_string(int sx, int sy, int alpha, const char *msg) {
     if (bufferwidth == 0 || pixelformat != 0) return -1;
 
     int rw = 0;
-    wchar_info *pwci = wci;
-    while(*msg != 0) {
+    int idx = 0;
+    while(idx < MSG_LEN_MAX - 1 && *msg != 0) {
+        wchar_info *pwci = wci + idx;
         msg += utf8_to_ucs2(msg, &pwci->wch);
         if (font_pgf_char_glyph(pwci->wch, &pwci->lines, &pwci->pitch, &pwci->realw, &pwci->w, &pwci->h, &pwci->l, &pwci->t) != 0) continue;
         rw += pwci->realw;
-        ++pwci;
+        ++idx;
     }
-    pwci->wch = 0;
+    wci[idx].wch = 0;
     alpha ? blit_stringw(sx, sy, wci) : blit_stringw_solid(sx, sy, wci);
     return rw;
 }
@@ -172,15 +196,16 @@ int blit_string(int sx, int sy, int alpha, const char *msg) {
 int blit_string_ctr(int sy, int alpha, const char *msg) {
     if (bufferwidth == 0 || pixelformat != 0) return -1;
     int rw = 0;
-    wchar_info *pwci = wci;
-    while(*msg != 0) {
+    int idx = 0;
+    while(idx < MSG_LEN_MAX - 1 && *msg != 0) {
+        wchar_info *pwci = wci + idx;
         msg += utf8_to_ucs2(msg, &pwci->wch);
         if (font_pgf_char_glyph(pwci->wch, &pwci->lines, &pwci->pitch, &pwci->realw, &pwci->w, &pwci->h, &pwci->l, &pwci->t) != 0) continue;
         rw += pwci->realw;
-        ++pwci;
+        ++idx;
     }
     int sx = blit_pwidth / 2 - rw / 2;
-    pwci->wch = 0;
+    wci[idx].wch = 0;
     alpha ? blit_stringw(sx, sy, wci) : blit_stringw_solid(sx, sy, wci);
 
     return rw;
@@ -188,10 +213,10 @@ int blit_string_ctr(int sy, int alpha, const char *msg) {
 
 int blit_stringf(int sx, int sy, int alpha, const char *msg, ...) {
     va_list list;
-    char string[256];
+    char string[128];
 
     va_start(list, msg);
-    sceClibVsnprintf(string, 256, msg, list);
+    sceClibVsnprintf(string, 128, msg, list);
     va_end(list);
 
     return blit_string(sx, sy, alpha, string);
