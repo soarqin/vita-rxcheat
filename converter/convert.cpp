@@ -70,15 +70,27 @@ static void processLine(size_t &index) {
         case 0x0:
             addLine(convertMemoryToRange(val1) | (bits << 28), val2);
             break;
-        case 0x4:
+        case 0x3: {
+            addLine(convertMemoryToRange(val1) | 0x90000000U, (bits << 28) | skips);
+            for (uint32_t i = 0; i < skips - 1; ++i, ++index) {
+                addLine(rLines[index - 1].val2, 0U);
+            }
+            addLine(rLines[index - 1].val2, rLines[index++].val2);
+            break;
+        }
+        case 0x4: {
+            uint32_t steps = (uint32_t)rLines[index].val1;
+            while (bits > 0 && ((steps >> bits) << bits) != steps) --bits;
+            steps >>= bits;
             if (bits < 2) {
-                addLine(convertMemoryToRange(val1) | 0x80000000U, ((uint32_t)rLines[index].op << 16) | (rLines[index].val1 & 0xFFFFU));
+                addLine(convertMemoryToRange(val1) | 0x80000000U, ((uint32_t)rLines[index].op << 16) | (steps & 0xFFFFU));
                 addLine((bits << 28) | (val2 & 0xFFFFU), rLines[index++].val2 & 0xFFFFU);
             } else {
-                addLine(convertMemoryToRange(val1) | 0x40000000U, ((uint32_t)rLines[index].op << 16) | (rLines[index].val1 & 0xFFFFU));
+                addLine(convertMemoryToRange(val1) | 0x40000000U, ((uint32_t)rLines[index].op << 16) | (steps & 0xFFFFU));
                 addLine(val2, rLines[index++].val2);
             }
             break;
+        }
         case 0x5:
             addLine(convertMemoryToRange(val1) | 0x50000000U, 1U << bits);
             addLine(convertMemoryToRange(val2), 0);
@@ -137,7 +149,13 @@ static void processLine(size_t &index) {
     }
 }
 
-static void writeSection(std::ostream &outfile) {
+static void writeSection(std::ofstream &outfile) {
+    const char *NEWLINE =
+#ifdef _WIN32
+        "\r\n";
+#else
+        "\n";
+#endif
     size_t sz = rLines.size();
     for (size_t i = 0; i < rLines.size();) {
         processLine(i);
@@ -145,9 +163,9 @@ static void writeSection(std::ostream &outfile) {
     pcJumping = false;
     rLines.clear();
     if (lines.empty()) return;
-    outfile << std::endl << "_C" << sectype << " " << secname << std::endl;
+    outfile << NEWLINE << "_C" << sectype << " " << secname << NEWLINE;
     for (auto &p: lines) {
-        outfile << p << std::endl;
+        outfile << p << NEWLINE;
     }
     lines.clear();
 }
@@ -157,12 +175,12 @@ void convertStart(const MemoryRange *mr, int count) {
     for (auto &p: memoryRanges) {
         printf("Memory block %3d: %X %X %d\n", p.index, p.start, p.size, p.flag);
     }
-    std::ifstream infile(srcFilename);
+    std::ifstream infile(srcFilename, std::ios::in);
     if (!infile.is_open()) {
         std::cerr << "ERROR: Unable to open " << srcFilename << std::endl;
         return;
     }
-    std::ofstream outfile(dstFilename);
+    std::ofstream outfile(dstFilename, std::ios::out | std::ios::binary);
     if (!outfile.is_open()) {
         std::cerr << "ERROR: Unable to write to " << dstFilename << std::endl;
         return;
@@ -219,15 +237,15 @@ void convertStart(const MemoryRange *mr, int count) {
                     while (1) {
                         size_t epos = line.find_first_of("/#", spos);
                         if (epos == std::string::npos) {
-                            secname = line.substr(spos);
+                            secname = line.substr(pos);
                             break;
                         }
                         if (line[epos] == '#') {
-                            secname = line.substr(spos, epos - pos);
+                            secname = line.substr(pos, epos - pos);
                             break;
                         }
                         if (line[epos] == '/' && epos + 1 <= line.length() && line[epos + 1] == '/') {
-                            secname = line.substr(spos, epos - pos);
+                            secname = line.substr(pos, epos - pos);
                             break;
                         }
                         spos = epos + 1;
