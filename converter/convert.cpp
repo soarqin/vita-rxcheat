@@ -1,11 +1,11 @@
 #include "convert.h"
 
 #include <vector>
+#include <tuple>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
 #include <fstream>
-#include <codecvt>
 
 static std::string srcFilename;
 static std::string dstFilename;
@@ -31,7 +31,7 @@ static int sectype = -1;
 static std::string secname;
 std::vector<CodeLine> rLines;
 static bool pcJumping = false;
-std::vector<std::string> lines;
+std::vector<std::tuple<std::string, uint32_t, uint32_t>> lines;
 
 static uint32_t convertMemoryToRange(uint32_t addr) {
     for (auto &p: memoryRanges) {
@@ -50,12 +50,7 @@ static void processReset() {
 }
 
 static inline void addLine(uint32_t val1, uint32_t val2, const std::string &op = "L") {
-    std::ostringstream os;
-    os << "_" << op << " " << std::hex << std::uppercase
-        << std::setfill('0') << std::setw(8) << val1
-        << " "
-        << std::setfill('0') << std::setw(8) << val2;
-    lines.push_back(os.str());
+    lines.push_back(std::make_tuple("_" + op, val1, val2));
 }
 
 static void processLine(size_t &index) {
@@ -95,6 +90,49 @@ static void processLine(size_t &index) {
             addLine(convertMemoryToRange(val1) | 0x50000000U, 1U << bits);
             addLine(convertMemoryToRange(val2), 0);
             return;
+        case 0x7: {
+            addLine(convertMemoryToRange(val1) | 0x90000000U, (bits << 28) | 0x2000000U | (rLines[index + skips].op << 8) | (skips + 1));
+            for (uint32_t i = 0; i < skips - 1; ++i, ++index) {
+                addLine(rLines[index - 1].val2, 0U);
+            }
+            addLine(rLines[index - 1].val2, rLines[index].val2);
+            ++index;
+            addLine(((rLines[index - 1].op & 0xFFU) << 24) | (rLines[index].val1 & 0xFFFFFFU), rLines[index].val2);
+            ++index;
+            break;
+        }
+        case 0x8: {
+            uint32_t skips2 = rLines[index + skips].op & 0xFFU;
+            if (skips2 != skips) break;
+            if (lines.size() > 0) {
+                for (int i = (int)lines.size() - 1; i >= 0; --i) {
+                    auto &ln = lines[i];
+                    uint32_t op = std::get<1>(ln) >> 24, sub = std::get<2>(ln) >> 28;
+                    if (op == 0xD0 && (sub == 1 || sub == 3)) {
+                        uint32_t bskips = std::get<1>(ln) & 0xFFU;
+                        if (i + bskips + 2 >= lines.size() + skips * 2 + 2)
+                            std::get<1>(ln) -= skips;
+                    }
+                    if (op == 0xE0 || op == 0xE1) {
+                        uint32_t bskips = (std::get<1>(ln) >> 16) & 0xFFU;
+                        if (i + bskips + 1 >= lines.size() + skips * 2 + 2)
+                            std::get<1>(ln) -= (skips << 16);
+                    }
+                    if (op == 0xE2) {
+                        uint32_t bskips = std::get<1>(lines[i + 1]) & 0xFFU;
+                        if (i + bskips + 2 >= lines.size() + skips * 2 + 2)
+                            std::get<1>(lines[i + 1]) -= skips;
+                    }
+                }
+            }
+            addLine(convertMemoryToRange(val1) | 0x90000000U, (bits << 28) | 0x1000000U | (skips + 1));
+            addLine(convertMemoryToRange(rLines[index + skips].val1), 0);
+            for (uint32_t i = 0; i < skips; ++i, ++index) {
+                addLine(rLines[index - 1].val2, rLines[index + skips].val2);
+            }
+            index += skips + 1;
+            break;
+        }
         case 0xA:
             sectype |= 2;
             if (bits < 2)
@@ -116,6 +154,7 @@ static void processLine(size_t &index) {
             addLine(convertMemoryToRange(val1) | (bits << 28), val2);
             break;
         case 0xC: {
+            if (skips == 0) break;
             switch (val1) {
                 case 1: // Convert LTRIGGER/RTRIGGER to L1/R1
                     if (val2 & 0x100U)
@@ -125,7 +164,7 @@ static void processLine(size_t &index) {
                 case 2:
                 case 3:
                 case 4:
-                    addLine(0xD0000000U | skips, val2 | 0x10000000U);
+                    addLine(0xD0000000U | (skips - 1), val2 | 0x10000000U);
                     break;
                 default:
                     break;
@@ -165,7 +204,11 @@ static void writeSection(std::ofstream &outfile) {
     if (lines.empty()) return;
     outfile << NEWLINE << "_C" << sectype << " " << secname << NEWLINE;
     for (auto &p: lines) {
-        outfile << p << NEWLINE;
+        outfile << std::get<0>(p) << " 0x" << std::hex << std::uppercase
+            << std::setfill('0') << std::setw(8) << std::get<1>(p)
+            << " 0x"
+            << std::setfill('0') << std::setw(8) << std::get<2>(p)
+            << NEWLINE;
     }
     lines.clear();
 }

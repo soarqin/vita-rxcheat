@@ -8,6 +8,7 @@ add_definitions(-DUNICODE -D_UNICODE)
 
 add_executable(${TARGET_NAME}
     main.cpp
+    convert.cpp convert.h
     net.cpp net.h
     ../deps/kcp/ikcp.c ../deps/kcp/ikcp.h
     )

@@ -28,8 +28,18 @@ protected:
 
 int main(int argc, char *argv[]) {
     MyClient c;
-    c.connect(argv[1], 9527);
-    convertSetSource(argv[2]);
-    c.run();
+    if (argc > 2) {
+        c.connect(argv[1], 9527);
+        convertSetSource(argv[2]);
+        c.run();
+    } else {
+        MemoryRange mr[1];
+        mr[0].start = 0x81000000U;
+        mr[0].size = 0xA0000000U - 0x81000000U;
+        mr[0].flag = 1;
+        mr[0].index = 0;
+        convertSetSource(argv[1]);
+        convertStart(mr, 1);
+    }
     return 0;
 }
