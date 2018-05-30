@@ -1,10 +1,16 @@
+v0.12:
+  1. added 0x9 code for ptr chain write support (libcheat)
+  2. added _C2/_C3 for codes running only once (libcheat)
+  3. use highlight color for menu selector
+  4. added a converter to convert cheat codes from PSVITACHEAT(Finalcheat)
+
 v0.11.1:
   1. fixed problem that unable to render fonts after power resume
   2. center ui display if screen resolution is not 960x544
   3. reduced memory usage to support memory cosuming games (e.g. Assassin's
      Creed: Chronicles)
   4. align segment memory blocks for code hook
-  5. Added 'E' code for writing relative address in cheat codes
+  5. added 'E' code for writing relative address in cheat codes
 
 v0.11:
   1. added a lite version which strips all network functions
