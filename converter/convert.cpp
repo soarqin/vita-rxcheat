@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
+#include <codecvt>
 
 static std::string srcFilename;
 static std::string dstFilename;
@@ -70,7 +71,8 @@ static void processLine(size_t &index) {
             for (uint32_t i = 0; i < skips - 1; ++i, ++index) {
                 addLine(rLines[index - 1].val2, 0U);
             }
-            addLine(rLines[index - 1].val2, rLines[index++].val2);
+            addLine(rLines[index - 1].val2, rLines[index].val2);
+            ++index;
             break;
         }
         case 0x4: {
@@ -202,7 +204,15 @@ static void writeSection(std::ofstream &outfile) {
     pcJumping = false;
     rLines.clear();
     if (lines.empty()) return;
-    outfile << NEWLINE << "_C" << sectype << " " << secname << NEWLINE;
+#ifdef _WIN32
+    const char* GBK_LOCALE_NAME = ".936";
+#else
+    const char* GBK_LOCALE_NAME = "zh_CN.GBK";
+#endif
+    static std::wstring_convert<std::codecvt_byname<wchar_t, char, mbstate_t>> cv1(new std::codecvt_byname<wchar_t, char, mbstate_t>(GBK_LOCALE_NAME));
+    static std::wstring_convert<std::codecvt_utf8<wchar_t>> cv2;
+
+    outfile << NEWLINE << "_C" << sectype << " " << cv2.to_bytes(cv1.from_bytes(secname)) << NEWLINE;
     for (auto &p: lines) {
         outfile << std::get<0>(p) << " 0x" << std::hex << std::uppercase
             << std::setfill('0') << std::setw(8) << std::get<1>(p)
