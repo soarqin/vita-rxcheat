@@ -123,14 +123,13 @@ static inline void _show_menu(int standalone) {
             int mt = menu_top[menu_mode];
             int mi = menu_index[menu_mode];
             if (menu_bot > mt + MENU_SCROLL_MAX) menu_bot = mt + MENU_SCROLL_MAX;
-            int selected = mi - mt;
             for (int i = mt; i < menu_bot; ++i) {
                 int y = centery + MENU_Y_TOP + LINE_HEIGHT * (i - mt);
                 if (secs[i].status & 1)
                     blit_string(centerx + MENU_X_LEFT + 20, y, 0, LS(CHEAT_ON));
                 if (secs[i].status & 2)
                     blit_string(centerx + MENU_X_LEFT - 20, y, 0, LS(CHEAT_ONCE));
-                int selcolor = selected == i;
+                int selcolor = mi == i;
                 if (selcolor) blit_switch_color(1);
                 blit_string(centerx + MENU_X_LEFT + 45, y, 0, secs[i].name);
                 if (selcolor) blit_switch_color(0);
@@ -153,14 +152,13 @@ static inline void _show_menu(int standalone) {
                     int mt = menu_top[menu_mode];
                     int mi = menu_index[menu_mode];
                     if (menu_bot > mt + MENU_SCROLL_MAX) menu_bot = mt + MENU_SCROLL_MAX;
-                    int selected = mi - mt;
                     for (int i = mt; i < menu_bot; ++i) {
                         int y = centery + MENU_Y_TOP + LINE_HEIGHT * (i - menu_top[menu_mode]);
                         const trophy_info *ti = &trops[i];
                         if (ti->unlocked)
                             blit_string(centerx + MENU_X_LEFT, y, 0, CHAR_CIRCLE);
                         if(ti->grade) blit_string(centerx + MENU_X_LEFT + 24, y, 0, gradeName[ti->grade]);
-                        int selcolor = selected == i;
+                        int selcolor = mi == i;
                         if (selcolor) blit_switch_color(1);
                         blit_string(centerx + MENU_X_LEFT + 52, y, 0, ti->unlocked || !ti->hidden ? ti->name : LS(HIDDEN));
                         if (selcolor) blit_switch_color(0);
