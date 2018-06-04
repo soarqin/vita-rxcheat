@@ -1,6 +1,6 @@
-#include "net.h"
-
 #include "convert.h"
+
+#include "network.h"
 
 #include <stdio.h>
 
@@ -29,9 +29,9 @@ protected:
 int main(int argc, char *argv[]) {
     MyClient c;
     if (argc > 2) {
-        c.connect(argv[1], 9527);
+        c.start(argv[1], 9527);
         convertSetSource(argv[2]);
-        c.run();
+        c.loop();
     } else {
         MemoryRange mr[1];
         mr[0].start = 0x81000000U;

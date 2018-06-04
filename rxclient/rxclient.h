@@ -1,25 +1,29 @@
 #pragma once
 
+#include "network.h"
+
+#include "ui_rxclient.h"
+
 #include <QtWidgets/QMainWindow>
 #include <QTranslator>
 #include <QTimer>
-#include "ui_rxclient.h"
 
-class rxclient : public QMainWindow {
-	Q_OBJECT
+class rxclient: public QMainWindow {
+    Q_OBJECT
 
 public:
-	rxclient(QWidget *parent = nullptr);
+    rxclient(QWidget *parent = nullptr);
 
 private slots:
-	void langChange();
-	void timerUpdate();
+    void langChange();
+    void timerUpdate();
 
 private:
-	void loadLanguage(const QString &s);
+    void loadLanguage(const QString &s);
 
 private:
-	Ui::rxclientClass ui;
-	QTranslator trans;
-	QTimer timer;
+    Ui::rxclientClass ui;
+    QTranslator trans;
+    QTimer timer;
+    Client client;
 };

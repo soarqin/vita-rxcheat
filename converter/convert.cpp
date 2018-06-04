@@ -66,7 +66,8 @@ static void processLine(size_t &index) {
         case 0x0:
             addLine(convertMemoryToRange(val1) | (bits << 28), val2);
             break;
-        case 0x3: {
+        case 0x3:
+        {
             addLine(convertMemoryToRange(val1) | 0x90000000U, (bits << 28) | skips);
             for (uint32_t i = 0; i < skips - 1; ++i, ++index) {
                 addLine(rLines[index - 1].val2, 0U);
@@ -75,7 +76,8 @@ static void processLine(size_t &index) {
             ++index;
             break;
         }
-        case 0x4: {
+        case 0x4:
+        {
             uint32_t steps = (uint32_t)rLines[index].val1;
             while (bits > 0 && ((steps >> bits) << bits) != steps) --bits;
             steps >>= bits;
@@ -92,7 +94,8 @@ static void processLine(size_t &index) {
             addLine(convertMemoryToRange(val1) | 0x50000000U, 1U << bits);
             addLine(convertMemoryToRange(val2), 0);
             return;
-        case 0x7: {
+        case 0x7:
+        {
             addLine(convertMemoryToRange(val1) | 0x90000000U, (bits << 28) | 0x2000000U | (rLines[index + skips].op << 8) | (skips + 1));
             for (uint32_t i = 0; i < skips - 1; ++i, ++index) {
                 addLine(rLines[index - 1].val2, 0U);
@@ -103,7 +106,8 @@ static void processLine(size_t &index) {
             ++index;
             break;
         }
-        case 0x8: {
+        case 0x8:
+        {
             uint32_t skips2 = rLines[index + skips].op & 0xFFU;
             if (skips2 != skips) break;
             if (lines.size() > 0) {
@@ -155,7 +159,8 @@ static void processLine(size_t &index) {
             }
             addLine(convertMemoryToRange(val1) | (bits << 28), val2);
             break;
-        case 0xC: {
+        case 0xC:
+        {
             if (skips == 0) break;
             switch (val1) {
                 case 1: // Convert LTRIGGER/RTRIGGER to L1/R1
@@ -173,7 +178,8 @@ static void processLine(size_t &index) {
             }
             break;
         }
-        case 0xD: {
+        case 0xD:
+        {
             uint32_t comp = bits / 3;
             bits %= 3;
             if (comp == 2 || comp == 3) comp = 5 - comp;

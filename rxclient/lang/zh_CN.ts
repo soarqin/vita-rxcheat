@@ -5,7 +5,7 @@
     <name>base</name>
     <message>
         <location filename="../rxclient.cpp" line="12"/>
-        <location filename="../rxclient.cpp" line="41"/>
+        <location filename="../rxclient.cpp" line="42"/>
         <source>English</source>
         <translation type="unfinished"></translation>
     </message>
