@@ -1,5 +1,7 @@
 #include "rxclient.h"
 
+#include "kcpclient.h"
+
 #include <QMessageBox>
 #include <QLocale>
 #include <QDir>
@@ -18,9 +20,11 @@ rxclient::rxclient(QWidget *parent): QMainWindow(parent), timer(this) {
             }
         }
     }
+	client = new KcpClient;
     timer.start(20);
-    connect(ui.comboLang, SIGNAL(currentIndexChanged(int)), this, SLOT(langChange()));
-    connect(&timer, SIGNAL(timeout()), this, SLOT(timerUpdate()));
+	connect(&timer, SIGNAL(timeout()), this, SLOT(timerUpdate()));
+	connect(ui.btnConnect, SIGNAL(clicked()), this, SLOT(onConnect()));
+	connect(ui.comboLang, SIGNAL(currentIndexChanged(int)), this, SLOT(langChange()));
 }
 
 void rxclient::langChange() {
@@ -29,8 +33,12 @@ void rxclient::langChange() {
     loadLanguage(compPath);
 }
 
+void rxclient::onConnect() {
+	client->start(ui.editAddr->text().toStdString().c_str(), 9527);
+}
+
 void rxclient::timerUpdate() {
-    client.runOnce();
+    client->runOnce();
 }
 
 void rxclient::loadLanguage(const QString &s) {

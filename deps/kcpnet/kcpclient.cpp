@@ -1,4 +1,4 @@
-#include "network.h"
+#include "kcpclient.h"
 
 #include "uv.h"
 #include "ikcp.h"
@@ -17,7 +17,7 @@ uint32_t GetTickCount() {
 #endif
 
 struct ClientContext {
-    Client *client = nullptr;
+    KcpClient *client = nullptr;
     uv_loop_t loop;
     uv_udp_t udp;
     struct sockaddr_in hostAddr;
@@ -31,18 +31,18 @@ struct SendStruct {
     char base[1];
 };
 
-Client::Client() {
+KcpClient::KcpClient() {
     context_ = new ClientContext;
     memset(&context_->loop, 0, sizeof(uv_loop_t));
     context_->client = this;
 }
 
-Client::~Client() {
+KcpClient::~KcpClient() {
     context_->client = nullptr;
     delete context_;
 }
 
-void Client::sendData(int op, const void *data, int len) {
+void KcpClient::sendData(int op, const void *data, int len) {
     std::string n;
     n.resize(len + 8);
     *(int*)&n[0] = op;
@@ -53,7 +53,7 @@ void Client::sendData(int op, const void *data, int len) {
         context_->pends.emplace_back(std::move(n));
 }
 
-void Client::start(const char *addr, uint16_t port) {
+void KcpClient::start(const char *addr, uint16_t port) {
     uv_loop_init(&context_->loop);
     uv_ip4_addr(addr, port, &context_->hostAddr);
     uv_udp_init(&context_->loop, &context_->udp);
@@ -82,7 +82,7 @@ void Client::start(const char *addr, uint16_t port) {
     );
 }
 
-void Client::stop() {
+void KcpClient::stop() {
     uv_stop(&context_->loop);
     uv_close((uv_handle_t*)&context_->udp, nullptr);
     uv_loop_close(&context_->loop);
@@ -92,7 +92,7 @@ void Client::stop() {
     }
 }
 
-void Client::loop() {
+void KcpClient::loop() {
     uv_timer_t timer;
     uv_timer_init(&context_->loop, &timer);
     timer.data = context_;
@@ -104,12 +104,12 @@ void Client::loop() {
     uv_run(&context_->loop, UV_RUN_DEFAULT);
 }
 
-void Client::runOnce() {
+void KcpClient::runOnce() {
     uv_run(&context_->loop, UV_RUN_NOWAIT);
     checkKcpUpdate();
 }
 
-void Client::doSend(const void *data, int len, const void *data2, int len2) {
+void KcpClient::doSend(const void *data, int len, const void *data2, int len2) {
     auto *s = (SendStruct*)(new char[sizeof(uv_udp_send_t) + len + len2]);
     memcpy(&s->base[0], data, len);
     if (len2)
@@ -124,7 +124,7 @@ void Client::doSend(const void *data, int len, const void *data2, int len2) {
     );
 }
 
-void Client::onUdpRecv(const void *buf, int len) {
+void KcpClient::onUdpRecv(const void *buf, int len) {
     if (len <= 0) return;
     const char *cbuf = (const char*)buf;
     switch (cbuf[0]) {
@@ -153,7 +153,7 @@ void Client::onUdpRecv(const void *buf, int len) {
     }
 }
 
-void Client::checkKcpUpdate() {
+void KcpClient::checkKcpUpdate() {
     if (!context_->kcp) return;
     ikcp_update(context_->kcp, GetTickCount());
     while (!context_->pends.empty()) {

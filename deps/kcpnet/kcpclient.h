@@ -5,10 +5,10 @@
 
 struct ClientContext;
 
-class Client {
+class KcpClient {
 public:
-	Client();
-	virtual ~Client();
+	KcpClient();
+	virtual ~KcpClient();
 
 	void sendData(int op, const void *data, int len);
 

@@ -1,10 +1,10 @@
 #include "convert.h"
 
-#include "network.h"
+#include "kcpclient.h"
 
 #include <stdio.h>
 
-class MyClient: public Client {
+class MyClient: public KcpClient {
 protected:
     virtual void onConnected() {
         printf("Connected to game.\n");

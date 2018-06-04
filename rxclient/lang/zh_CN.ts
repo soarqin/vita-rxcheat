@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1">
+<TS version="2.1" language="zh_CN">
 <context>
     <name>base</name>
     <message>
-        <location filename="../rxclient.cpp" line="12"/>
-        <location filename="../rxclient.cpp" line="42"/>
+        <location filename="../rxclient.cpp" line="14"/>
+        <location filename="../rxclient.cpp" line="50"/>
         <source>English</source>
-        <translation type="unfinished"></translation>
+        <translation>英语</translation>
     </message>
     <message>
-        <location filename="../rxclient.cpp" line="17"/>
+        <location filename="../rxclient.cpp" line="19"/>
         <source>LANGUAGE</source>
-        <translation type="unfinished"></translation>
+        <translation>简体中文</translation>
     </message>
 </context>
 <context>
@@ -25,12 +25,12 @@
     <message>
         <location filename="../rxclient.ui" line="56"/>
         <source>PSVITA IP Address</source>
-        <translation type="unfinished"></translation>
+        <translation>PSVITA IP地址</translation>
     </message>
     <message>
         <location filename="../rxclient.ui" line="66"/>
         <source>Connect</source>
-        <translation type="unfinished"></translation>
+        <translation>连接</translation>
     </message>
     <message>
         <location filename="../rxclient.ui" line="89"/>

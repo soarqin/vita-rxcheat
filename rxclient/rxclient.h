@@ -1,12 +1,12 @@
 #pragma once
 
-#include "network.h"
-
 #include "ui_rxclient.h"
 
 #include <QtWidgets/QMainWindow>
 #include <QTranslator>
 #include <QTimer>
+
+class KcpClient;
 
 class rxclient: public QMainWindow {
     Q_OBJECT
@@ -16,7 +16,8 @@ public:
 
 private slots:
     void langChange();
-    void timerUpdate();
+	void onConnect();
+	void timerUpdate();
 
 private:
     void loadLanguage(const QString &s);
@@ -25,5 +26,5 @@ private:
     Ui::rxclientClass ui;
     QTranslator trans;
     QTimer timer;
-    Client client;
+	KcpClient *client;
 };
