@@ -304,7 +304,7 @@ void convertStart(const MemoryRange *mr, int count) {
                         spos = epos + 1;
                     }
                 }
-                pos = secname.find_last_not_of(" \t");
+                pos = secname.find_last_not_of(" \t\r\n");
                 if (pos != std::string::npos) {
                     secname = secname.substr(0, pos + 1);
                 }
