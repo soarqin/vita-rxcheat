@@ -399,7 +399,7 @@ void ui_init() {
     }
     drawMutex = sceKernelCreateMutex("rcsvr_draw_mutex", 0, 0, 0);
     font_pgf_init();
-    blit_set_color(0, 0xffc0c0c0);
+    blit_set_color(0, 0xffe0e0e0);
     blit_set_color(1, 0xff40ffff);
 
     hooks[0] = taiHookFunctionImport(&refs[0], TAI_MAIN_MODULE, 0x4FAACD11, 0x7A410B64, sceDisplaySetFrameBuf_patched);
