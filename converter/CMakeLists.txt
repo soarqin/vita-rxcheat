@@ -10,7 +10,6 @@ add_executable(${TARGET_NAME}
     main.cpp
     convert.cpp convert.h
     net.cpp net.h
-    ../deps/kcp/ikcp.c ../deps/kcp/ikcp.h
     )
 
 if(MSVC)
@@ -23,7 +22,7 @@ if(MSVC)
 endif()
 
 target_include_directories(${TARGET_NAME} PRIVATE ../deps/libuv/include PRIVATE ../deps/kcp)
-target_link_libraries(${TARGET_NAME} uv-static)
+target_link_libraries(${TARGET_NAME} uv-static kcp)
 if(WIN32)
     target_link_libraries(${TARGET_NAME} iphlpapi shlwapi ws2_32)
 endif()

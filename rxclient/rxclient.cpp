@@ -4,7 +4,7 @@
 #include <QLocale>
 #include <QDir>
 
-rxclient::rxclient(QWidget *parent): QMainWindow(parent) {
+rxclient::rxclient(QWidget *parent): QMainWindow(parent), timer(this) {
 	ui.setupUi(this);
 	QDir dir(qApp->applicationDirPath());
 	if (dir.cd("lang")) {
@@ -19,12 +19,17 @@ rxclient::rxclient(QWidget *parent): QMainWindow(parent) {
 		}
 	}
 	connect(ui.comboLang, SIGNAL(currentIndexChanged(int)), this, SLOT(langChange()));
+	connect(&timer, SIGNAL(timeout()), this, SLOT(timerUpdate()));
 }
 
 void rxclient::langChange() {
 	QVariant var = ui.comboLang->currentData();
 	QString compPath = var.toString();
 	loadLanguage(compPath);
+}
+
+void rxclient::timerUpdate() {
+
 }
 
 void rxclient::loadLanguage(const QString &s) {

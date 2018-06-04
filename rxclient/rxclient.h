@@ -2,6 +2,7 @@
 
 #include <QtWidgets/QMainWindow>
 #include <QTranslator>
+#include <QTimer>
 #include "ui_rxclient.h"
 
 class rxclient : public QMainWindow {
@@ -12,6 +13,7 @@ public:
 
 private slots:
 	void langChange();
+	void timerUpdate();
 
 private:
 	void loadLanguage(const QString &s);
@@ -19,4 +21,5 @@ private:
 private:
 	Ui::rxclientClass ui;
 	QTranslator trans;
+	QTimer timer;
 };
