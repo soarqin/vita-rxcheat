@@ -30,7 +30,7 @@ uint64_t util_gettick();
 void util_pause_main_thread();
 void util_resume_main_thread();
 int util_is_allocated(int id);
-int util_readfile_by_line(const char *filename, int (*cb)(const char *name, void *arg), void *arg);
+int util_readfile_by_line(const char *filename, int (*cb)(const char *line, void *arg), void *arg);
 
 extern void*(*my_alloc)(size_t);
 extern void*(*my_realloc)(void*, size_t);
