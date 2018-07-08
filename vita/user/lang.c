@@ -56,17 +56,17 @@ static inline void lang_set_default() {
     lang_string = (char*)my_alloc(totallen);
     lang_string[totallen - 1] = 0;
     for (int i = 0; i < LANG_COUNT; ++i) {
-        sceClibStrncpy(lang_string + lang_offset[i], default_lang[i], 128);
+        sceClibStrncpy(lang_string + lang_offset[i], default_lang[i], totallen - lang_offset[i]);
     }
 }
 
 typedef struct {
     int totallen;
     int count;
-} readfile_firstpass_t;
+} readfile_t;
 
 static int readfile_firstpass_cb(const char *line, void *arg) {
-    readfile_firstpass_t *rf = (readfile_firstpass_t*)arg;
+    readfile_t *rf = (readfile_t*)arg;
     lang_offset[rf->count] = rf->totallen;
     rf->totallen += 1 + sceClibStrnlen(line, 128);
     if (++rf->count >= LANG_COUNT) return -1;
@@ -74,9 +74,9 @@ static int readfile_firstpass_cb(const char *line, void *arg) {
 }
 
 static int readfile_secondpass_cb(const char *line, void *arg) {
-    int *count = (int*)arg;
-    sceClibStrncpy(lang_string + lang_offset[*count], line, 128);
-    if (++*count >= LANG_COUNT) return -1;
+    readfile_t *rf = (readfile_t*)arg;
+    sceClibStrncpy(lang_string + lang_offset[rf->count], line, rf->totallen - lang_offset[rf->count]);
+    if (++rf->count >= LANG_COUNT) return -1;
     return 0;
 }
 
@@ -87,15 +87,15 @@ static inline int lang_set_by_index(int index) {
     }
     char filename[128];
     sceClibSnprintf(filename, 128, LANG_BASE_DIR "/%s.txt", lang_list[index][0]);
-    readfile_firstpass_t rf = {0, 0};
+    readfile_t rf = {0, 0};
     int ret = util_readfile_by_line(filename, readfile_firstpass_cb, &rf);
     if (ret < 0) return ret;
     if (lang_string) {
         my_free(lang_string);
     }
     lang_string = (char*)my_alloc(rf.totallen);
-    int count = 0;
-    util_readfile_by_line(filename, readfile_secondpass_cb, &count);
+    rf.count = 0;
+    util_readfile_by_line(filename, readfile_secondpass_cb, &rf);
     return 0;
 }
 

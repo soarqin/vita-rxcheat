@@ -8,5 +8,6 @@ void cheat_free();
 int cheat_loaded();
 void cheat_process();
 cheat_t *cheat_get_handle();
+void cheat_dump();
 
 #endif // __CHEAT_H__
