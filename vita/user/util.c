@@ -189,7 +189,7 @@ int util_is_allocated(int id) {
     return 0;
 }
 
-int util_readfile_by_line(const char *filename, int (*cb)(const char *name, void *arg), void *arg) {
+int util_readfile_by_line(const char *filename, int (*cb)(const char *line, void *arg), void *arg) {
     const int BUF_SIZE = 256;
     char buf[BUF_SIZE];
     SceUID f = sceIoOpen(filename, SCE_O_RDONLY, 0666);

@@ -2,7 +2,8 @@ v0.12:
   1. added 0x9 code for ptr chain write support (libcheat)
   2. added _C2/_C3 for codes running only once (libcheat)
   3. use highlight color for menu selector
-  4. added a converter to convert cheat codes from PSVITACHEAT(Finalcheat)
+  4. fixed buffer overflow by sceClibStrncpy
+  5. added a converter to convert cheat codes from PSVITACHEAT(Finalcheat)
 
 v0.11.1:
   1. fixed problem that unable to render fonts after power resume

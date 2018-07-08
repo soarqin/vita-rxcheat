@@ -186,3 +186,20 @@ void cheat_process() {
 cheat_t *cheat_get_handle() {
     return cheat;
 }
+
+void cheat_dump() {
+    const cheat_code_t *codes;
+    const cheat_section_t *sections;
+    int i, count;
+    log_trace("%s %d\n", cheat_get_titleid(cheat), cheat_get_type(cheat));
+    count = cheat_get_sections(cheat, &sections);
+    for (i = 0; i < count; ++i) {
+        const cheat_section_t *s = &sections[i];
+        log_trace(" %p %c%c %2d %4d %s\n", s, s->status & 4 ? '!' : ' ', s->status & 1 ? 'o' : 'x', s->index, s->code_index, s->name);
+    }
+    count = cheat_get_codes(cheat, &codes);
+    for (i = 0; i < count; ++i) {
+        const cheat_code_t *c = &codes[i];
+        log_trace("  %c %2d %2d %08X %08X\n", c->extra ? '+' : ' ', c->op, c->type, c->addr, c->value);
+    }
+}
